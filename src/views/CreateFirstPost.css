@@ -1,0 +1,267 @@
+/* Capa de fondo oscuro del modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Fondo semitransparente */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Asegura que esté por encima de todo */
+    font-family: 'Inter', sans-serif;
+}
+
+/* Contenedor principal del modal */
+.modal-container {
+    background-color: white;
+    width: 100%;
+    max-width: 600px; /* Ancho máximo para pantallas grandes */
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    overflow: hidden; /* Para que el contenido no se salga de los bordes redondeados */
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh; /* Altura máxima para evitar scroll en la página principal */
+}
+
+/* --- Encabezado --- */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #EBEBEB;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    transition: background-color 0.2s;
+}
+
+.btn-close:hover {
+    background-color: #F3F3F3;
+}
+
+.icon-close {
+    width: 20px;
+    height: 20px;
+}
+
+.modal-title-small {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #191919;
+}
+
+.btn-publish-small {
+    background-color: #0B4C6F;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-publish-small:hover {
+    background-color: #093a55;
+}
+
+/* --- Título Principal y Cuerpo --- */
+.main-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #191919;
+    margin: 1.5rem 1.5rem 1rem;
+}
+
+.modal-body {
+    padding: 0 1.5rem 1.5rem;
+    overflow-y: auto; /* Permite scroll dentro del cuerpo si es muy largo */
+    flex: 1; /* Ocupa el espacio disponible */
+}
+
+.section {
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #191919;
+    margin-bottom: 0.75rem;
+}
+
+/* --- Área de Carga (Upload) --- */
+.upload-area {
+    border: 2px dashed #D1D5DB;
+    border-radius: 8px;
+    background-color: #F9FAFB;
+    min-height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    transition: border-color 0.2s;
+}
+
+.upload-area:hover {
+    border-color: #9CA3AF;
+}
+
+.upload-placeholder {
+    text-align: center;
+    cursor: pointer;
+    width: 100%;
+    padding: 2rem;
+}
+
+.upload-text-main {
+    font-weight: 600;
+    color: #191919;
+    margin-bottom: 0.25rem;
+}
+
+.upload-text-sub {
+    font-size: 0.9rem;
+    color: #6B7280;
+    margin-bottom: 1rem;
+}
+
+.btn-select-gallery {
+    background-color: #E5E7EB;
+    color: #191919;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-select-gallery:hover {
+    background-color: #D1D5DB;
+}
+
+/* Preview de Imagen */
+.preview-container {
+    width: 100%;
+    height: 200px;
+    position: relative;
+}
+
+.preview-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.btn-remove-img {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: background-color 0.2s;
+}
+
+.btn-remove-img:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* --- Textarea y Select --- */
+.post-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: none;
+    color: #191919;
+}
+
+.post-textarea:focus {
+    outline: none;
+    border-color: #0B4C6F;
+}
+
+.select-wrapper {
+    position: relative;
+}
+
+.service-select {
+    width: 100%;
+    padding: 0.75rem;
+    padding-right: 2.5rem; /* Espacio para el icono */
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: #191919;
+    appearance: none; /* Oculta la flecha por defecto del navegador */
+    background-color: white;
+    cursor: pointer;
+}
+
+.service-select:focus {
+    outline: none;
+    border-color: #0B4C6F;
+}
+
+.select-icon {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    color: #6B7280;
+    pointer-events: none; /* Permite hacer clic a través del icono */
+}
+
+/* --- Pie del Modal --- */
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #EBEBEB;
+}
+
+.btn-publish-large {
+    width: 100%;
+    background-color: #0B4C6F;
+    color: white;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-publish-large:hover {
+    background-color: #093a55;
+}

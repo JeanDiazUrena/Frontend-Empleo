@@ -1,0 +1,151 @@
+/* Contenedor Principal */
+.setup-container {
+    background-color: #F5F7FA; /* Gris claro de fondo */
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif; /* O la fuente que estés usando */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.setup-header {
+    background-color: #0B4C6F; /* Azul Principal */
+    padding: 1rem 2rem;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.logo {
+    font-weight: bold;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Wrapper del Formulario para centrarlo */
+.form-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+/* Tarjeta del Formulario */
+.form-card {
+    background-color: #FFFFFF;
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    width: 100%;
+    max-width: 500px; /* Ancho máximo para que no se vea estirado */
+}
+
+.form-card h2 {
+    color: #0B4C6F;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+}
+
+/* Grupos de Inputs */
+.input-group {
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.input-group input,
+.input-group select,
+.input-group textarea {
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.input-group input:focus,
+.input-group select:focus,
+.input-group textarea:focus {
+    border-color: #F76B1C; /* Naranja al hacer foco */
+    outline: none;
+}
+
+/* Sección de Foto de Perfil */
+.profile-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.avatar-preview {
+    width: 100px;
+    height: 100px;
+    background-color: #eee;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.btn-upload {
+    background: none;
+    border: 1px solid #0B4C6F;
+    color: #0B4C6F;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.btn-upload:hover {
+    background-color: #0B4C6F;
+    color: white;
+}
+
+/* Botón Principal */
+.btn-primary {
+    width: 100%;
+    background-color: #F76B1C; /* Naranja de Acento */
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 1rem;
+}
+
+.btn-primary:hover {
+    background-color: #e05a10; /* Naranja un poco más oscuro */
+}

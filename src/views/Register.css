@@ -1,0 +1,182 @@
+/*
+Este archivo da estilos a Register.vue (Paso 1 y Paso 2)
+Reutiliza algunas clases de Login.css (como .form-group)
+*/
+
+.register-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1rem;
+  background-color: var(--servi-gray);
+  flex-grow: 1;
+}
+
+.register-card {
+  background-color: var(--servi-white);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 28rem; /* 448px */
+  text-align: center;
+}
+
+.register-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background-color: var(--servi-blue);
+  color: var(--servi-orange);
+  margin-bottom: 1rem;
+}
+.register-logo svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.register-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--servi-text);
+  margin-bottom: 0.5rem;
+}
+
+.register-subtitle {
+  color: var(--servi-text-light);
+  margin-bottom: 2rem;
+}
+
+/* Estilos de formulario (reutilizados de login) */
+.register-form {
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+.form-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.form-terms {
+  font-size: 0.875rem;
+  color: var(--servi-text-light);
+  margin-bottom: 1.5rem;
+}
+.form-link {
+  color: var(--servi-blue);
+  font-weight: 500;
+  text-decoration: none;
+}
+.form-link:hover {
+  text-decoration: underline;
+}
+
+.button--full {
+  width: 100%;
+}
+
+.button--google {
+  width: 100%;
+  background-color: var(--servi-white);
+  color: var(--servi-text);
+  border: 1px solid #D1D5DB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.button--google:hover {
+  background-color: var(--servi-gray);
+}
+
+.login-divider { /* Reutilizado de login */
+  margin: 1.5rem 0;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--servi-text-light);
+}
+.login-divider span { padding: 0 1rem; }
+.login-divider::before, .login-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.register-footer {
+  margin-top: 1.5rem;
+  color: var(--servi-text-light);
+}
+
+/* --- ESTILOS PARA PASO 2: Selección de Rol --- */
+
+.role-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.role-option {
+  padding: 1.5rem;
+  border: 2px solid #E5E7EB; /* Borde gris claro */
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.role-option:hover {
+  border-color: var(--servi-blue);
+}
+
+/* Estilo cuando está seleccionado */
+.role-option.selected {
+  border-color: var(--servi-orange);
+  background-color: #FFF7ED; /* Naranja muy claro */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.role-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--servi-orange);
+  color: var(--servi-white);
+  margin-bottom: 1rem;
+}
+.role-icon svg {
+  width: 100%;
+  height: 100%;
+}
+/* Color diferente para el ícono de cliente */
+.role-option:not(.selected) .role-icon {
+    background-color: var(--servi-blue);
+}
+
+.role-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.role-description {
+  color: var(--servi-text-light);
+  font-size: 0.875rem;
+}
