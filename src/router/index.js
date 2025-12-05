@@ -4,6 +4,13 @@ import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import ProfessionalSetup from '../views/ProfessionalSetup.vue';
 import CreateFirstPost from '../views/CreateFirstPost.vue';
+import ClientDashboard from '../views/ClientDashboard.vue';
+import ProfessionalDashboard from '../views/ProfessionalDashboard.vue';
+import ChatProfessional from '../views/ChatProfessional.vue';
+import ClientProfile from '../views/ClientProfile.vue';
+import ProfessionalProfile from '../views/ProfessionalProfile.vue';
+import ChatClient from '../views/ChatClient.vue';
+
 const routes = [
   {
     path: '/',
@@ -15,32 +22,62 @@ const routes = [
     name: 'Login',
     component: Login
   },
-  // AÑADE ESTO:
   {
     path: '/register',
     name: 'Register',
     component: Register
   },
-
   {
     path: '/professional-setup',
     name: 'ProfessionalSetup',
     component: ProfessionalSetup
   },
+  {
+    path: '/create-first-post',
+    name: 'CreateFirstPost',
+    component: CreateFirstPost
+  },
+  {
+    path: '/client-dashboard',
+    name: 'ClientDashboard',
+    component: ClientDashboard
+  },
+  {
+    path: '/professional-dashboard',
+    name: 'ProfessionalDashboard',
+    component: ProfessionalDashboard
+  },
+  {
+    path: '/chat',
+    name: 'ChatProfessional',
+    component: ChatProfessional
+  },
+  
 
   {
-  path: '/create-first-post',
-  name: 'CreateFirstPost',
-  component: CreateFirstPost
+    path: '/profile',
+    name: 'ProfessionalProfile',
+    component: ProfessionalProfile
+  },
+
+
+  {
+  path: '/client-profile',
+  name: 'ClientProfile',
+  component: ClientProfile
 },
 
+
+{
+  path: '/client-chat',
+  name: 'ChatClient',
+  component: ChatClient
+},
 ];
 
-// 2. Crea la instancia del router
 const router = createRouter({
-  history: createWebHistory(), // Usa el historial web (URLs limpias)
-  routes, // (routes: routes)
+  history: createWebHistory(),
+  routes,
 });
 
-// 3. Exporta el router
 export default router;

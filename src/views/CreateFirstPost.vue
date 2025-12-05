@@ -6,6 +6,9 @@ import './CreateFirstPost.css';
 const router = useRouter();
 const fileInputRef = ref(null);
 
+// 1. Variable reactiva para el mensaje de error
+const errorMessage = ref('');
+
 const form = reactive({
   description: '',
   serviceId: '',
@@ -14,7 +17,6 @@ const form = reactive({
 
 const imagePreview = ref(null);
 
-// Simulación de servicios (esto vendría del backend o del paso anterior)
 const myServices = [
   { id: 1, name: 'Reparación de Laptops' },
   { id: 2, name: 'Instalación de Software' },
@@ -23,49 +25,52 @@ const myServices = [
 
 // --- Funciones ---
 
-// Abre el selector de archivos
 const triggerFileUpload = () => {
   fileInputRef.value.click();
 };
 
-// Maneja el archivo seleccionado
 const handleFileChange = (event) => {
   const file = event.target.files[0];
   if (file) {
     form.imageFile = file;
     imagePreview.value = URL.createObjectURL(file);
+    errorMessage.value = ''; // Limpiamos error al seleccionar foto
   }
 };
 
-// Elimina la imagen
 const removeImage = () => {
   form.imageFile = null;
   imagePreview.value = null;
 };
 
-// Maneja la acción de publicar
+// --- FUNCIÓN ACTUALIZADA ---
 const handlePublish = () => {
+  // Limpiar mensaje previo
+  errorMessage.value = '';
+
+  // Validaciones
   if (!form.description && !form.imageFile) {
-    alert("Por favor, añade una descripción o una imagen.");
+    errorMessage.value = "⚠️ Por favor, añade una descripción o una imagen.";
     return;
   }
   if (!form.serviceId) {
-    alert("Por favor, selecciona un servicio relacionado.");
+    errorMessage.value = "⚠️ Por favor, selecciona un servicio relacionado.";
     return;
   }
 
+  // Si pasa las validaciones...
   console.log("--- PUBLICANDO POST ---");
   console.log("Descripción:", form.description);
   console.log("Servicio ID:", form.serviceId);
-  console.log("Archivo:", form.imageFile ? form.imageFile.name : 'Ninguno');
-
-  alert("¡Publicación creada con éxito!");
-  router.push('/dashboard');
+  
+  // Éxito: Redirigir al Dashboard del Profesional
+  router.push('/professional-dashboard');
 };
 
-// Cierra el modal
+// --- FUNCIÓN ACTUALIZADA ---
 const closePost = () => {
-  router.push('/dashboard');
+  // Si cierra sin publicar, también va al dashboard profesional
+  router.push('/professional-dashboard');
 };
 </script>
 
@@ -118,13 +123,14 @@ const closePost = () => {
             placeholder="Escribe una descripción detallada de tu trabajo, los materiales usados, el tiempo que tomó, etc." 
             class="post-textarea"
             rows="4"
+            @input="errorMessage = ''" 
           ></textarea>
         </div>
 
         <div class="section">
           <h3 class="section-title">Servicios Relacionados</h3>
           <div class="select-wrapper">
-            <select v-model="form.serviceId" class="service-select">
+            <select v-model="form.serviceId" class="service-select" @change="errorMessage = ''">
               <option value="" disabled selected>Asocia esta publicación a un servicio</option>
               <option v-for="service in myServices" :key="service.id" :value="service.id">
                 {{ service.name }}
@@ -139,6 +145,11 @@ const closePost = () => {
       </div>
 
       <div class="modal-footer">
+        
+        <div v-if="errorMessage" class="error-alert">
+          {{ errorMessage }}
+        </div>
+
         <button class="btn-publish-large" @click="handlePublish">
           Publicar en mi Muro
         </button>

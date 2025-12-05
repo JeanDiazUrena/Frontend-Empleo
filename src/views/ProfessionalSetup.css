@@ -1,8 +1,8 @@
 /* Contenedor Principal */
 .setup-container {
-    background-color: #F5F7FA; /* Gris claro de fondo */
+    background-color: #F0F2F5; /* Gris claro de fondo */
     min-height: 100vh;
-    font-family: 'Inter', sans-serif; /* O la fuente que estés usando */
+    font-family: 'Inter', sans-serif;
     display: flex;
     flex-direction: column;
 }
@@ -12,15 +12,14 @@
     background-color: #0B4C6F; /* Azul Principal */
     padding: 1rem 2rem;
     color: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    font-weight: 600;
 }
 
 .logo {
-    font-weight: bold;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     display: flex;
     align-items: center;
-    gap: 10px;
 }
 
 /* Wrapper del Formulario para centrarlo */
@@ -28,7 +27,7 @@
     flex: 1;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* Alineado arriba para formularios largos */
     padding: 2rem;
 }
 
@@ -37,61 +36,97 @@
     background-color: #FFFFFF;
     padding: 2.5rem;
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     width: 100%;
-    max-width: 500px; /* Ancho máximo para que no se vea estirado */
+    max-width: 800px; /* Ancho máximo AUMENTADO */
+    margin-bottom: 2rem;
 }
 
 .form-card h2 {
     color: #0B4C6F;
     margin-bottom: 0.5rem;
     text-align: center;
+    font-size: 1.8rem;
 }
 
 .subtitle {
     text-align: center;
     color: #666;
-    margin-bottom: 2rem;
-    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
 }
 
-/* Grupos de Inputs */
-.input-group {
+/* --- ESTILOS GENERALES DEL FORMULARIO --- */
+.form-section {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #EBEBEB;
+}
+
+.form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #333;
     margin-bottom: 1.2rem;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.input-group label {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #333;
-    font-size: 0.9rem;
+/* --- SECCIÓN 1: IMÁGENES (PORTADA Y AVATAR) --- */
+.profile-images-container {
+    position: relative;
+    margin-bottom: 1rem;
 }
 
-.input-group input,
-.input-group select,
-.input-group textarea {
-    padding: 0.8rem;
-    border: 1px solid #ddd;
+/* Foto de Portada */
+.cover-upload {
+    width: 100%;
+    height: 200px;
+    background-color: #E4E6EB;
+    background-size: cover;
+    background-position: center;
     border-radius: 8px;
-    font-size: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border: 2px dashed #CBD5E0;
     transition: border-color 0.3s;
 }
 
-.input-group input:focus,
-.input-group select:focus,
-.input-group textarea:focus {
-    border-color: #F76B1C; /* Naranja al hacer foco */
-    outline: none;
+.cover-upload:hover {
+    border-color: #F76B1C;
 }
 
-/* Sección de Foto de Perfil */
-.profile-upload {
+.cover-label {
+    display: flex;
+    align-items: center;
+    color: #666;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 6px;
+}
+
+.change-cover-text {
+    font-size: 0.9rem;
+}
+
+/* Foto de Perfil (Avatar) Superpuesta */
+.avatar-upload {
+    position: absolute;
+    bottom: -40px; /* Para que sobresalga de la portada */
+    left: 2rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 1.5rem;
 }
 
 .avatar-preview {
@@ -102,11 +137,11 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 2rem;
-    margin-bottom: 1rem;
+    font-size: 2.5rem;
     overflow: hidden;
-    border: 3px solid #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 4px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    margin-bottom: 0.5rem;
 }
 
 .avatar-preview img {
@@ -115,20 +150,81 @@
     object-fit: cover;
 }
 
-.btn-upload {
-    background: none;
+.btn-upload-avatar {
+    background-color: white;
     border: 1px solid #0B4C6F;
     color: #0B4C6F;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem;
     border-radius: 20px;
     cursor: pointer;
     font-size: 0.8rem;
     font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: background-color 0.2s;
 }
 
-.btn-upload:hover {
-    background-color: #0B4C6F;
-    color: white;
+.btn-upload-avatar:hover {
+    background-color: #F0F2F5;
+}
+
+.image-hint {
+    margin-top: 45px; /* Espacio para el avatar que sobresale */
+    font-size: 0.85rem;
+    color: #888;
+    text-align: center;
+}
+
+/* --- SECCIONES 2 y 3: GRID DEL FORMULARIO --- */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Una columna por defecto */
+    gap: 1.2rem;
+}
+
+/* En pantallas medianas y grandes, usamos dos columnas */
+@media (min-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr 1fr; /* Dos columnas */
+    }
+    
+    /* Elementos que ocupan todo el ancho */
+    .input-group.full-width {
+        grid-column: 1 / -1; /* Ocupa desde la columna 1 hasta el final */
+    }
+}
+
+/* Grupos de Inputs */
+.input-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #444;
+    font-size: 0.9rem;
+}
+
+.input-group input,
+.input-group select,
+.input-group textarea {
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background-color: #FAFAFA;
+}
+
+.input-group input:focus,
+.input-group select:focus,
+.input-group textarea:focus {
+    border-color: #F76B1C; /* Naranja al hacer foco */
+    box-shadow: 0 0 0 3px rgba(247, 107, 28, 0.1);
+    outline: none;
+    background-color: #FFF;
 }
 
 /* Botón Principal */
@@ -139,13 +235,15 @@
     border: none;
     padding: 1rem;
     border-radius: 8px;
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, transform 0.2s;
     margin-top: 1rem;
+    box-shadow: 0 4px 6px rgba(247, 107, 28, 0.2);
 }
 
 .btn-primary:hover {
     background-color: #e05a10; /* Naranja un poco más oscuro */
+    transform: translateY(-2px);
 }

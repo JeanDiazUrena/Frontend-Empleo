@@ -1,15 +1,14 @@
 <script setup>
 import { ref } from 'vue';
-import { RouterLink, useRouter } from 'vue-router'; // 1. Importamos useRouter
+import { RouterLink, useRouter } from 'vue-router'; 
 import './Register.css'; 
 
-// Inicializamos el router
 const router = useRouter();
 
 // --- Lógica de Múltiples Pasos ---
 const step = ref(1); 
 
-// --- Variables (estado) para el formulario ---
+// --- Variables (estado) ---
 const name = ref('');
 const email = ref('');
 const password = ref('');
@@ -23,8 +22,7 @@ function handleStep1Submit() {
     alert("Las contraseñas no coinciden.");
     return;
   }
-  // Avanzar al paso 2
-  step.value = 2;
+  step.value = 2; // Avanzar a selección de rol
 }
 
 function handleRegistration() {
@@ -33,16 +31,16 @@ function handleRegistration() {
     return;
   }
   
-  // Simulación: Aquí se enviarían los datos (nombre, email, pass) al backend para CREAR el usuario
+  // Aquí conectarás con tu Backend (Axios)
   console.log("Usuario creado:", email.value, "Rol:", selectedRole.value);
 
-  // --- Lógica de Redirección ---
+  // --- LÓGICA DE REDIRECCIÓN FINAL ---
   if (selectedRole.value === 'profesional') {
-    // Si es PROFESIONAL, lo mandamos a completar su perfil
+    // Si es PROFESIONAL -> Configurar Perfil
     router.push('/professional-setup');
   } else {
-    // Si es CLIENTE, lo mandamos directo al inicio (Home)
-    router.push('/'); 
+    // Si es CLIENTE -> Ir directo a su Dashboard
+    router.push('/client-dashboard'); 
   }
 }
 </script>

@@ -247,6 +247,28 @@
 .modal-footer {
     padding: 1rem 1.5rem;
     border-top: 1px solid #EBEBEB;
+    display: flex;
+    flex-direction: column; /* Apila el error sobre el botón */
+    gap: 1rem; /* Espacio entre error y botón */
+}
+
+/* --- Estilo de la alerta de error --- */
+.error-alert {
+    background-color: #FEF2F2; /* Fondo rojo muy suave */
+    color: #991B1B; /* Texto rojo oscuro */
+    border: 1px solid #FCA5A5; /* Borde rojo suave */
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: center;
+    font-weight: 500;
+    width: 100%;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .btn-publish-large {
