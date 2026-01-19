@@ -5,27 +5,24 @@ import './Dashboard.css';
 
 const router = useRouter();
 
+// Usuario Actual (Profesional)
 const currentUser = {
   name: "Wilson Montero",
   role: "Técnico Especialista",
   location: "Santiago, RD",
-  avatar: "", 
-  cover: null, // Si es null, sale el degradado por defecto
-  stats: {
-    views: 120,
-    rating: 4.8
-  }
+  avatar: "", // Dejamos esto vacío como pediste
 };
 
-// --- SIN DATOS FALSOS (Arrays vacíos para probar estado limpio) ---
-const feedPosts = ref([]); 
-const myClients = ref([]);
+// --- LISTA DE SOLICITUDES DE CLIENTES (VACÍA POR AHORA) ---
+// Aquí llegarán los trabajos que publiquen los clientes
+const jobRequests = ref([]); 
 
 // Navegación
+// Asegúrate de que las funciones de navegación se vean así:
+// En tu script setup:
 const goToDashboard = () => router.push('/professional-dashboard');
-const goToChat = () => router.push('/chat');
-const goToProfile = () => router.push('/profile');
-const goToCreatePost = () => router.push('/create-first-post');
+const goToChat = () => router.push('/professional-chat'); // <--- CORREGIDO
+const goToProfile = () => router.push('/professional-profile'); // <--- CORREGIDO
 
 </script>
 
@@ -33,147 +30,138 @@ const goToCreatePost = () => router.push('/create-first-post');
   <div class="dashboard-layout">
     
     <nav class="navbar">
-      <div class="nav-brand">SERVIHUB <span class="pro-badge">PRO</span></div>
+      <div class="nav-brand" @click="goToDashboard" style="cursor: pointer;">
+        SERVIHUB <span class="pro-badge">PRO</span>
+      </div>
+      
       <div class="nav-search">
-        <input type="text" placeholder="Buscar...">
+        <input type="text" placeholder="Buscar trabajos..." readonly>
         <button class="search-btn">🔍</button>
       </div>
-      <div class="nav-profile clickable" @click="goToProfile" title="Ir a mi perfil">
+
+      <div class="nav-profile clickable" @click="goToProfile">
         <span class="nav-user-name">{{ currentUser.name }}</span>
-        <img :src="currentUser.avatar" class="nav-avatar">
+        <div class="avatar-placeholder-sm"></div>
       </div>
     </nav>
 
-    <div class="main-container">
+    <div class="custom-container">
       
       <aside class="sidebar-left">
+        <div class="mini-profile-card" @click="goToProfile">
+          <div class="avatar-placeholder-md"></div>
+          <div class="mini-profile-info">
+            <h4>{{ currentUser.name }}</h4>
+            <p>{{ currentUser.role }}</p>
+          </div>
+        </div>
+
         <ul class="menu-list">
-          <li class="active" @click="goToDashboard"><span class="icon">🏠</span> Inicio</li>
+          <li class="active" @click="goToDashboard"><span class="icon">📋</span> Solicitudes</li>
           <li @click="goToChat"><span class="icon">💬</span> Mensajes</li>
           <li @click="goToProfile"><span class="icon">👤</span> Mi Perfil</li>
         </ul>
-        <div class="action-area">
-          <button class="btn-create-post" @click="goToCreatePost">+ Nuevo Trabajo</button>
-        </div>
-      </aside>
-
-      <main class="feed-content">
         
-        <div class="profile-header-card">
-          <div class="cover-area" :class="{ 'no-cover': !currentUser.cover }"></div>
-          
-          <div class="profile-info-section">
-            <div class="avatar-container">
-              <img :src="currentUser.avatar" class="profile-avatar-lg">
-            </div>
-            <div class="text-container">
-              <h1>{{ currentUser.name }}</h1>
-              <p class="role-text">{{ currentUser.role }} • {{ currentUser.location }}</p>
-              <div class="stats-badges">
-                <span class="badge-gray">⭐ {{ currentUser.stats.rating }} Calificación</span>
-                <span class="badge-gray">👁️ {{ currentUser.stats.views }} Visitas</span>
-              </div>
-            </div>
-            <button class="btn-edit-small" @click="goToProfile">Ver Completo</button>
-          </div>
-        </div>
-        <div v-if="feedPosts.length === 0" class="empty-feed-state">
-          <div class="empty-icon">📭</div>
-          <h3>Tu muro está tranquilo</h3>
-          <p>Publica tu último trabajo para que los clientes te vean.</p>
-          <button class="btn-ghost" @click="goToCreatePost">Crear publicación</button>
-        </div>
-
-        <div v-else v-for="post in feedPosts" :key="post.id" class="feed-card">
-           </div>
-      </main>
-
-      <aside class="sidebar-right">
-        <div class="chat-section">
-          <h3 style="margin-bottom: 1rem;">Tus Clientes</h3>
-          <div v-if="myClients.length === 0" class="empty-mini-state">
-            <p>No tienes mensajes nuevos.</p>
-          </div>
-          <div v-else class="chat-list">
-             </div>
+        <div class="action-area">
+          <button class="btn-create-post" @click="goToProfile">Ver mi Portafolio</button>
         </div>
       </aside>
+
+      <main class="custom-content">
+        
+        <header class="section-header">
+          <h2>Oportunidades de Trabajo</h2>
+          <p>Encuentra clientes que necesitan tus servicios hoy.</p>
+        </header>
+
+        <div v-if="jobRequests.length === 0" class="empty-jobs-state">
+          <div class="empty-icon">📭</div>
+          <h3>No hay trabajos disponibles por ahora</h3>
+          <p>
+            Actualmente no hay solicitudes de clientes en tu zona o categoría.
+            ¡Mantente atento, las oportunidades llegarán pronto!
+          </p>
+          <button class="btn-refresh" @click="goToDashboard">🔄 Actualizar lista</button>
+        </div>
+
+        <div v-else class="jobs-list">
+          <div v-for="job in jobRequests" :key="job.id" class="job-card">
+            <div class="job-header">
+               <span class="job-category">{{ job.category }}</span>
+               <span class="job-date">{{ job.date }}</span>
+             </div>
+             <h3>{{ job.title }}</h3>
+             <p>{{ job.description }}</p>
+             <div class="job-footer">
+               <span class="job-location">📍 {{ job.location }}</span>
+               <button class="btn-apply">Contactar Cliente</button>
+             </div>
+          </div>
+        </div>
+
+      </main>
 
     </div>
   </div>
 </template>
 
 <style scoped>
-.profile-header-card {
+/* --- ESTRUCTURA PERSONALIZADA (Igual que en Cliente) --- */
+.custom-container {
+  margin-left: 260px;
+  padding: 2rem;
+  display: block; /* Rompemos el grid por defecto */
+  min-height: 100vh;
+  background-color: #F8F9FA;
+}
+
+.custom-content {
+  width: 100%;
+  max-width: 900px; /* Ancho cómodo para leer trabajos */
+  margin: 0 auto;
+}
+
+/* --- ESTILOS VISUALES --- */
+.section-header {
+  margin-bottom: 2rem;
+}
+.section-header h2 { margin: 0 0 5px 0; color: #111; font-size: 1.8rem; }
+.section-header p { margin: 0; color: #666; }
+
+/* Estado Vacío */
+.empty-jobs-state {
+  text-align: center;
+  padding: 4rem 2rem;
   background: white;
   border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #E5E7EB;
-  margin-bottom: 1.5rem; /* Espacio antes del feed */
+  border: 1px dashed #ccc;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-.cover-area {
-  height: 150px; /* Un poco más bajo que en la página de perfil completa */
-  background-color: #E5E7EB;
-  background-size: cover;
-  background-position: center;
-}
-.cover-area.no-cover {
-  background: linear-gradient(to right, #0B4C6F, #2d89b5);
-}
+.empty-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.6; }
+.empty-jobs-state h3 { color: #333; margin-bottom: 0.5rem; }
+.empty-jobs-state p { color: #666; max-width: 400px; margin: 0 auto 1.5rem auto; }
 
-.profile-info-section {
-  padding: 0 1.5rem 1.5rem;
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-}
-
-.avatar-container {
-  margin-top: -40px; /* Para subir la foto sobre la portada */
-  margin-right: 1rem;
-}
-
-.profile-avatar-lg {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  border: 4px solid white;
-  object-fit: cover;
+.btn-refresh {
   background: white;
-}
-
-.text-container {
-  flex: 1;
-  padding-top: 0.5rem;
-}
-
-.text-container h1 { margin: 0; font-size: 1.3rem; color: #111; font-weight: 700; }
-.role-text { margin: 2px 0 8px; color: #666; font-size: 0.9rem; }
-
-.stats-badges {
-  display: flex;
-  gap: 10px;
-}
-.badge-gray {
-  background: #F3F4F6;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: #555;
-  font-weight: 500;
-}
-
-.btn-edit-small {
-  padding: 6px 12px;
-  border: 1px solid #E5E7EB;
-  background: white;
+  border: 1px solid #ddd;
+  padding: 10px 20px;
   border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
   cursor: pointer;
-  color: #555;
-  transition: background 0.2s;
+  color: #0B4C6F;
+  font-weight: 600;
+  transition: all 0.2s;
 }
-.btn-edit-small:hover { background-color: #F9FAFB; }
+.btn-refresh:hover { background: #f0f9ff; border-color: #0B4C6F; }
+
+/* Placeholders de Avatar */
+.avatar-placeholder-sm { width: 32px; height: 32px; background: #ddd; border-radius: 50%; }
+.avatar-placeholder-md { width: 48px; height: 48px; background: #ddd; border-radius: 50%; margin-right: 10px; }
+
+.mini-profile-card { display: flex; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; margin-bottom: 1rem; cursor: pointer; }
+.mini-profile-info h4 { margin: 0; font-size: 0.9rem; }
+.mini-profile-info p { margin: 0; font-size: 0.8rem; color: #666; }
+
+/* Badge PRO */
+.pro-badge { background: #0B4C6F; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; vertical-align: middle; margin-left: 5px; }
 </style>

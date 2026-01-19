@@ -10,6 +10,9 @@ import ChatProfessional from '../views/ChatProfessional.vue';
 import ClientProfile from '../views/ClientProfile.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
 import ChatClient from '../views/ChatClient.vue';
+import ClientExplore from '../views/ClientExplore.vue';
+import ServiceRequest from '../views/ServiceRequest.vue';
+
 
 const routes = [
   {
@@ -42,23 +45,22 @@ const routes = [
     name: 'ClientDashboard',
     component: ClientDashboard
   },
-  {
-    path: '/professional-dashboard',
-    name: 'ProfessionalDashboard',
-    component: ProfessionalDashboard
+  { 
+    path: '/professional-dashboard', 
+    name: 'ProfessionalDashboard', 
+    component: ProfessionalDashboard 
   },
-  {
-    path: '/chat',
-    name: 'ChatProfessional',
-    component: ChatProfessional
+  { 
+    path: '/professional-chat',  // <--- CAMBIO IMPORTANTE: Nombre específico
+    name: 'ProfessionalChat', 
+    component: ChatProfessional 
   },
-  
+  { 
+    path: '/professional-profile', // <--- CAMBIO IMPORTANTE: Nombre específico
+    name: 'ProfessionalProfile', 
+    component: ProfessionalProfile 
+  },
 
-  {
-    path: '/profile',
-    name: 'ProfessionalProfile',
-    component: ProfessionalProfile
-  },
 
 
   {
@@ -73,6 +75,20 @@ const routes = [
   name: 'ChatClient',
   component: ChatClient
 },
+
+{
+    path: '/client-explore',
+    name: 'ClientExplore',
+    component: ClientExplore
+  }
+,
+
+{
+    path: '/request-service',
+    name: 'ServiceRequest',
+    component: ServiceRequest
+  }
+
 ];
 
 const router = createRouter({

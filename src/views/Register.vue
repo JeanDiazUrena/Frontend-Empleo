@@ -1,45 +1,53 @@
 <script setup>
 import { ref } from 'vue';
-import { RouterLink, useRouter } from 'vue-router'; 
+import { useRouter } from 'vue-router';
+// import axios from 'axios'; <--- Lo dejamos comentado para el futuro
 import './Register.css'; 
 
 const router = useRouter();
-
-// --- Lógica de Múltiples Pasos ---
 const step = ref(1); 
 
-// --- Variables (estado) ---
+// Variables del formulario
 const name = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 const selectedRole = ref(null);
 
-// --- Funciones ---
-
 function handleStep1Submit() {
   if (password.value !== confirmPassword.value) {
     alert("Las contraseñas no coinciden.");
     return;
   }
-  step.value = 2; // Avanzar a selección de rol
+  // Validación básica
+  if (!name.value || !email.value || !password.value) {
+    alert("Por favor llena todos los campos.");
+    return;
+  }
+  
+  step.value = 2; // Avanzar al paso de elegir Rol
 }
 
-function handleRegistration() {
+async function handleRegistration() {
   if (!selectedRole.value) {
     alert("Por favor, selecciona un rol.");
     return;
   }
-  
-  // Aquí conectarás con tu Backend (Axios)
-  console.log("Usuario creado:", email.value, "Rol:", selectedRole.value);
 
-  // --- LÓGICA DE REDIRECCIÓN FINAL ---
+  // --- AQUÍ IRÁ LA CONEXIÓN CON BASE DE DATOS EN EL FUTURO ---
+  console.log("Simulando registro con:", {
+    name: name.value,
+    email: email.value,
+    role: selectedRole.value
+  });
+
+  // Simulamos un pequeño retraso y éxito
+  alert("Cuenta creada (Simulación Visual)");
+
+  // Redirigimos según el rol para probar el flujo de pantallas
   if (selectedRole.value === 'profesional') {
-    // Si es PROFESIONAL -> Configurar Perfil
     router.push('/professional-setup');
   } else {
-    // Si es CLIENTE -> Ir directo a su Dashboard
     router.push('/client-dashboard'); 
   }
 }
@@ -87,7 +95,7 @@ function handleRegistration() {
         </p>
 
         <button type="submit" class="button button--primary button--full">
-          Crear cuenta
+          Siguiente Paso
         </button>
       </form>
 
@@ -129,7 +137,11 @@ function handleRegistration() {
       </div>
 
       <button @click="handleRegistration" class="button button--primary button--full">
-        Continuar
+        Finalizar Registro
+      </button>
+      
+      <button @click="step = 1" style="margin-top: 10px; background: none; border: none; color: #666; cursor: pointer;">
+        Volver atrás
       </button>
     </div>
 
