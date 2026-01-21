@@ -1,6 +1,12 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+<<<<<<< HEAD
+import axios from "axios";
+// import axios from 'axios'; <--- Lo dejamos comentado para el futuro
+import './Register.css'; 
+=======
+>>>>>>> 3d4eab3bcb8475350e7505256600a8ddae7f3c7e
 
 const router = useRouter();
 const step = ref(1); 
@@ -36,13 +42,44 @@ async function handleRegistration() {
     errorMessage.value = "Selecciona un rol para continuar.";
     return;
   }
+<<<<<<< HEAD
+
+  try {
+    await axios.post("http://localhost:3000/api/register", {
+      nombre: name.value,
+      email: email.value,
+      password: password.value,
+    });
+
+    alert("Cuenta creada correctamente");
+
+    // Redirigir según rol
+    if (selectedRole.value === "profesional") {
+      router.push("/professional-setup");
+    } else {
+      router.push("/client-dashboard");
+    }
+
+  } catch (error) {
+    console.error(error);
+
+    if (error.response?.status === 409) {
+      alert("Este correo ya está registrado");
+    } else if (error.response?.status === 400) {
+      alert("Datos incompletos");
+    } else {
+      alert("Error al registrar usuario");
+    }
+=======
   console.log("Registrando:", { name: name.value, role: selectedRole.value });
   if (selectedRole.value === 'profesional') {
     router.push('/professional-setup');
   } else {
     router.push('/client-dashboard'); 
+>>>>>>> 3d4eab3bcb8475350e7505256600a8ddae7f3c7e
   }
 }
+
 </script>
 
 <template>
