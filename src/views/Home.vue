@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter } from 'vue-router'; // Importamos el router
 
-const router = useRouter();
+const router = useRouter(); // Inicializamos el router
 const searchQuery = ref('');
 
 // --- LÓGICA DE ANIMACIÓN (DINÁMICO) ---
@@ -18,6 +18,7 @@ onMounted(() => {
   document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
 });
 
+// La barra de búsqueda principal sigue funcionando normal
 const searchService = () => {
   if (searchQuery.value.trim()) {
     router.push({ name: 'ClientExplore', query: { q: searchQuery.value } });
@@ -30,7 +31,7 @@ const searchService = () => {
     
     <section class="hero">
       <video autoplay muted loop playsinline class="video-bg">
-        <source src="/public/videos/videohero.mp4" type="video/mp4">
+        <source src="/videos/videohero.mp4" type="video/mp4">
       </video>
       <div class="video-overlay"></div>
 
@@ -49,10 +50,10 @@ const searchService = () => {
           </div>
 
           <div class="hero-tags big-tags">
-            <button class="pill" @click="searchQuery='Diseño Web'; searchService()">Diseño Web</button>
-            <button class="pill" @click="searchQuery='Traducción'; searchService()">Traducción</button>
-            <button class="pill" @click="searchQuery='Logo'; searchService()">Logo</button>
-            <button class="pill" @click="searchQuery='Electricidad'; searchService()">Electricidad</button>
+            <button class="pill" @click="router.push('/register')">Diseño Web</button>
+            <button class="pill" @click="router.push('/register')">Electricidad</button>
+            <button class="pill" @click="router.push('/register')">Construccion</button>
+            <button class="pill" @click="router.push('/register')">Limpieza</button>
           </div>
         </div>
       </div>
@@ -119,12 +120,12 @@ const searchService = () => {
         </div>
         
         <div class="quality-image">
-  <img 
-    src="/fotos/marketinga.jpg" 
-    alt="Trabajo de calidad" 
-    style="width: 100%; border-radius: 8px; object-fit: cover;"
-  >
-</div>
+          <img 
+            src="/fotos/marketinga.jpg" 
+            alt="Trabajo de calidad" 
+            style="width: 100%; border-radius: 8px; object-fit: cover;"
+          >
+        </div>
       </div>
     </section>
 
@@ -224,12 +225,12 @@ const searchService = () => {
           <button class="btn-start" @click="router.push('/register')">Comenzar Ahora</button>
         </div>
         <div class="cta-img-placeholder">
-  <img 
-    src="/fotos/persona felix.jpg" 
-    alt="Comenzar" 
-    style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"
-  >
-</div>
+          <img 
+            src="/fotos/persona felix.jpg" 
+            alt="Comenzar" 
+            style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"
+          >
+        </div>
       </div>
     </section>
 
@@ -322,12 +323,10 @@ const searchService = () => {
   .cta-img-placeholder, .placeholder-box { width: 100%; height: 250px; }
 }
 
-/* Agrega esto al final de tu CSS en Home.vue */
 .cat-img-real {
   width: 100%;
-  height: 180px; /* Altura fija para que todas sean iguales */
-  object-fit: cover; /* Recorta la imagen para que no se estire */
-  border-radius: 8px 8px 0 0; /* Bordes redondeados solo arriba */
+  height: 180px; 
+  object-fit: cover; 
+  border-radius: 8px 8px 0 0; 
 }
-
 </style>

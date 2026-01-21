@@ -1,50 +1,42 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-// import axios from 'axios'; <--- Lo dejamos comentado para el futuro
-import './Register.css'; 
 
 const router = useRouter();
 const step = ref(1); 
 
-// Variables del formulario
 const name = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 const selectedRole = ref(null);
+const errorMessage = ref('');
 
 function handleStep1Submit() {
-  if (password.value !== confirmPassword.value) {
-    alert("Las contraseñas no coinciden.");
-    return;
-  }
-  // Validación básica
+  errorMessage.value = '';
   if (!name.value || !email.value || !password.value) {
-    alert("Por favor llena todos los campos.");
+    errorMessage.value = "Por favor completa todos los campos.";
     return;
   }
-  
-  step.value = 2; // Avanzar al paso de elegir Rol
+  if (password.value !== confirmPassword.value) {
+    errorMessage.value = "Las contraseñas no coinciden.";
+    return;
+  }
+  const emailsRegistrados = ['test@correo.com'];
+  if (emailsRegistrados.includes(email.value)) {
+    errorMessage.value = "Este correo ya está registrado.";
+    return;
+  }
+  step.value = 2; 
 }
 
 async function handleRegistration() {
+  errorMessage.value = '';
   if (!selectedRole.value) {
-    alert("Por favor, selecciona un rol.");
+    errorMessage.value = "Selecciona un rol para continuar.";
     return;
   }
-
-  // --- AQUÍ IRÁ LA CONEXIÓN CON BASE DE DATOS EN EL FUTURO ---
-  console.log("Simulando registro con:", {
-    name: name.value,
-    email: email.value,
-    role: selectedRole.value
-  });
-
-  // Simulamos un pequeño retraso y éxito
-  alert("Cuenta creada (Simulación Visual)");
-
-  // Redirigimos según el rol para probar el flujo de pantallas
+  console.log("Registrando:", { name: name.value, role: selectedRole.value });
   if (selectedRole.value === 'profesional') {
     router.push('/professional-setup');
   } else {
@@ -54,96 +46,271 @@ async function handleRegistration() {
 </script>
 
 <template>
-  <div class="register-page">
+  <div class="split-screen">
     
-    <div class="register-card" v-if="step === 1">
-      <div class="register-logo">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.87-5.87m0 0L5.87 5.87m5.55 5.55v.007m0 .007L5.87 5.87M11.42 15.17l2.497-2.497M11.42 15.17 7.755 11.5a2.652 2.652 0 0 1 0-3.75m.007 3.75 3.663-3.663m-3.663 3.663 3.663-3.663" /></svg>
+    <div class="brand-side">
+      <div class="brand-overlay">
+        <div class="brand-content">
+          
+          <div class="brand-header">
+            <img src="/fotos/logo-servihub.png" alt="Logo ServiHub" class="brand-logo-img">
+            <span class="brand-url">Servihub.com</span>
+          </div>
+          
+          <h1>Únete a la mayor red de servicios.</h1>
+          <p>Conecta con profesionales de confianza o encuentra nuevos clientes hoy mismo.</p>
+          
+          <div class="feature-list">
+            <div class="feature-item">
+              <span class="check">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </span> 
+              Pagos seguros y protegidos
+            </div>
+            <div class="feature-item">
+              <span class="check">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </span> 
+              Perfiles verificados
+            </div>
+            <div class="feature-item">
+              <span class="check">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </span> 
+              Soporte 24/7
+            </div>
+          </div>
+        </div>
       </div>
-
-      <h1 class="register-title">Crea tu cuenta</h1>
-
-      <button class="button button--google">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.20455c0-.61364-.05455-1.22727-.16364-1.81818H9.18182v3.43636h4.74545c-.20455 1.125-.81818 2.06818-1.63636 2.68182v2.22273h2.86364c1.68182-1.54091 2.66364-3.72727 2.66364-6.32273z"></path><path fill="#34A853" d="M9.18182 18c2.43182 0 4.46818-.80455 5.96364-2.17273l-2.86364-2.22273c-.80455.54545-1.83636.87273-2.98182.87273-2.25 0-4.14545-1.51818-4.83636-3.54545H1.47727v2.28182C2.95455 16.2 5.81818 18 9.18182 18z"></path><path fill="#FBBC05" d="M4.34545 10.74091c-.125-.375-.19545-.78182-.19545-1.21364s.07045-.83864.19545-1.21364V6.03182H1.47727C1.04545 7.02273.818182 8.1.818182 9.23182s.227273 2.20909.660909 3.19091l2.863636-2.28182z"></path><path fill="#EA4335" d="M9.18182 3.63636c1.32273 0 2.5.45909 3.43636 1.35455l2.43182-2.43182C13.5318.45909 11.45 0 9.18182 0 5.81818 0 2.95455 1.8 1.47727 4.31818l2.86818 2.22273c.69091-2.02727 2.58636-3.54545 4.83636-3.54545z"></path></svg>
-        <span>Registrarse con Google</span>
-      </button>
-
-      <div class="login-divider"><span>o</span></div>
-
-      <form @submit.prevent="handleStep1Submit" class="register-form">
-        <div class="form-group">
-          <label for="name">Nombre</label>
-          <input type="text" id="name" v-model="name" placeholder="Ingresa tu nombre" required>
-        </div>
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" v-model="email" placeholder="tu@email.com" required>
-        </div>
-        <div class="form-group">
-          <label for="password">Contraseña</label>
-          <input type="password" id="password" v-model="password" placeholder="••••••••" required>
-        </div>
-        <div class="form-group">
-          <label for="confirmPassword">Confirmar Contraseña</label>
-          <input type="password" id="confirmPassword" v-model="confirmPassword" placeholder="••••••••" required>
-        </div>
-
-        <p class="form-terms">
-          Al crear una cuenta, aceptas nuestros 
-          <a href="#" class="form-link">Términos de Servicio</a> y 
-          <a href="#" class="form-link">Política de Privacidad</a>.
-        </p>
-
-        <button type="submit" class="button button--primary button--full">
-          Siguiente Paso
-        </button>
-      </form>
-
-      <p class="register-footer">
-        ¿Ya tienes una cuenta? <RouterLink to="/login" class="form-link">Inicia sesión</RouterLink>
-      </p>
     </div>
 
-    <div class="register-card" v-if="step === 2">
-      <h1 class="register-title">¿Cómo usarás la plataforma?</h1>
-      <p class="register-subtitle">Selecciona una opción para continuar</p>
-
-      <div class="role-selector">
+    <div class="form-side">
+      <div class="form-wrapper">
         
-        <div 
-          class="role-option"
-          :class="{ 'selected': selectedRole === 'cliente' }"
-          @click="selectedRole = 'cliente'"
-        >
-          <div class="role-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
-          </div>
-          <h3 class="role-title">Busco un servicio</h3>
-          <p class="role-description">Quiero encontrar y contratar profesionales.</p>
+        <div class="form-header">
+          <h2>{{ step === 1 ? 'Crear cuenta' : 'Personaliza tu experiencia' }}</h2>
+          <p>{{ step === 1 ? 'Empieza tu viaje en ServiHub gratis.' : 'Selecciona tu perfil para continuar.' }}</p>
         </div>
 
-        <div 
-          class="role-option"
-          :class="{ 'selected': selectedRole === 'profesional' }"
-          @click="selectedRole = 'profesional'"
-        >
-          <div class="role-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.05c0 .621-.504 1.125-1.125 1.125H5.125c-.621 0-1.125-.504-1.125-1.125v-4.05m16.5 0v-3.825c0-.621-.504-1.125-1.125-1.125H5.125c-.621 0-1.125.504-1.125 1.125v3.825m16.5 0c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H5.125c-.621 0-1.125.504-1.125 1.125v6.65c0 .621.504 1.125 1.125 1.125h14.25Z" /></svg>
+        <div v-if="errorMessage" class="error-alert">{{ errorMessage }}</div>
+
+        <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
+          
+          <button type="button" class="google-btn">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+            Continuar con Google
+          </button>
+
+          <div class="divider"><span>o regístrate con tu email</span></div>
+
+          <div class="input-group">
+            <label>Nombre Completo</label>
+            <input type="text" v-model="name" placeholder="Ej. Juan Pérez">
           </div>
-          <h3 class="role-title">Quiero ofrecer mis servicios</h3>
-          <p class="role-description">Busco crear mi portafolio y conectar con clientes.</p>
+          
+          <div class="input-group">
+            <label>Correo Electrónico</label>
+            <input type="email" v-model="email" placeholder="nombre@ejemplo.com">
+          </div>
+          
+          <div class="row-inputs">
+            <div class="input-group half">
+              <label>Contraseña</label>
+              <input type="password" v-model="password" placeholder="Mín. 8 caracteres">
+            </div>
+            <div class="input-group half">
+              <label>Confirmar</label>
+              <input type="password" v-model="confirmPassword" placeholder="Repetir">
+            </div>
+          </div>
+
+          <button type="submit" class="primary-btn">Continuar</button>
+
+          <p class="footer-text">
+            ¿Ya tienes cuenta? <RouterLink to="/login" class="link">Inicia sesión</RouterLink>
+          </p>
+        </form>
+
+        <div v-if="step === 2" class="step-content">
+          <div class="role-selector">
+            
+            <div 
+              class="role-card" 
+              :class="{ 'active': selectedRole === 'cliente' }"
+              @click="selectedRole = 'cliente'"
+            >
+              <div class="role-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </div>
+              <div class="role-info">
+                <h3>Soy Cliente</h3>
+                <p>Quiero contratar servicios para mi hogar o negocio.</p>
+              </div>
+              <div class="role-check"></div>
+            </div>
+
+            <div 
+              class="role-card" 
+              :class="{ 'active': selectedRole === 'profesional' }"
+              @click="selectedRole = 'profesional'"
+            >
+              <div class="role-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.05c0 .621-.504 1.125-1.125 1.125H5.125c-.621 0-1.125-.504-1.125-1.125v-4.05m16.5 0v-3.825c0-.621-.504-1.125-1.125-1.125H5.125c-.621 0-1.125.504-1.125 1.125v3.825m16.5 0c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H5.125c-.621 0-1.125.504-1.125 1.125v6.65c0 .621.504 1.125 1.125 1.125h14.25Z" />
+                </svg>
+              </div>
+              <div class="role-info">
+                <h3>Soy Profesional</h3>
+                <p>Quiero ofrecer mis servicios y conseguir clientes.</p>
+              </div>
+              <div class="role-check"></div>
+            </div>
+
+          </div>
+
+          <button @click="handleRegistration" class="primary-btn">Finalizar Registro</button>
+          <button @click="step = 1" class="text-btn">Volver atrás</button>
         </div>
 
       </div>
-
-      <button @click="handleRegistration" class="button button--primary button--full">
-        Finalizar Registro
-      </button>
-      
-      <button @click="step = 1" style="margin-top: 10px; background: none; border: none; color: #666; cursor: pointer;">
-        Volver atrás
-      </button>
     </div>
-
   </div>
 </template>
+
+<style scoped>
+/* RESET & LAYOUT */
+* { box-sizing: border-box; }
+
+.split-screen {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+}
+
+/* --- IZQUIERDA (AZUL) --- */
+.brand-side {
+  flex: 0.8;
+  background-image: url('https://images.unsplash.com/photo-1600880292203-757bb62b4baf?q=80&w=2070&auto=format&fit=crop');
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: none; 
+}
+@media (min-width: 1024px) { .brand-side { display: block; } }
+
+.brand-overlay {
+  position: absolute; inset: 0;
+  background: rgba(11, 76, 111, 0.94);
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px;
+  color: white;
+}
+
+.brand-content { max-width: 480px; }
+
+/* HEADER DE MARCA */
+.brand-header { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; }
+.brand-logo-img { height: 50px; background: transparent; }
+.brand-url { font-size: 2rem; font-weight: 800; color: white; letter-spacing: -0.5px; }
+
+.brand-content h1 { font-size: 3rem; font-weight: 800; line-height: 1.1; margin-bottom: 24px; }
+.brand-content p { font-size: 1.25rem; opacity: 0.9; margin-bottom: 40px; line-height: 1.6; }
+
+/* LISTA DE CARACTERÍSTICAS (Con SVGs) */
+.feature-list { display: flex; flex-direction: column; gap: 16px; }
+.feature-item { display: flex; align-items: center; gap: 12px; font-size: 1.1rem; font-weight: 500; }
+
+/* Estilo para el círculo del check SVG */
+.check { 
+  background: rgba(255,255,255,0.2); width: 28px; height: 28px; border-radius: 50%; 
+  display: flex; align-items: center; justify-content: center; color: white;
+}
+.check svg { width: 18px; height: 18px; stroke-width: 3; }
+
+/* --- DERECHA (FORMULARIO) --- */
+.form-side {
+  flex: 1.2;
+  background: white;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px;
+}
+
+.form-wrapper { width: 100%; max-width: 600px; display: flex; flex-direction: column; }
+
+.form-header { margin-bottom: 32px; }
+.form-header h2 { font-size: 2rem; color: #111; margin: 0 0 8px 0; font-weight: 800; }
+.form-header p { color: #666; font-size: 1.1rem; margin: 0; }
+
+/* INPUTS MODERNOS */
+.register-form { display: flex; flex-direction: column; gap: 20px; }
+.input-group { display: flex; flex-direction: column; gap: 8px; }
+.input-group label { font-size: 0.95rem; font-weight: 700; color: #374151; }
+.input-group input {
+  padding: 16px; background-color: #F9FAFB; border: 1px solid #E5E7EB; 
+  border-radius: 12px; font-size: 1rem; width: 100%; transition: all 0.2s ease;
+}
+.input-group input:focus { background-color: white; border-color: #0B4C6F; outline: none; box-shadow: 0 0 0 4px rgba(11, 76, 111, 0.1); }
+
+.row-inputs { display: flex; gap: 20px; }
+.half { flex: 1; }
+
+/* BOTONES */
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 14px; background: white; border: 1px solid #E5E7EB; 
+  border-radius: 12px; font-weight: 600; font-size: 1rem; color: #374151; 
+  cursor: pointer; transition: 0.2s;
+}
+.google-btn:hover { background: #F9FAFB; border-color: #D1D5DB; }
+.google-btn img { width: 20px; }
+
+.primary-btn {
+  background: #0B4C6F; color: white; border: none; padding: 16px; 
+  border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; 
+  width: 100%; margin-top: 10px; transition: 0.2s;
+}
+.primary-btn:hover { background: #093a55; transform: translateY(-1px); }
+
+.text-btn { background: none; border: none; color: #666; margin-top: 15px; cursor: pointer; text-decoration: underline; font-size: 1rem; }
+
+/* DIVIDER */
+.divider { display: flex; align-items: center; color: #9CA3AF; font-size: 0.9rem; margin: 10px 0; font-weight: 500; }
+.divider span { padding: 0 15px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #E5E7EB; }
+
+/* ROLES (PASO 2) CON SVGs */
+.role-selector { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+.role-card {
+  display: flex; align-items: center; gap: 20px;
+  padding: 24px; border: 2px solid #E5E7EB; border-radius: 16px;
+  cursor: pointer; transition: 0.2s;
+}
+.role-card:hover { border-color: #0B4C6F; background: #F0F9FF; }
+.role-card.active { border-color: #0B4C6F; background: #E0F2FE; }
+
+/* Estilo para el contenedor del ícono SVG del rol */
+.role-icon { 
+  font-size: 2rem; background: white; width: 60px; height: 60px; 
+  display: flex; align-items: center; justify-content: center; 
+  border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.05); color: #0B4C6F;
+}
+.role-icon svg { width: 32px; height: 32px; }
+
+.role-info h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #111; }
+.role-info p { margin: 4px 0 0 0; font-size: 0.95rem; color: #666; }
+.role-check { width: 24px; height: 24px; border: 2px solid #D1D5DB; border-radius: 50%; margin-left: auto; }
+.role-card.active .role-check { background: #0B4C6F; border-color: #0B4C6F; position: relative; }
+.role-card.active .role-check::after { content: ""; width: 10px; height: 10px; background: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
+
+.error-alert { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+.footer-text { text-align: center; font-size: 1rem; color: #666; margin-top: 24px; }
+.link { color: #0B4C6F; font-weight: 700; text-decoration: none; }
+</style>

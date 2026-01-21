@@ -7,7 +7,6 @@ const route = useRoute();
 // Lógica para detectar si estamos en un Dashboard (Profesional o Cliente)
 // Si la ruta incluye "professional" o "client-dashboard", ocultamos el menú público.
 const isDashboard = computed(() => {
-  // Ajusta estas palabras clave según tus rutas exactas
   return route.path.includes('/professional') || 
          route.path.includes('/client-dashboard') || 
          route.path.includes('/client-chat');
@@ -38,7 +37,7 @@ const isDashboard = computed(() => {
       </div>
 
       <div class="nav-right desktop-only">
-        <RouterLink to="/client-explore" class="nav-link">Explorar</RouterLink>
+        <RouterLink to="/register" class="nav-link">Explorar</RouterLink>
         <RouterLink to="/login" class="nav-link">Iniciar Sesión</RouterLink>
         <RouterLink to="/register" class="btn-join">Unirse</RouterLink>
       </div>
@@ -114,7 +113,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* La clase container se usa DENTRO de los componentes, no rodeándolos */
+/* La clase container se usa DENTRO de los componentes */
 .container {
   max-width: 1400px;
   margin: 0 auto;
@@ -169,7 +168,7 @@ body {
 /* === RESPONSIVE === */
 .mobile-toggle { display: none; background: none; border: none; font-size: 24px; cursor: pointer; }
 .desktop-only { display: flex; }
-.mobile-menu { display: none; } /* (Simplificado) */
+.mobile-menu { display: none; }
 @media (max-width: 900px) {
   .nav-search-wrapper { display: none; }
   .desktop-only { display: none; }
