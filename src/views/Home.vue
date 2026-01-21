@@ -135,7 +135,7 @@ const searchService = () => {
         
         <div class="cat-item">
           <img 
-            src="/fotos/cat-graphicsde.jpg" 
+            src="/fotos/cat-graphic.jpg" 
             alt="Gráfica y Diseño" 
             class="cat-img-real"
           >
