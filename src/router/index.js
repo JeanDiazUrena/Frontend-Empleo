@@ -19,8 +19,9 @@ import ProfessionalDashboard from '../views/ProfessionalDashboard.vue';
 import ChatProfessional from '../views/ChatProfessional.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
 
-// IMPORTANTE: Importamos el Layout
+// IMPORTANTE: Importamos AMBOS Layouts
 import ProfessionalLayout from '../layouts/ProfessionalLayout.vue'; 
+import ClientLayout from '../layouts/ClientLayout.vue'; 
 
 const routes = [
   // --- RUTAS PÚBLICAS ---
@@ -52,53 +53,56 @@ const routes = [
     component: CreateFirstPost
   },
 
-  // --- RUTAS DEL CLIENTE (Aún sin Layout, planas) ---
+  // --- RUTAS DEL CLIENTE (CON LAYOUT UNIFICADO) ---
   {
-    path: '/client-dashboard',
-    name: 'ClientDashboard',
-    component: ClientDashboard
-  },
-  {
-    path: '/client-profile',
-    name: 'ClientProfile',
-    component: ClientProfile
-  },
-  {
-    path: '/client-chat',
-    name: 'ChatClient',
-    component: ChatClient
-  },
-  {
-    path: '/client-explore',
-    name: 'ClientExplore',
-    component: ClientExplore
-  },
-  {
-    path: '/request-service',
-    name: 'ServiceRequest',
-    component: ServiceRequest
+    path: '/client',
+    component: ClientLayout, // Carga el Marco (Menú + Sidebar Cliente)
+    children: [
+      {
+        path: 'dashboard', // URL: /client/dashboard
+        name: 'ClientDashboard',
+        component: ClientDashboard
+      },
+      {
+        path: 'explore', // URL: /client/explore
+        name: 'ClientExplore',
+        component: ClientExplore
+      },
+      {
+        path: 'chat', // URL: /client/chat
+        name: 'ClientChat',
+        component: ChatClient
+      },
+      {
+        path: 'profile', // URL: /client/profile
+        name: 'ClientProfile',
+        component: ClientProfile
+      },
+      {
+        path: 'request', // URL: /client/request
+        name: 'ServiceRequest',
+        component: ServiceRequest
+      }
+    ]
   },
 
-  // --- AQUÍ ESTÁ LA MAGIA: RUTAS DEL PROFESIONAL CON LAYOUT ---
+  // --- RUTAS DEL PROFESIONAL (CON LAYOUT UNIFICADO) ---
   {
     path: '/professional', 
-    component: ProfessionalLayout, // 1. Carga el Marco (Menú + Sidebar)
+    component: ProfessionalLayout, // Carga el Marco (Menú + Sidebar Profesional)
     children: [
       { 
-        // Se accede como: /professional/dashboard
-        path: 'dashboard', 
+        path: 'dashboard', // URL: /professional/dashboard
         name: 'ProfessionalDashboard', 
         component: ProfessionalDashboard 
       },
       { 
-        // Se accede como: /professional/chat
-        path: 'chat', 
+        path: 'chat', // URL: /professional/chat
         name: 'ProfessionalChat', 
         component: ChatProfessional 
       },
       { 
-        // Se accede como: /professional/profile
-        path: 'profile', 
+        path: 'profile', // URL: /professional/profile
         name: 'ProfessionalProfile', 
         component: ProfessionalProfile 
       },
