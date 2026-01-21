@@ -1,288 +1,378 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import './Dashboard.css'; 
 
 const router = useRouter();
 
-// DATOS DEL USUARIO (Reactivos)
+// --- ESTADO INICIAL (VACÍO PARA DB) ---
 const user = ref({
-  name: "Jean Luis",
-  headline: "Cliente Premium • Buscando expertos en Remodelación",
-  location: "Santiago, República Dominicana",
-  email: "jean@gmail.com",
-  avatar: "https://i.pravatar.cc/150?u=jean",
-  banner: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?auto=format&fit=crop&w=1000&q=80"
+  name: "", 
+  email: "",      
+  phone: "",
+  location: "",
+  avatar: "",     
+  banner: "",     
+  joinDate: ""    
 });
 
-// ESTADO DE EDICIÓN
+const serviceHistory = ref([]); 
+
+// ESTADO DE LA INTERFAZ
+const activeTab = ref('info'); 
 const isEditing = ref(false);
 const tempUser = ref({}); 
+const isLoadingLocation = ref(false); // Nuevo estado para carga de GPS
 
-// Referencias para los inputs de archivos (ocultos)
-const bannerInput = ref(null);
+// INPUTS REFERENCIAS
 const avatarInput = ref(null);
+const bannerInput = ref(null);
 
-// --- FUNCIONES DE EDICIÓN ---
+const isNewProfile = computed(() => !user.value.name);
+
+// --- MÉTODOS ---
+
+// 1. FUNCIÓN DE GEOLOCALIZACIÓN REAL
+const detectLocation = () => {
+  if (!("geolocation" in navigator)) {
+    alert("Tu navegador no soporta geolocalización.");
+    return;
+  }
+
+  isLoadingLocation.value = true;
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords;
+      
+      // AQUÍ OCURRE LA MAGIA: 
+      // Normalmente usarías la API de Google Maps para convertir coordenadas en texto.
+      // Como no tenemos API Key ahora, simularemos que obtuvimos la ciudad base de las coordenadas.
+      // En producción: await axios.get(`https://maps.googleapis.com/...lat=${latitude}&lon=${longitude}`)
+      
+      console.log(`Coordenadas: ${latitude}, ${longitude}`);
+      
+      // Simulación de respuesta de API de Mapas
+      tempUser.value.location = `Santiago de los Caballeros (Lat: ${latitude.toFixed(2)})`;
+      
+      isLoadingLocation.value = false;
+    },
+    (error) => {
+      console.error(error);
+      isLoadingLocation.value = false;
+      alert("No pudimos obtener tu ubicación. Por favor escríbela manualmente.");
+    }
+  );
+};
+
 const startEditing = () => {
-  tempUser.value = { ...user.value }; 
+  tempUser.value = { ...user.value };
   isEditing.value = true;
+  activeTab.value = 'info'; 
 };
 
 const saveChanges = () => {
+  // AQUÍ SE ENVÍA A LA BASE DE DATOS
   user.value = { ...tempUser.value };
   isEditing.value = false;
-  // Aquí podrías agregar una alerta: alert("Datos guardados correctamente");
+  
+  if (!user.value.joinDate) user.value.joinDate = "Enero 2026";
 };
 
 const cancelEditing = () => {
   isEditing.value = false;
 };
 
-// --- FUNCIONES DE FOTOS ---
-// 1. Abrir selector de archivos
-const triggerBannerUpload = () => bannerInput.value.click();
+// IMÁGENES
 const triggerAvatarUpload = () => avatarInput.value.click();
+const triggerBannerUpload = () => bannerInput.value.click();
 
-// 2. Procesar cambio de Portada
-const handleBannerChange = (event) => {
+const handleImageChange = (event, type) => {
   const file = event.target.files[0];
   if (file) {
-    // Creamos una URL temporal para ver la imagen inmediatamente
-    user.value.banner = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
+    if (type === 'avatar') {
+      if (isEditing) tempUser.value.avatar = url;
+      else user.value.avatar = url;
+    } 
+    if (type === 'banner') {
+      user.value.banner = url; 
+    }
   }
 };
 
-// 3. Procesar cambio de Avatar
-const handleAvatarChange = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    user.value.avatar = URL.createObjectURL(file);
-  }
-};
-
-// NAVEGACIÓN
-const goToDashboard = () => router.push('/client-dashboard');
-const goToExplore = () => router.push('/client-explore'); 
-const goToChat = () => router.push('/client-chat'); 
-const goToProfile = () => router.push('/client-profile'); 
+const goToExplore = () => router.push('/client/explore');
 </script>
 
 <template>
-  <div class="dashboard-layout">
+  <div class="profile-layout">
     
-    <nav class="navbar">
-      <div class="nav-brand" @click="router.push('/')" style="color: #F76B1C; cursor: pointer;">
-        SERVIHUB
+    <div class="profile-header-card">
+      <div class="banner-area" :style="user.banner ? { backgroundImage: `url(${user.banner})` } : {}">
+        <button class="btn-camera banner-cam" title="Cambiar portada" @click="triggerBannerUpload">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg>
+        </button>
+        <input type="file" ref="bannerInput" class="hidden" accept="image/*" @change="(e) => handleImageChange(e, 'banner')">
       </div>
-      <div class="nav-search">
-         <input type="text" placeholder="Buscar..." readonly>
-      </div>
-      <div class="nav-profile clickable" @click="goToProfile">
-        <img :src="user.avatar" class="nav-avatar">
-      </div>
-    </nav>
 
-    <div class="custom-container">
-      
-      <aside class="sidebar-left">
-        <ul class="menu-list">
-          <li @click="goToDashboard"><span class="icon">🏠</span> Inicio</li>
-          <li @click="goToExplore"><span class="icon">🔍</span> Explorar</li>
-          <li @click="goToChat"><span class="icon">💬</span> Mensajes</li>
-          <li class="active" @click="goToProfile"><span class="icon">👤</span> Mi Perfil</li>
-        </ul>
-        <div class="action-area">
-           <button @click="router.push('/request-service')" class="btn-create-post" style="background-color: #0B4C6F;">+ Pedir Servicio</button>
-        </div>
-      </aside>
-
-      <main class="custom-content">
-        
-        <div class="linkedin-grid">
-          
-          <div class="main-col">
-            
-            <div class="profile-card">
-              <div class="banner-area" :style="{ backgroundImage: `url(${user.banner})` }">
-                <button class="btn-camera" title="Cambiar portada" @click="triggerBannerUpload">📷</button>
-                <input type="file" ref="bannerInput" class="hidden-input" accept="image/*" @change="handleBannerChange">
-              </div>
-
-              <div class="profile-info-padding">
-                <div class="avatar-wrapper">
-                  <div class="avatar-container-editable" @click="triggerAvatarUpload">
-                    <img :src="user.avatar" class="profile-avatar-big">
-                    <div class="avatar-overlay">📷</div>
-                  </div>
-                  <input type="file" ref="avatarInput" class="hidden-input" accept="image/*" @change="handleAvatarChange">
-                </div>
-
-                <div class="info-content">
-                  
-                  <div v-if="!isEditing" class="view-mode">
-                    <div class="name-row">
-                      <h1>{{ user.name }}</h1>
-                      <span class="badge-verify">Verificado</span>
-                    </div>
-                    <p class="headline">{{ user.headline }}</p>
-                    <p class="location-text">{{ user.location }} • <a href="#">{{ user.email }}</a></p>
-                    
-                    <div class="action-buttons">
-                      <button class="btn-primary-lkd">Tengo interés en...</button>
-                      <button class="btn-secondary-lkd" @click="startEditing">Editar perfil</button>
-                    </div>
-                  </div>
-
-                  <div v-else class="edit-mode">
-                    <label class="edit-label">Nombre Completo</label>
-                    <input v-model="tempUser.name" placeholder="Nombre" class="input-lkd">
-                    
-                    <label class="edit-label">Titular (Headline)</label>
-                    <input v-model="tempUser.headline" placeholder="Titular" class="input-lkd">
-                    
-                    <label class="edit-label">Ubicación</label>
-                    <input v-model="tempUser.location" placeholder="Ubicación" class="input-lkd">
-                    
-                    <label class="edit-label">Correo Electrónico</label>
-                    <input v-model="tempUser.email" placeholder="Email" class="input-lkd">
-
-                    <div class="edit-actions">
-                      <button @click="saveChanges" class="btn-primary-lkd">Guardar Cambios</button>
-                      <button @click="cancelEditing" class="btn-secondary-lkd">Cancelar</button>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
+      <div class="header-content">
+        <div class="avatar-wrapper">
+          <div class="avatar-circle" :class="{ 'editable': isEditing }" @click="isEditing ? triggerAvatarUpload() : null">
+            <img v-if="isEditing ? tempUser.avatar : user.avatar" :src="isEditing ? tempUser.avatar : user.avatar" class="avatar-img">
+            <div v-else class="avatar-placeholder-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
             </div>
-
-            <div class="section-card">
-              <h3>Sugerencias para ti</h3>
-              <div class="suggestion-box">
-                <div class="icon-bulb">💡</div>
-                <div class="suggestion-text">
-                  <strong>Completa tu perfil</strong>
-                  <p>Los clientes con foto de perfil tienen 3x más respuestas de profesionales.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="section-card">
-              <h3>Actividad Reciente</h3>
-              <div class="empty-activity">
-                <p>No has realizado pedidos recientes.</p>
-                <button class="btn-text">Mostrar todo</button>
-              </div>
-            </div>
-
-          </div>
-
-          <div class="side-col">
-            <div class="side-card">
-              <div class="side-header">
-                <h3>Idioma del perfil</h3>
-                <span class="edit-icon">✎</span>
-              </div>
-              <p class="side-text">Español</p>
-              <div class="divider"></div>
-              <div class="side-header">
-                <h3>Perfil público y URL</h3>
-                <span class="edit-icon">✎</span>
-              </div>
-              <p class="side-text">www.servihub.com/in/jean-luis</p>
-            </div>
-
-            <div class="side-card">
-              <h3>Profesionales recomendados</h3>
-              <div class="people-list">
-                <div class="person-item">
-                  <div class="person-avatar" style="background: #e0f2fe;">JM</div>
-                  <div class="person-info">
-                    <strong>Juan M.</strong>
-                    <span>Plomero Experto</span>
-                    <button class="btn-connect">+ Contactar</button>
-                  </div>
-                </div>
-              </div>
+            <div v-if="isEditing" class="avatar-overlay">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /></svg>
             </div>
           </div>
-
+          <input type="file" ref="avatarInput" class="hidden" accept="image/*" @change="(e) => handleImageChange(e, 'avatar')">
         </div>
 
-      </main>
+        <div class="user-text">
+          <div class="name-badge">
+            <h1>{{ user.name || 'Usuario Nuevo' }}</h1>
+            <span v-if="user.name" class="client-badge">Cliente</span>
+          </div>
+          <div class="meta-info">
+            <span class="meta-item">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon-tiny" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
+              {{ user.location || 'Sin ubicación' }}
+            </span>
+            <span v-if="user.joinDate" class="meta-item">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon-tiny" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+              {{ user.joinDate }}
+            </span>
+          </div>
+        </div>
 
+        <div class="header-actions">
+          <button v-if="!isEditing" class="btn-primary-outline" @click="startEditing">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+            Editar Perfil
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-item">
+          <strong>{{ serviceHistory.length }}</strong>
+          <span>Solicitudes</span>
+        </div>
+        <div class="stat-item">
+          <strong>0</strong>
+          <span>Reseñas</span>
+        </div>
+        <div class="stat-item">
+          <strong>0</strong>
+          <span>Guardados</span>
+        </div>
+      </div>
     </div>
+
+    <div class="profile-grid">
+      
+      <div class="left-nav">
+        <button class="nav-item" :class="{ active: activeTab === 'info' }" @click="activeTab = 'info'">
+          <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z" /></svg>
+          Información Personal
+        </button>
+        <button class="nav-item" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'">
+          <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+          Historial de Solicitudes
+        </button>
+        <button class="nav-item" :class="{ active: activeTab === 'reviews' }" @click="activeTab = 'reviews'">
+          <svg xmlns="http://www.w3.org/2000/svg" class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+          Reseñas Dadas
+        </button>
+      </div>
+
+      <div class="right-content">
+        
+        <div v-if="activeTab === 'info'">
+          <div class="panel-header">
+            <h3>Datos de Contacto</h3>
+            <p v-if="isNewProfile && !isEditing" class="warning-text">⚠️ Completa tu perfil para mejorar tu experiencia.</p>
+          </div>
+
+          <form v-if="isEditing" @submit.prevent="saveChanges" class="info-form">
+            <div class="form-group">
+              <label>Nombre Completo</label>
+              <input v-model="tempUser.name" type="text" class="form-input" placeholder="Ej. Juan Pérez">
+            </div>
+            <div class="form-group">
+              <label>Correo Electrónico</label>
+              <input v-model="tempUser.email" type="email" class="form-input" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="form-group">
+              <label>Teléfono</label>
+              <input v-model="tempUser.phone" type="tel" class="form-input" placeholder="809-000-0000">
+            </div>
+            
+            <div class="form-group full-width">
+              <label>Dirección Principal</label>
+              <div class="input-icon-wrap">
+                <svg class="icon-input" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
+                <input v-model="tempUser.location" type="text" class="form-input with-icon" placeholder="Calle, Sector, Ciudad">
+                
+                <button type="button" @click="detectLocation" class="btn-location" :disabled="isLoadingLocation">
+                  {{ isLoadingLocation ? '📍 Buscando...' : '📍 Usar GPS' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" @click="cancelEditing">Cancelar</button>
+              <button type="submit" class="btn-save">Guardar Cambios</button>
+            </div>
+          </form>
+
+          <div v-else class="info-display">
+            <div class="info-row">
+              <span class="label">Nombre:</span>
+              <span class="value">{{ user.name || '---' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Email:</span>
+              <span class="value">{{ user.email || '---' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Teléfono:</span>
+              <span class="value">{{ user.phone || '---' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Dirección:</span>
+              <span class="value">{{ user.location || '---' }}</span>
+            </div>
+            
+            <div v-if="isNewProfile" class="empty-data-msg">
+              <p>Aún no has llenado tus datos.</p>
+              <button class="btn-small" @click="startEditing">Llenar ahora</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="activeTab === 'history'">
+          <div class="panel-header">
+            <h3>Historial de Servicios</h3>
+          </div>
+          <div v-if="serviceHistory.length === 0" class="empty-state-panel">
+            <div class="empty-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" /></svg>
+            </div>
+            <h4>No tienes solicitudes previas</h4>
+            <p>Cuando contrates un servicio, aparecerá aquí detallado.</p>
+            <button class="btn-action" @click="goToExplore">Buscar Profesionales</button>
+          </div>
+        </div>
+
+        <div v-if="activeTab === 'reviews'">
+          <div class="panel-header">
+            <h3>Tus Reseñas</h3>
+          </div>
+          <div class="empty-state-panel">
+            <div class="empty-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.563.563 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+            </div>
+            <p>Aún no has calificado a ningún profesional.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
 <style scoped>
-/* --- ESTRUCTURA GENERAL --- */
-.custom-container { margin-left: 260px; padding: 1.5rem; display: block; min-height: 100vh; background-color: #F3F2EF; }
-.custom-content { width: 100%; max-width: 1128px; margin: 0 auto; }
-.linkedin-grid { display: grid; grid-template-columns: 3fr 1.2fr; gap: 24px; align-items: start; }
-.profile-card, .section-card, .side-card { background: white; border-radius: 8px; border: 1px solid #e0e0e0; overflow: hidden; margin-bottom: 10px; position: relative; }
+/* RESET */
+.profile-layout { width: 100%; max-width: 1000px; margin: 0 auto; padding-bottom: 50px; }
+.hidden { display: none; }
+.icon-sm { width: 18px; height: 18px; margin-right: 6px; }
+.icon-tiny { width: 14px; height: 14px; margin-right: 4px; }
 
-/* --- BANNER --- */
-.banner-area { height: 200px; background-size: cover; background-position: center; position: relative; background-color: #a0b4b7; }
-.btn-camera { position: absolute; top: 20px; right: 20px; background: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; color: #0B4C6F; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-.hidden-input { display: none; } /* Ocultar el input file feo */
+/* HEADER CARD */
+.profile-header-card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; margin-bottom: 24px; }
+.banner-area { height: 180px; background-color: #CBD5E1; background-size: cover; background-position: center; position: relative; }
+.banner-cam { position: absolute; top: 20px; right: 20px; background: white; padding: 8px; border-radius: 50%; border: none; cursor: pointer; color: #555; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+.banner-cam:hover { transform: scale(1.05); }
 
-/* --- AVATAR EDITABLE --- */
-.profile-info-padding { padding: 0 24px 24px 24px; position: relative; }
-.avatar-wrapper { margin-top: -100px; margin-bottom: 15px; width: 152px; height: 152px; position: relative; }
+.header-content { padding: 0 30px 20px 30px; display: flex; align-items: flex-end; gap: 20px; margin-top: -50px; position: relative; }
+.avatar-circle { width: 120px; height: 120px; background: white; border: 4px solid white; border-radius: 50%; overflow: hidden; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+.avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-placeholder-icon { color: #ccc; width: 60px; height: 60px; }
+.avatar-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.avatar-overlay svg { width: 30px; height: 30px; color: white; }
+.editable { cursor: pointer; }
 
-.avatar-container-editable {
-  width: 100%; height: 100%;
-  border-radius: 50%;
-  border: 4px solid white;
-  position: relative;
-  cursor: pointer;
-  overflow: hidden;
-  background: white;
+.user-text { flex: 1; padding-top: 10px; }
+.name-badge { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.name-badge h1 { margin: 0; font-size: 1.8rem; font-weight: 800; color: #111; }
+.client-badge { background: #E0F2FE; color: #0B4C6F; font-size: 0.75rem; padding: 2px 8px; border-radius: 20px; font-weight: 700; text-transform: uppercase; }
+.meta-info { display: flex; gap: 20px; color: #666; font-size: 0.9rem; }
+.meta-item { display: flex; align-items: center; }
+
+.header-actions { padding-top: 15px; }
+.btn-primary-outline { display: flex; align-items: center; border: 1px solid #0B4C6F; color: #0B4C6F; background: white; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-primary-outline:hover { background: #F0F9FF; }
+
+/* STATS */
+.stats-bar { display: flex; border-top: 1px solid #eee; padding: 15px 30px; gap: 40px; }
+.stat-item { display: flex; flex-direction: column; }
+.stat-item strong { font-size: 1.1rem; color: #111; }
+.stat-item span { font-size: 0.85rem; color: #666; }
+
+/* MAIN GRID */
+.profile-grid { display: grid; grid-template-columns: 260px 1fr; gap: 24px; }
+
+/* LEFT NAV */
+.left-nav { background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; height: fit-content; }
+.nav-item { width: 100%; text-align: left; padding: 15px 20px; background: none; border: none; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.95rem; color: #555; display: flex; align-items: center; transition: 0.2s; font-weight: 500; }
+.nav-item:last-child { border-bottom: none; }
+.nav-item:hover { background: #f9fafb; color: #0B4C6F; }
+.nav-item.active { background: #E0F2FE; color: #0B4C6F; font-weight: 700; border-left: 4px solid #0B4C6F; }
+.nav-icon { width: 20px; height: 20px; margin-right: 10px; }
+
+/* RIGHT CONTENT */
+.right-content { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 30px; min-height: 400px; }
+.panel-header { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+.panel-header h3 { margin: 0; font-size: 1.3rem; color: #333; }
+.warning-text { color: #F76B1C; font-size: 0.9rem; margin: 5px 0 0 0; }
+
+/* INFO DISPLAY */
+.info-row { display: flex; margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
+.info-row .label { width: 120px; font-weight: 600; color: #666; }
+.info-row .value { color: #111; font-weight: 500; }
+.empty-data-msg { text-align: center; margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px; }
+.btn-small { background: #0B4C6F; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer; margin-top: 10px; }
+
+/* FORMULARIO */
+.info-form { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full-width { grid-column: span 2; }
+.form-group label { font-size: 0.85rem; font-weight: 700; color: #444; }
+.form-input { padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; font-size: 0.95rem; }
+.form-input:focus { outline: none; border-color: #0B4C6F; box-shadow: 0 0 0 3px rgba(11, 76, 111, 0.1); }
+.input-icon-wrap { position: relative; }
+.icon-input { position: absolute; left: 10px; top: 10px; width: 20px; color: #999; }
+.form-input.with-icon { padding-left: 38px; }
+
+.btn-location {
+  position: absolute; right: 5px; top: 5px;
+  background: #E0F2FE; color: #0B4C6F; border: none; padding: 5px 10px; border-radius: 4px; 
+  cursor: pointer; font-weight: 600; font-size: 0.8rem;
 }
-.profile-avatar-big { width: 100%; height: 100%; object-fit: cover; }
+.btn-location:hover { background: #BAE6FD; }
 
-/* Overlay de cámara al pasar el mouse sobre el avatar */
-.avatar-overlay {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.4);
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 1.5rem;
-  opacity: 0; transition: opacity 0.2s;
-}
-.avatar-container-editable:hover .avatar-overlay { opacity: 1; }
+.form-actions { grid-column: span 2; display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.btn-save { background: #0B4C6F; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+.btn-cancel { background: white; border: 1px solid #ccc; color: #555; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; }
 
-/* --- TEXTOS PERFIL --- */
-.name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
-.name-row h1 { font-size: 24px; font-weight: 600; color: #191919; margin: 0; }
-.badge-verify { background: #E8F0FE; color: #0B4C6F; font-size: 0.8rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-.headline { font-size: 16px; color: #191919; margin-bottom: 8px; }
-.location-text { font-size: 14px; color: #757575; margin-bottom: 16px; }
-.location-text a { color: #0B4C6F; text-decoration: none; font-weight: 600; }
-
-/* --- BOTONES --- */
-.action-buttons { display: flex; gap: 10px; }
-.btn-primary-lkd { background-color: #0a66c2; color: white; border: none; padding: 6px 16px; border-radius: 24px; font-weight: 600; font-size: 1rem; cursor: pointer; }
-.btn-secondary-lkd { background-color: white; color: #0a66c2; border: 1px solid #0a66c2; padding: 6px 16px; border-radius: 24px; font-weight: 600; font-size: 1rem; cursor: pointer; }
-
-/* --- FORMULARIO EDICIÓN --- */
-.edit-mode { background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
-.edit-label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 4px; margin-top: 10px; }
-.input-lkd { display: block; width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
-.edit-actions { margin-top: 15px; display: flex; gap: 10px; }
-
-/* --- SECCIONES EXTRA --- */
-.section-card, .side-card { padding: 20px; }
-.section-card h3, .side-card h3 { font-size: 18px; margin: 0 0 15px 0; }
-.suggestion-box { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; display: flex; gap: 15px; background: #f9fafb; }
-.icon-bulb { font-size: 24px; }
-.suggestion-text p { margin: 5px 0 0; color: #666; font-size: 14px; }
-.side-header { display: flex; justify-content: space-between; align-items: center; }
-.side-text { color: #666; font-size: 14px; margin-top: 5px; }
-.divider { height: 1px; background: #e0e0e0; margin: 15px 0; }
-.person-item { display: flex; gap: 10px; margin-bottom: 15px; }
-.person-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #555; }
-.person-info { display: flex; flex-direction: column; }
-.btn-connect { background: white; border: 1px solid #666; border-radius: 16px; padding: 2px 12px; font-weight: 600; color: #666; cursor: pointer; font-size: 14px; }
+/* EMPTY STATES */
+.empty-state-panel { text-align: center; padding: 40px 20px; color: #666; }
+.empty-icon-box { width: 60px; height: 60px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; color: #999; }
+.empty-icon-box svg { width: 30px; height: 30px; }
+.empty-state-panel h4 { margin: 0 0 5px 0; color: #333; font-size: 1.1rem; }
+.empty-state-panel p { margin: 0 0 20px 0; font-size: 0.95rem; }
+.btn-action { background: white; border: 1px solid #0B4C6F; color: #0B4C6F; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-action:hover { background: #F0F9FF; }
 </style>

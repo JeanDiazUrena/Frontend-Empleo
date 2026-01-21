@@ -7,6 +7,10 @@ import Register from '../views/Register.vue';
 import ProfessionalSetup from '../views/ProfessionalSetup.vue';
 import CreateFirstPost from '../views/CreateFirstPost.vue';
 
+// Layouts
+import ProfessionalLayout from '../layouts/ProfessionalLayout.vue';
+import ClientLayout from '../layouts/ClientLayout.vue';
+
 // Vistas Cliente
 import ClientDashboard from '../views/ClientDashboard.vue';
 import ClientProfile from '../views/ClientProfile.vue';
@@ -19,93 +23,42 @@ import ProfessionalDashboard from '../views/ProfessionalDashboard.vue';
 import ChatProfessional from '../views/ChatProfessional.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
 
-// IMPORTANTE: Importamos AMBOS Layouts
-import ProfessionalLayout from '../layouts/ProfessionalLayout.vue'; 
-import ClientLayout from '../layouts/ClientLayout.vue'; 
-
 const routes = [
   // --- RUTAS PÚBLICAS ---
-  {
-    path: '/',
-    name: 'Home',
-    component: Home
-  },
-  {
-    path: '/login',
-    name: 'Login',
-    component: Login
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: Register
-  },
+  { path: '/', name: 'Home', component: Home },
+  { path: '/login', name: 'Login', component: Login },
+  { path: '/register', name: 'Register', component: Register },
+  { path: '/professional-setup', name: 'ProfessionalSetup', component: ProfessionalSetup },
+  { path: '/create-first-post', name: 'CreateFirstPost', component: CreateFirstPost },
 
-  // --- RUTAS DE CONFIGURACIÓN INICIAL ---
-  {
-    path: '/professional-setup',
-    name: 'ProfessionalSetup',
-    component: ProfessionalSetup
-  },
-  {
-    path: '/create-first-post',
-    name: 'CreateFirstPost',
-    component: CreateFirstPost
-  },
-
-  // --- RUTAS DEL CLIENTE (CON LAYOUT UNIFICADO) ---
+  // --- RUTAS CLIENTE (Usando ClientLayout) ---
   {
     path: '/client',
-    component: ClientLayout, // Carga el Marco (Menú + Sidebar Cliente)
+    component: ClientLayout,
+    meta: { hideNavbar: true }, // Oculta el navbar público de App.vue
     children: [
-      {
-        path: 'dashboard', // URL: /client/dashboard
-        name: 'ClientDashboard',
-        component: ClientDashboard
-      },
-      {
-        path: 'explore', // URL: /client/explore
-        name: 'ClientExplore',
-        component: ClientExplore
-      },
-      {
-        path: 'chat', // URL: /client/chat
-        name: 'ClientChat',
-        component: ChatClient
-      },
-      {
-        path: 'profile', // URL: /client/profile
-        name: 'ClientProfile',
-        component: ClientProfile
-      },
-      {
-        path: 'request', // URL: /client/request
-        name: 'ServiceRequest',
-        component: ServiceRequest
-      }
+      { path: 'dashboard', name: 'ClientDashboard', component: ClientDashboard },
+      { path: 'profile', name: 'ClientProfile', component: ClientProfile },
+      { path: 'chat', name: 'ClientChat', component: ChatClient },
+      { path: 'explore', name: 'ClientExplore', component: ClientExplore },
+      
+      // 1. Crear Solicitud (Nueva)
+      { path: 'request', name: 'ServiceRequest', component: ServiceRequest },
+      
+      // 2. Editar/Ver Solicitud (Existente) - NUEVA RUTA AGREGADA
+      { path: 'request/edit/:id', name: 'EditRequest', component: ServiceRequest },
     ]
   },
 
-  // --- RUTAS DEL PROFESIONAL (CON LAYOUT UNIFICADO) ---
+  // --- RUTAS PROFESIONAL (Usando ProfessionalLayout) ---
   {
-    path: '/professional', 
-    component: ProfessionalLayout, // Carga el Marco (Menú + Sidebar Profesional)
+    path: '/professional',
+    component: ProfessionalLayout,
+    meta: { hideNavbar: true }, // Oculta el navbar público de App.vue
     children: [
-      { 
-        path: 'dashboard', // URL: /professional/dashboard
-        name: 'ProfessionalDashboard', 
-        component: ProfessionalDashboard 
-      },
-      { 
-        path: 'chat', // URL: /professional/chat
-        name: 'ProfessionalChat', 
-        component: ChatProfessional 
-      },
-      { 
-        path: 'profile', // URL: /professional/profile
-        name: 'ProfessionalProfile', 
-        component: ProfessionalProfile 
-      },
+      { path: 'dashboard', name: 'ProfessionalDashboard', component: ProfessionalDashboard },
+      { path: 'chat', name: 'ProfessionalChat', component: ChatProfessional },
+      { path: 'profile', name: 'ProfessionalProfile', component: ProfessionalProfile },
     ]
   }
 ];

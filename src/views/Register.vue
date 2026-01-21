@@ -2,12 +2,6 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import axios from "axios";
-// import axios from 'axios'; <--- Lo dejamos comentado para el futuro
-import './Register.css'; 
-
-
-
 const router = useRouter();
 const step = ref(1); 
 
@@ -42,16 +36,18 @@ async function handleRegistration() {
     errorMessage.value = "Selecciona un rol para continuar.";
     return;
   }
-
   console.log("Registrando:", { name: name.value, role: selectedRole.value });
-  if (selectedRole.value === 'profesional') {
-    router.push('/professional-setup');
-  } else {
-    router.push('/client-dashboard'); 
 
+  // --- AQUÍ ESTÁ EL CAMBIO ---
+  if (selectedRole.value === 'profesional') {
+    // Si quieres que el profesional también vaya a su nuevo dashboard:
+    router.push('/professional/dashboard'); 
+    // O si prefieres que vaya al setup primero: router.push('/professional-setup');
+  } else {
+    // REDIRECCIÓN CORRECTA AL NUEVO LAYOUT DE CLIENTE
+    router.push('/client/dashboard'); 
   }
 }
-
 </script>
 
 <template>
@@ -237,7 +233,6 @@ async function handleRegistration() {
 .feature-list { display: flex; flex-direction: column; gap: 16px; }
 .feature-item { display: flex; align-items: center; gap: 12px; font-size: 1.1rem; font-weight: 500; }
 
-/* Estilo para el círculo del check SVG */
 .check { 
   background: rgba(255,255,255,0.2); width: 28px; height: 28px; border-radius: 50%; 
   display: flex; align-items: center; justify-content: center; color: white;
@@ -305,7 +300,6 @@ async function handleRegistration() {
 .role-card:hover { border-color: #0B4C6F; background: #F0F9FF; }
 .role-card.active { border-color: #0B4C6F; background: #E0F2FE; }
 
-/* Estilo para el contenedor del ícono SVG del rol */
 .role-icon { 
   font-size: 2rem; background: white; width: 60px; height: 60px; 
   display: flex; align-items: center; justify-content: center; 

@@ -1,158 +1,60 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-// Reusamos los estilos para mantener consistencia
-import './Dashboard.css'; 
-import './ChatProfessional.css'; 
 
-const router = useRouter();
-
-// Datos del Cliente (Tú)
-const currentUser = {
-  name: "Jean Luis",
-  avatar: "https://i.pravatar.cc/150?u=jean",
-};
-
-// --- SIN DATOS FALSOS (Array vacío) ---
+// DATOS VACÍOS
 const conversations = ref([]); 
 const selectedChatId = ref(null);
 const searchQuery = ref('');
 
-// Filtros (funcionarán igual cuando haya datos reales)
-const filteredChats = computed(() => {
-  return conversations.value.filter(chat => 
-    chat.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
-});
+// Filtros vacíos
+const filteredChats = computed(() => []);
+const activeChat = computed(() => null);
 
-const activeChat = computed(() => {
-  return conversations.value.find(c => c.id === selectedChatId.value);
-});
-
-const selectChat = (id) => {
-  selectedChatId.value = id;
-};
-
-// --- NAVEGACIÓN CLIENTE ---
-const goToDashboard = () => router.push('/client-dashboard');
-const goToProfile = () => router.push('/client-profile');
-
+const selectChat = (id) => { selectedChatId.value = id; };
 </script>
 
 <template>
-  <div class="dashboard-layout chat-layout-fix">
+  <div class="chat-interface-wrapper">
     
-    <nav class="navbar">
-      <div class="nav-brand" style="color: #F76B1C;">SERVIHUB</div>
+    <div class="chat-list-panel">
+      <div class="panel-header">
+        <h3>Tus Conversaciones</h3>
+      </div>
       
-      <div class="nav-search">
-        <input type="text" placeholder="Buscar en mensajes...">
-        <button class="search-btn">🔍</button>
+      <div v-if="conversations.length === 0" class="empty-list-state">
+        <p>No tienes mensajes activos.</p>
       </div>
 
-      <div class="nav-profile">
-        <span class="nav-user-name">{{ currentUser.name }}</span>
-        <img :src="currentUser.avatar" class="nav-avatar">
-      </div>
-    </nav>
-
-    <div class="main-container chat-grid-override">
-      
-      <aside class="sidebar-left">
-        <ul class="menu-list">
-          <li @click="goToDashboard">
-            <span class="icon">🏠</span> Inicio
-          </li>
-          <li>
-            <span class="icon">🔍</span> Explorar
-          </li>
-          <li class="active">
-            <span class="icon">💬</span> Mensajes
-          </li>
-          <li @click="goToProfile">
-            <span class="icon">👤</span> Mi Perfil
-          </li>
-        </ul>
-        
-        <div class="action-area">
-           <button class="btn-create-post" style="background-color: #0B4C6F;">
-            + Pedir Servicio
-          </button>
+      <div v-else class="conversations-list">
         </div>
-      </aside>
-
-      <main class="chat-interface-container">
-        
-        <div class="chat-list-panel">
-          <div class="panel-header">
-            <h3>Tus Conversaciones</h3>
-          </div>
-          
-          <div v-if="conversations.length === 0" class="empty-list-state" style="border:none; box-shadow:none;">
-            <p>No has contactado a ningún profesional aún.</p>
-          </div>
-
-          <div v-else class="conversations-list">
-            <div 
-              v-for="chat in filteredChats" 
-              :key="chat.id"
-              class="chat-item"
-              :class="{ 'active': selectedChatId === chat.id }"
-              @click="selectChat(chat.id)"
-            >
-              <div class="avatar-wrapper">
-                <img :src="chat.avatar" :alt="chat.name">
-                <span v-if="chat.unread" class="online-dot" style="background-color: #F76B1C;"></span>
-              </div>
-              <div class="chat-info">
-                <div class="chat-top">
-                  <span class="chat-name">{{ chat.name }}</span>
-                  <span class="chat-time">{{ chat.time }}</span>
-                </div>
-                <p class="chat-preview">{{ chat.lastMsg }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="chat-window-panel">
-          
-          <div v-if="!selectedChatId" class="empty-state">
-            <div class="empty-icon">💬</div>
-            <h3>Bandeja de Entrada</h3>
-            <p v-if="conversations.length === 0">
-              Cuando contactes a un profesional desde su perfil, el chat aparecerá aquí.
-            </p>
-            <p v-else>
-              Selecciona una conversación para leer los mensajes.
-            </p>
-          </div>
-
-          <div v-else class="active-chat-view">
-            <header class="chat-header">
-              <img :src="activeChat.avatar" class="header-avatar">
-              <div class="header-info">
-                <h4>{{ activeChat.name }}</h4>
-                <span class="status">En línea</span>
-              </div>
-            </header>
-
-            <div class="messages-area">
-              <div class="msg received">
-                <p>{{ activeChat.lastMsg }}</p>
-                <span class="msg-time">{{ activeChat.time }}</span>
-              </div>
-            </div>
-
-            <div class="input-area">
-              <input type="text" placeholder="Escribe un mensaje...">
-              <button class="btn-send" style="color: #F76B1C;">➤</button>
-            </div>
-          </div>
-        </div>
-
-      </main>
-
     </div>
+
+    <div class="chat-window-panel">
+      
+      <div v-if="!selectedChatId" class="empty-state">
+        <div class="empty-icon-svg">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#ccc" stroke-width="1.5">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+           </svg>
+        </div>
+        <h3>Bandeja de Entrada</h3>
+        <p>Selecciona una conversación para leer los mensajes.</p>
+      </div>
+
+      <div v-else class="active-chat-view">
+        </div>
+    </div>
+
   </div>
 </template>
+
+<style scoped>
+.chat-interface-wrapper { display: flex; height: calc(100vh - 100px); background: white; border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden; }
+.chat-list-panel { width: 320px; border-right: 1px solid #eee; display: flex; flex-direction: column; }
+.panel-header { padding: 15px; border-bottom: 1px solid #eee; font-weight: bold; }
+.empty-list-state { padding: 20px; text-align: center; color: #999; margin-top: 50px; }
+.chat-window-panel { flex: 1; display: flex; flex-direction: column; }
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #F9FAFB; color: #666; }
+.empty-icon-svg { width: 60px; height: 60px; margin-bottom: 15px; }
+.empty-icon-svg svg { width: 100%; height: 100%; }
+</style>
