@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from "axios";
 // import axios from 'axios'; <--- Lo dejamos comentado para el futuro
 import './Register.css'; 
 
@@ -34,23 +35,35 @@ async function handleRegistration() {
     return;
   }
 
-  // --- AQUÍ IRÁ LA CONEXIÓN CON BASE DE DATOS EN EL FUTURO ---
-  console.log("Simulando registro con:", {
-    name: name.value,
-    email: email.value,
-    role: selectedRole.value
-  });
+  try {
+    await axios.post("http://localhost:3000/api/register", {
+      nombre: name.value,
+      email: email.value,
+      password: password.value,
+    });
 
-  // Simulamos un pequeño retraso y éxito
-  alert("Cuenta creada (Simulación Visual)");
+    alert("Cuenta creada correctamente");
 
-  // Redirigimos según el rol para probar el flujo de pantallas
-  if (selectedRole.value === 'profesional') {
-    router.push('/professional-setup');
-  } else {
-    router.push('/client-dashboard'); 
+    // Redirigir según rol
+    if (selectedRole.value === "profesional") {
+      router.push("/professional-setup");
+    } else {
+      router.push("/client-dashboard");
+    }
+
+  } catch (error) {
+    console.error(error);
+
+    if (error.response?.status === 409) {
+      alert("Este correo ya está registrado");
+    } else if (error.response?.status === 400) {
+      alert("Datos incompletos");
+    } else {
+      alert("Error al registrar usuario");
+    }
   }
 }
+
 </script>
 
 <template>
