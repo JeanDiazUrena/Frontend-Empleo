@@ -64,13 +64,13 @@ const handlePublish = () => {
   console.log("Servicio ID:", form.serviceId);
   
   // Éxito: Redirigir al Dashboard del Profesional
-  router.push('/professional-dashboard');
+  router.push('/professional/dashboard');
 };
 
 // --- FUNCIÓN ACTUALIZADA ---
 const closePost = () => {
   // Si cierra sin publicar, también va al dashboard profesional
-  router.push('/professional-dashboard');
+  router.push('/professional/dashboard');
 };
 </script>
 
