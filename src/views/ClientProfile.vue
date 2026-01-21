@@ -5,7 +5,7 @@ import './Dashboard.css';
 
 const router = useRouter();
 
-// DATOS DEL USUARIO
+// DATOS DEL USUARIO (Reactivos)
 const user = ref({
   name: "Jean Luis",
   headline: "Cliente Premium • Buscando expertos en Remodelación",
@@ -19,6 +19,11 @@ const user = ref({
 const isEditing = ref(false);
 const tempUser = ref({}); 
 
+// Referencias para los inputs de archivos (ocultos)
+const bannerInput = ref(null);
+const avatarInput = ref(null);
+
+// --- FUNCIONES DE EDICIÓN ---
 const startEditing = () => {
   tempUser.value = { ...user.value }; 
   isEditing.value = true;
@@ -27,10 +32,33 @@ const startEditing = () => {
 const saveChanges = () => {
   user.value = { ...tempUser.value };
   isEditing.value = false;
+  // Aquí podrías agregar una alerta: alert("Datos guardados correctamente");
 };
 
 const cancelEditing = () => {
   isEditing.value = false;
+};
+
+// --- FUNCIONES DE FOTOS ---
+// 1. Abrir selector de archivos
+const triggerBannerUpload = () => bannerInput.value.click();
+const triggerAvatarUpload = () => avatarInput.value.click();
+
+// 2. Procesar cambio de Portada
+const handleBannerChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    // Creamos una URL temporal para ver la imagen inmediatamente
+    user.value.banner = URL.createObjectURL(file);
+  }
+};
+
+// 3. Procesar cambio de Avatar
+const handleAvatarChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    user.value.avatar = URL.createObjectURL(file);
+  }
 };
 
 // NAVEGACIÓN
@@ -44,13 +72,9 @@ const goToProfile = () => router.push('/client-profile');
   <div class="dashboard-layout">
     
     <nav class="navbar">
-       <div 
-    class="nav-brand" 
-    @click="router.push('/')" 
-    style="color: #F76B1C; cursor: pointer;"
-  >
-    SERVIHUB
-  </div>
+      <div class="nav-brand" @click="router.push('/')" style="color: #F76B1C; cursor: pointer;">
+        SERVIHUB
+      </div>
       <div class="nav-search">
          <input type="text" placeholder="Buscar..." readonly>
       </div>
@@ -81,22 +105,28 @@ const goToProfile = () => router.push('/client-profile');
             
             <div class="profile-card">
               <div class="banner-area" :style="{ backgroundImage: `url(${user.banner})` }">
-                <button class="btn-camera" title="Cambiar portada">📷</button>
+                <button class="btn-camera" title="Cambiar portada" @click="triggerBannerUpload">📷</button>
+                <input type="file" ref="bannerInput" class="hidden-input" accept="image/*" @change="handleBannerChange">
               </div>
 
               <div class="profile-info-padding">
                 <div class="avatar-wrapper">
-                  <img :src="user.avatar" class="profile-avatar-big">
+                  <div class="avatar-container-editable" @click="triggerAvatarUpload">
+                    <img :src="user.avatar" class="profile-avatar-big">
+                    <div class="avatar-overlay">📷</div>
+                  </div>
+                  <input type="file" ref="avatarInput" class="hidden-input" accept="image/*" @change="handleAvatarChange">
                 </div>
 
                 <div class="info-content">
+                  
                   <div v-if="!isEditing" class="view-mode">
                     <div class="name-row">
                       <h1>{{ user.name }}</h1>
                       <span class="badge-verify">Verificado</span>
                     </div>
                     <p class="headline">{{ user.headline }}</p>
-                    <p class="location-text">{{ user.location }} • <a href="#">Información de contacto</a></p>
+                    <p class="location-text">{{ user.location }} • <a href="#">{{ user.email }}</a></p>
                     
                     <div class="action-buttons">
                       <button class="btn-primary-lkd">Tengo interés en...</button>
@@ -105,14 +135,24 @@ const goToProfile = () => router.push('/client-profile');
                   </div>
 
                   <div v-else class="edit-mode">
+                    <label class="edit-label">Nombre Completo</label>
                     <input v-model="tempUser.name" placeholder="Nombre" class="input-lkd">
+                    
+                    <label class="edit-label">Titular (Headline)</label>
                     <input v-model="tempUser.headline" placeholder="Titular" class="input-lkd">
+                    
+                    <label class="edit-label">Ubicación</label>
                     <input v-model="tempUser.location" placeholder="Ubicación" class="input-lkd">
+                    
+                    <label class="edit-label">Correo Electrónico</label>
+                    <input v-model="tempUser.email" placeholder="Email" class="input-lkd">
+
                     <div class="edit-actions">
-                      <button @click="saveChanges" class="btn-primary-lkd">Guardar</button>
+                      <button @click="saveChanges" class="btn-primary-lkd">Guardar Cambios</button>
                       <button @click="cancelEditing" class="btn-secondary-lkd">Cancelar</button>
                     </div>
                   </div>
+
                 </div>
               </div>
             </div>
@@ -139,16 +179,13 @@ const goToProfile = () => router.push('/client-profile');
           </div>
 
           <div class="side-col">
-            
             <div class="side-card">
               <div class="side-header">
                 <h3>Idioma del perfil</h3>
                 <span class="edit-icon">✎</span>
               </div>
               <p class="side-text">Español</p>
-              
               <div class="divider"></div>
-
               <div class="side-header">
                 <h3>Perfil público y URL</h3>
                 <span class="edit-icon">✎</span>
@@ -167,17 +204,8 @@ const goToProfile = () => router.push('/client-profile');
                     <button class="btn-connect">+ Contactar</button>
                   </div>
                 </div>
-                <div class="person-item">
-                  <div class="person-avatar" style="background: #fce7f3;">AL</div>
-                  <div class="person-info">
-                    <strong>Ana L.</strong>
-                    <span>Limpieza Pro</span>
-                    <button class="btn-connect">+ Contactar</button>
-                  </div>
-                </div>
               </div>
             </div>
-
           </div>
 
         </div>
@@ -190,199 +218,71 @@ const goToProfile = () => router.push('/client-profile');
 
 <style scoped>
 /* --- ESTRUCTURA GENERAL --- */
-.custom-container {
-  margin-left: 260px; 
-  padding: 1.5rem;
-  display: block; 
-  min-height: 100vh;
-  background-color: #F3F2EF; /* Color de fondo típico de LinkedIn */
-}
+.custom-container { margin-left: 260px; padding: 1.5rem; display: block; min-height: 100vh; background-color: #F3F2EF; }
+.custom-content { width: 100%; max-width: 1128px; margin: 0 auto; }
+.linkedin-grid { display: grid; grid-template-columns: 3fr 1.2fr; gap: 24px; align-items: start; }
+.profile-card, .section-card, .side-card { background: white; border-radius: 8px; border: 1px solid #e0e0e0; overflow: hidden; margin-bottom: 10px; position: relative; }
 
-.custom-content {
-  width: 100%;
-  max-width: 1128px; /* Ancho estándar de LinkedIn */
-  margin: 0 auto;
-}
+/* --- BANNER --- */
+.banner-area { height: 200px; background-size: cover; background-position: center; position: relative; background-color: #a0b4b7; }
+.btn-camera { position: absolute; top: 20px; right: 20px; background: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; color: #0B4C6F; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+.hidden-input { display: none; } /* Ocultar el input file feo */
 
-/* GRID DE 2 COLUMNAS (Estilo LinkedIn) */
-.linkedin-grid {
-  display: grid;
-  grid-template-columns: 3fr 1.2fr; /* Columna ancha + Columna estrecha */
-  gap: 24px;
-  align-items: start;
-}
+/* --- AVATAR EDITABLE --- */
+.profile-info-padding { padding: 0 24px 24px 24px; position: relative; }
+.avatar-wrapper { margin-top: -100px; margin-bottom: 15px; width: 152px; height: 152px; position: relative; }
 
-/* --- TARJETAS --- */
-.profile-card, .section-card, .side-card {
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  overflow: hidden;
-  margin-bottom: 10px;
-  position: relative;
-}
-
-/* --- BANNER Y AVATAR --- */
-.banner-area {
-  height: 200px;
-  background-size: cover;
-  background-position: center;
-  position: relative;
-  background-color: #a0b4b7;
-}
-
-.btn-camera {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: white;
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  color: #0B4C6F;
-}
-
-.profile-info-padding {
-  padding: 0 24px 24px 24px;
-  position: relative;
-}
-
-.avatar-wrapper {
-  margin-top: -100px; /* Sube el avatar sobre el banner */
-  margin-bottom: 15px;
-}
-
-.profile-avatar-big {
-  width: 152px;
-  height: 152px;
+.avatar-container-editable {
+  width: 100%; height: 100%;
   border-radius: 50%;
   border: 4px solid white;
-  object-fit: cover;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
   background: white;
 }
+.profile-avatar-big { width: 100%; height: 100%; object-fit: cover; }
+
+/* Overlay de cámara al pasar el mouse sobre el avatar */
+.avatar-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 1.5rem;
+  opacity: 0; transition: opacity 0.2s;
+}
+.avatar-container-editable:hover .avatar-overlay { opacity: 1; }
 
 /* --- TEXTOS PERFIL --- */
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 5px;
-}
-.name-row h1 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #191919;
-  margin: 0;
-}
-.badge-verify {
-  background: #E8F0FE;
-  color: #0B4C6F;
-  font-size: 0.8rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-}
+.name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.name-row h1 { font-size: 24px; font-weight: 600; color: #191919; margin: 0; }
+.badge-verify { background: #E8F0FE; color: #0B4C6F; font-size: 0.8rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+.headline { font-size: 16px; color: #191919; margin-bottom: 8px; }
+.location-text { font-size: 14px; color: #757575; margin-bottom: 16px; }
+.location-text a { color: #0B4C6F; text-decoration: none; font-weight: 600; }
 
-.headline {
-  font-size: 16px;
-  color: #191919;
-  margin-bottom: 8px;
-}
-.location-text {
-  font-size: 14px;
-  color: #757575;
-  margin-bottom: 16px;
-}
-.location-text a {
-  color: #0B4C6F;
-  text-decoration: none;
-  font-weight: 600;
-}
+/* --- BOTONES --- */
+.action-buttons { display: flex; gap: 10px; }
+.btn-primary-lkd { background-color: #0a66c2; color: white; border: none; padding: 6px 16px; border-radius: 24px; font-weight: 600; font-size: 1rem; cursor: pointer; }
+.btn-secondary-lkd { background-color: white; color: #0a66c2; border: 1px solid #0a66c2; padding: 6px 16px; border-radius: 24px; font-weight: 600; font-size: 1rem; cursor: pointer; }
 
-/* --- BOTONES ESTILO LINKEDIN --- */
-.action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-primary-lkd {
-  background-color: #0a66c2; /* Azul LinkedIn */
-  color: white;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 24px;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.btn-primary-lkd:hover { background-color: #004182; }
-
-.btn-secondary-lkd {
-  background-color: white;
-  color: #0a66c2;
-  border: 1px solid #0a66c2;
-  padding: 6px 16px;
-  border-radius: 24px;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
-}
-.btn-secondary-lkd:hover { box-shadow: inset 0 0 0 1px #0a66c2; background-color: #ebf4fd; }
-
-/* --- INPUTS DE EDICIÓN --- */
-.input-lkd {
-  display: block;
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 10px;
-  border: 1px solid #666;
-  border-radius: 4px;
-}
+/* --- FORMULARIO EDICIÓN --- */
+.edit-mode { background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+.edit-label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 4px; margin-top: 10px; }
+.input-lkd { display: block; width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
+.edit-actions { margin-top: 15px; display: flex; gap: 10px; }
 
 /* --- SECCIONES EXTRA --- */
-.section-card { padding: 20px; }
-.section-card h3 { font-size: 18px; margin: 0 0 15px 0; }
-
-.suggestion-box {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 15px;
-  display: flex;
-  gap: 15px;
-  background: #f9fafb;
-}
+.section-card, .side-card { padding: 20px; }
+.section-card h3, .side-card h3 { font-size: 18px; margin: 0 0 15px 0; }
+.suggestion-box { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; display: flex; gap: 15px; background: #f9fafb; }
 .icon-bulb { font-size: 24px; }
 .suggestion-text p { margin: 5px 0 0; color: #666; font-size: 14px; }
-
-/* --- SIDEBAR DERECHO --- */
-.side-card { padding: 20px; }
 .side-header { display: flex; justify-content: space-between; align-items: center; }
-.side-header h3 { font-size: 16px; margin: 0; color: #666; font-weight: 600; }
-.edit-icon { color: #666; cursor: pointer; }
 .side-text { color: #666; font-size: 14px; margin-top: 5px; }
-
 .divider { height: 1px; background: #e0e0e0; margin: 15px 0; }
-
-/* Lista de Personas */
 .person-item { display: flex; gap: 10px; margin-bottom: 15px; }
 .person-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #555; }
 .person-info { display: flex; flex-direction: column; }
-.person-info strong { font-size: 14px; }
-.person-info span { font-size: 12px; color: #666; margin-bottom: 5px; }
-.btn-connect {
-  background: white;
-  border: 1px solid #666;
-  border-radius: 16px;
-  padding: 2px 12px;
-  font-weight: 600;
-  color: #666;
-  cursor: pointer;
-  font-size: 14px;
-}
-.btn-connect:hover { background: #e0e0e0; border-width: 2px; }
-
+.btn-connect { background: white; border: 1px solid #666; border-radius: 16px; padding: 2px 12px; font-weight: 600; color: #666; cursor: pointer; font-size: 14px; }
 </style>
