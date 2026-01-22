@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router'; // Importamos el router
+import { useRouter } from 'vue-router';
 
-const router = useRouter(); // Inicializamos el router
+const router = useRouter();
 const searchQuery = ref('');
 
 // --- LÓGICA DE ANIMACIÓN (DINÁMICO) ---
@@ -18,7 +18,6 @@ onMounted(() => {
   document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
 });
 
-// La barra de búsqueda principal sigue funcionando normal
 const searchService = () => {
   if (searchQuery.value.trim()) {
     router.push({ name: 'ClientExplore', query: { q: searchQuery.value } });
@@ -120,11 +119,7 @@ const searchService = () => {
         </div>
         
         <div class="quality-image">
-          <img 
-            src="/fotos/marketinga.jpg" 
-            alt="Trabajo de calidad" 
-            style="width: 100%; border-radius: 8px; object-fit: cover;"
-          >
+          <img src="/fotos/marketinga.jpg" alt="Trabajo de calidad" style="width: 100%; border-radius: 8px; object-fit: cover;">
         </div>
       </div>
     </section>
@@ -132,62 +127,26 @@ const searchService = () => {
     <section class="categories container animate-on-scroll">
       <h2 class="section-title">Explora el mercado</h2>
       <div class="cat-grid">
-        
         <div class="cat-item">
-          <img 
-            src="/fotos/cat-graphic.jpg" 
-            alt="Gráfica y Diseño" 
-            class="cat-img-real"
-          >
-          <div class="cat-content">
-            <h4>Gráfica y Diseño</h4>
-          </div>
+          <img src="/fotos/cat-graphic.jpg" alt="Gráfica y Diseño" class="cat-img-real">
+          <div class="cat-content"><h4>Gráfica y Diseño</h4></div>
         </div>
-
         <div class="cat-item">
-          <img 
-            src="/fotos/cat-programming.jpg" 
-            alt="Programación" 
-            class="cat-img-real"
-          >
-          <div class="cat-content">
-            <h4>Programación</h4>
-          </div>
+          <img src="/fotos/cat-programming.jpg" alt="Programación" class="cat-img-real">
+          <div class="cat-content"><h4>Programación</h4></div>
         </div>
-
         <div class="cat-item">
-          <img 
-            src="/fotos/cat-marketing.jpg" 
-            alt="Marketing Digital" 
-            class="cat-img-real"
-          >
-          <div class="cat-content">
-            <h4>Marketing Digital</h4>
-          </div>
+          <img src="/fotos/cat-marketing.jpg" alt="Marketing Digital" class="cat-img-real">
+          <div class="cat-content"><h4>Marketing Digital</h4></div>
         </div>
-
         <div class="cat-item">
-          <img 
-            src="/fotos/cat-video.jpg" 
-            alt="Video y Animación" 
-            class="cat-img-real"
-          >
-          <div class="cat-content">
-            <h4>Video y Animación</h4>
-          </div>
+          <img src="/fotos/cat-video.jpg" alt="Video y Animación" class="cat-img-real">
+          <div class="cat-content"><h4>Video y Animación</h4></div>
         </div>
-
         <div class="cat-item">
-          <img 
-            src="/fotos/cat-negocios.jpg" 
-            alt="Negocios" 
-            class="cat-img-real"
-          >
-          <div class="cat-content">
-            <h4>Negocios</h4>
-          </div>
+          <img src="/fotos/cat-negocios.jpg" alt="Negocios" class="cat-img-real">
+          <div class="cat-content"><h4>Negocios</h4></div>
         </div>
-
       </div>
     </section>
 
@@ -225,11 +184,7 @@ const searchService = () => {
           <button class="btn-start" @click="router.push('/register')">Comenzar Ahora</button>
         </div>
         <div class="cta-img-placeholder">
-          <img 
-            src="/fotos/persona felix.jpg" 
-            alt="Comenzar" 
-            style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"
-          >
+          <img src="/fotos/persona felix.jpg" alt="Comenzar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
         </div>
       </div>
     </section>
@@ -250,7 +205,7 @@ const searchService = () => {
 .video-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
 .video-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1; }
 .hero-container { position: relative; z-index: 2; width: 100%; }
-.hero-content { max-width: 850px; color: white; }
+.hero-content { max-width: 850px; color: white; margin: 0 auto; } /* Añadido margin 0 auto por si acaso */
 .hero-content h1 { font-size: 4rem; margin-bottom: 30px; font-weight: 800; line-height: 1.1; }
 .highlight { font-family: serif; font-style: italic; color: #F76B1C; }
 
@@ -267,7 +222,7 @@ const searchService = () => {
 .big-tags .pill:hover { background: white; color: #333; border-color: white; }
 
 /* CÓMO FUNCIONA */
-.how-it-works { padding: 100px 24px; background: white; text-align: center; }
+.how-it-works { padding: 100px 0; background: white; text-align: center; }
 .section-title { font-size: 36px; color: #404145; margin-bottom: 60px; font-weight: 800; }
 .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
 .step-card { text-align: center; padding: 20px; }
@@ -277,29 +232,25 @@ const searchService = () => {
 .step-card p { color: #62646a; line-height: 1.6; font-size: 16px; }
 
 /* NUEVA SECCIÓN DE MARKETING (Quality Work) */
-.quality-section { background: #f1fdf7; padding: 100px 24px; }
+.quality-section { background: #f1fdf7; padding: 100px 0; }
 .quality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
 .quality-text h2 { font-size: 36px; font-weight: 800; color: #404145; margin-bottom: 40px; }
 .quality-item { display: flex; gap: 15px; margin-bottom: 24px; }
 .check-icon { color: #0B4C6F; width: 30px; flex-shrink: 0; }
 .quality-item h3 { font-size: 18px; font-weight: 700; color: #404145; margin: 0 0 5px 0; }
 .quality-item p { margin: 0; color: #62646a; line-height: 1.5; }
-.placeholder-box { width: 100%; height: 400px; background: rgba(11, 76, 111, 0.1); border: 2px dashed #0B4C6F; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #0B4C6F; font-weight: bold; }
 
 /* CATEGORÍAS CON IMÁGENES */
-.categories { padding: 100px 24px; background: white; }
+.categories { padding: 100px 0; background: white; }
 .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; }
-.cat-item { 
-  border: 1px solid #e4e5e7; border-radius: 8px; overflow: hidden;
-  cursor: pointer; transition: all 0.2s; background: white; 
-}
+.cat-item { border: 1px solid #e4e5e7; border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.2s; background: white; }
 .cat-item:hover { box-shadow: 0 10px 20px rgba(0,0,0,0.08); transform: translateY(-5px); }
-.cat-img-placeholder { width: 100%; height: 150px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+.cat-img-real { width: 100%; height: 180px; object-fit: cover; border-radius: 8px 8px 0 0; }
 .cat-content { padding: 20px; }
 .cat-content h4 { margin: 0; color: #404145; font-size: 18px; font-weight: 700; }
 
 /* MISIÓN VISIÓN VALORES */
-.mission-section { padding: 80px 24px; background: #fafafa; }
+.mission-section { padding: 80px 0; background: #fafafa; }
 .mission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
 .mission-card { background: white; padding: 30px; border-radius: 8px; border: 1px solid #e4e5e7; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
@@ -320,13 +271,6 @@ const searchService = () => {
   .hero-content h1 { font-size: 2.5rem; }
   .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
   .quality-grid { text-align: left; }
-  .cta-img-placeholder, .placeholder-box { width: 100%; height: 250px; }
-}
-
-.cat-img-real {
-  width: 100%;
-  height: 180px; 
-  object-fit: cover; 
-  border-radius: 8px 8px 0 0; 
+  .cta-img-placeholder { width: 100%; height: 250px; }
 }
 </style>

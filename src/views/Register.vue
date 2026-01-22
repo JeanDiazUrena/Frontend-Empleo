@@ -14,6 +14,7 @@ const errorMessage = ref('');
 
 function handleStep1Submit() {
   errorMessage.value = '';
+  
   if (!name.value || !email.value || !password.value) {
     errorMessage.value = "Por favor completa todos los campos.";
     return;
@@ -22,29 +23,33 @@ function handleStep1Submit() {
     errorMessage.value = "Las contraseñas no coinciden.";
     return;
   }
+  
+  // Simulación de validación de correo existente
   const emailsRegistrados = ['test@correo.com'];
   if (emailsRegistrados.includes(email.value)) {
     errorMessage.value = "Este correo ya está registrado.";
     return;
   }
-  step.value = 2; 
+  
+  step.value = 2; // Avanzar al paso de roles
 }
 
 async function handleRegistration() {
   errorMessage.value = '';
+  
   if (!selectedRole.value) {
     errorMessage.value = "Selecciona un rol para continuar.";
     return;
   }
+
   console.log("Registrando:", { name: name.value, role: selectedRole.value });
 
-  // --- AQUÍ ESTÁ EL CAMBIO ---
+  // --- LÓGICA DE REDIRECCIÓN CORREGIDA ---
   if (selectedRole.value === 'profesional') {
-    // Si quieres que el profesional también vaya a su nuevo dashboard:
-    router.push('/professional/dashboard'); 
-    // O si prefieres que vaya al setup primero: router.push('/professional-setup');
+    // 1. El profesional va a su CONFIGURACIÓN INICIAL primero
+    router.push('/professional-setup'); 
   } else {
-    // REDIRECCIÓN CORRECTA AL NUEVO LAYOUT DE CLIENTE
+    // 2. El cliente va directo a su DASHBOARD
     router.push('/client/dashboard'); 
   }
 }
@@ -229,7 +234,7 @@ async function handleRegistration() {
 .brand-content h1 { font-size: 3rem; font-weight: 800; line-height: 1.1; margin-bottom: 24px; }
 .brand-content p { font-size: 1.25rem; opacity: 0.9; margin-bottom: 40px; line-height: 1.6; }
 
-/* LISTA DE CARACTERÍSTICAS (Con SVGs) */
+/* LISTA DE CARACTERÍSTICAS */
 .feature-list { display: flex; flex-direction: column; gap: 16px; }
 .feature-item { display: flex; align-items: center; gap: 12px; font-size: 1.1rem; font-weight: 500; }
 
@@ -290,7 +295,7 @@ async function handleRegistration() {
 .divider span { padding: 0 15px; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #E5E7EB; }
 
-/* ROLES (PASO 2) CON SVGs */
+/* ROLES (PASO 2) */
 .role-selector { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
 .role-card {
   display: flex; align-items: center; gap: 20px;
