@@ -260,7 +260,7 @@ const searchService = () => {
 
 /* CTA BANNER */
 .cta-banner { background: #0B4C6F; padding: 100px 0; color: white; }
-.cta-content { display: flex; align-items: center; justify-content: space-between; gap: 50px; }
+.cta-content { display: flex; align-items: center; justify-content: space-between; gap: 50px; } 
 .cta-text h2 { font-size: 42px; font-weight: 800; margin-bottom: 16px; }
 .cta-text p { font-size: 18px; margin-bottom: 30px; opacity: 0.9; }
 .btn-start { background: #F76B1C; color: white; border: none; padding: 16px 36px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 18px; transition: 0.2s; }
