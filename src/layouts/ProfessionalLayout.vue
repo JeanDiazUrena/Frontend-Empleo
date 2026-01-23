@@ -1,15 +1,39 @@
 <script setup>
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
 const route = useRoute(); 
 
-const user = {
-  name: "Wilson Montero",
-  role: "Técnico Especialista",
-};
+// 1. ESTADO INICIAL VACÍO (Esperando datos del Backend)
+const user = ref({
+  name: "", 
+  role: ""
+});
 
-// NAVEGACIÓN CORREGIDA (Rutas anidadas)
+// 2. CÁLCULO AUTOMÁTICO DE INICIALES (Ej: "Juan Perez" -> "JP")
+const userInitials = computed(() => {
+  if (!user.value.name) return ''; // Si no hay nombre, no muestra nada
+  const parts = user.value.name.split(' ');
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return parts[0][0].toUpperCase();
+});
+
+// 3. AQUÍ SE CARGARÁN LOS DATOS REALES
+onMounted(() => {
+  // AQUI VA LA LOGICA DE CONEXION (AXIOS GET /api/me)
+  
+  // Por ahora, intentamos leer del localStorage si el Login guardó algo
+  const storedName = localStorage.getItem('user_name');
+  if (storedName) {
+    user.value.name = storedName;
+    user.value.role = "Profesional Verificado"; // O lo que traiga la BD
+  }
+});
+
+// NAVEGACIÓN
 const goTo = (path) => router.push(path);
 const isActive = (path) => route.path.includes(path);
 </script>
@@ -25,7 +49,9 @@ const isActive = (path) => route.path.includes(path);
 
       <div class="dash-right">
         <span class="user-name">{{ user.name }}</span>
-        <div class="avatar-circle">WM</div>
+        <div class="avatar-circle">
+          {{ userInitials }}
+        </div>
       </div>
     </nav>
 
@@ -33,10 +59,12 @@ const isActive = (path) => route.path.includes(path);
       
       <aside class="dash-sidebar">
         <div class="mini-profile" @click="goTo('/professional/profile')">
-           <div class="avatar-circle-lg">WM</div>
+           <div class="avatar-circle-lg">
+             {{ userInitials }}
+           </div>
            <div class="info">
-             <h4>{{ user.name }}</h4>
-             <p class="role-text">{{ user.role }}</p>
+             <h4>{{ user.name || 'Cargando...' }}</h4>
+             <p class="role-text">{{ user.role || '---' }}</p>
            </div>
         </div>
 
@@ -78,9 +106,9 @@ const isActive = (path) => route.path.includes(path);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  width: 100vw; /* Forzamos ancho completo */
+  width: 100vw; 
   background-color: #F8F9FA;
-  position: absolute; /* Truco para asegurar que salga del container global */
+  position: absolute; 
   top: 0;
   left: 0;
 }
@@ -107,12 +135,12 @@ const isActive = (path) => route.path.includes(path);
 .dot { color: #F76B1C; }
 
 .dash-right { display: flex; align-items: center; gap: 12px; }
-.avatar-circle { width: 36px; height: 36px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.avatar-circle { width: 36px; height: 36px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; }
 
 /* CUERPO DEL DASHBOARD */
 .dash-body {
   display: flex;
-  margin-top: 70px; /* Espacio para el navbar fijo */
+  margin-top: 70px; 
   height: calc(100vh - 70px);
 }
 
@@ -132,9 +160,9 @@ const isActive = (path) => route.path.includes(path);
 }
 
 .mini-profile { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid #eee; margin-bottom: 20px; cursor: pointer; }
-.avatar-circle-lg { width: 48px; height: 48px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 700; }
-.info h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #333; }
-.role-text { margin: 0; font-size: 0.8rem; color: #777; }
+.avatar-circle-lg { width: 48px; height: 48px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; }
+.info h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #333; min-height: 1.2em; } /* min-height evita saltos si está vacío */
+.role-text { margin: 0; font-size: 0.8rem; color: #777; min-height: 1em; }
 
 /* MENÚ */
 .menu-list { list-style: none; padding: 0; margin: 0; }
@@ -152,7 +180,7 @@ const isActive = (path) => route.path.includes(path);
 
 /* CONTENIDO PRINCIPAL */
 .dash-content {
-  margin-left: 260px; /* Dejamos espacio para el sidebar */
+  margin-left: 260px; 
   padding: 30px;
   width: 100%;
   overflow-y: auto;
