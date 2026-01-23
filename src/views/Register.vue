@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from "axios";
+
 
 const router = useRouter();
 const step = ref(1); 
@@ -36,23 +38,39 @@ function handleStep1Submit() {
 
 async function handleRegistration() {
   errorMessage.value = '';
-  
+
   if (!selectedRole.value) {
     errorMessage.value = "Selecciona un rol para continuar.";
     return;
   }
 
-  console.log("Registrando:", { name: name.value, role: selectedRole.value });
+  try {
+    await axios.post("http://127.0.0.1:3000/api/register", {
+      nombre: name.value,
+      email: email.value,
+      password: password.value,
+      rol: selectedRole.value
+    });
 
-  // --- LÓGICA DE REDIRECCIÓN CORREGIDA ---
-  if (selectedRole.value === 'profesional') {
-    // 1. El profesional va a su CONFIGURACIÓN INICIAL primero
-    router.push('/professional-setup'); 
-  } else {
-    // 2. El cliente va directo a su DASHBOARD
-    router.push('/client/dashboard'); 
+    if (selectedRole.value === 'profesional') {
+      router.push('/professional-setup');
+    } else {
+      router.push('/client/dashboard');
+    }
+
+  } catch (error) {
+    console.log("ERROR AXIOS:", error);
+
+    if (error.response) {
+      errorMessage.value = error.response.data.message;
+    } else if (error.request) {
+      errorMessage.value = "No hay respuesta del servidor (CORS o URL)";
+    } else {
+      errorMessage.value = error.message;
+    }
   }
 }
+
 </script>
 
 <template>
