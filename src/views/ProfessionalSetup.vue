@@ -1,3 +1,161 @@
+<script setup>
+import { reactive, ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import axios from "axios";
+import './ProfessionalSetup.css'; 
+
+const router = useRouter();
+
+// --- DATOS ESTÁTICOS ---
+const locationsDB = {
+  "Santiago de los Caballeros": ["Villa Olga", "Villa Olímpica", "Los Jardines", "Gurabo", "El Embrujo", "Pekín", "Cienfuegos", "Centro Histórico"],
+  "Santo Domingo": ["Piantini", "Naco", "Gazcue", "Bella Vista", "Zona Colonial", "Arroyo Hondo", "Los Prados"],
+  "La Vega": ["Villa Palmarito", "Las Carolinas", "El Hatico", "Centro Ciudad"],
+  "Puerto Plata": ["Torre Alta", "Bayardo", "Playa Dorada", "San Felipe"]
+};
+
+const commonProfessions = [
+  "Desarrollador Web", "Plomero", "Electricista", "Diseñador Gráfico",
+  "Abogado", "Contador", "Profesor de Idiomas", "Carpintero",
+  "Maquillista", "Fotógrafo", "Mecánico", "Personal Trainer"
+];
+
+const selectedProfessionSelect = ref("");
+const availableSectors = ref([]);
+const geoStatus = ref("");
+const isSaving = ref(false);
+
+const form = reactive({
+  avatar: null,
+  cover: null,
+  profession: '',
+  bio: '',
+  category: '',
+  experience: null,
+  skills: '',
+  website: '',
+  phone: '',
+  emailPublic: '',
+  location: '',
+  coverageArea: '', 
+  workingHours: '',
+  latitude: null,
+  longitude: null
+});
+
+// --- VALIDAR SESIÓN AL CARGAR ---
+onMounted(() => {
+  const userId = localStorage.getItem("usuario_id");
+  if (!userId) {
+    alert(" Por seguridad, debes iniciar sesión antes de configurar tu perfil.");
+    router.push("/login");
+  } else {
+    console.log(" ID de usuario detectado:", userId);
+  }
+});
+
+// --- FUNCIONES UI ---
+const handleProfessionChange = () => {
+  if (selectedProfessionSelect.value !== 'Otro') {
+    form.profession = selectedProfessionSelect.value;
+  } else {
+    form.profession = '';
+  }
+};
+
+const updateSectors = () => {
+  if (form.location && locationsDB[form.location]) {
+    availableSectors.value = locationsDB[form.location];
+    form.coverageArea = ""; 
+  } else {
+    availableSectors.value = [];
+  }
+};
+
+const detectLocation = () => {
+  if (!navigator.geolocation) {
+    geoStatus.value = "Tu navegador no soporta geolocalización.";
+    return;
+  }
+  geoStatus.value = "Localizando...";
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      form.latitude = latitude;
+      form.longitude = longitude;
+      form.location = "Santiago de los Caballeros"; 
+      updateSectors();
+      geoStatus.value = "Ubicación detectada: Santiago";
+    },
+    (error) => {
+      console.error(error);
+      geoStatus.value = "No se pudo obtener la ubicación.";
+    }
+  );
+};
+
+const handleAvatarChange = (event) => {
+  const file = event.target.files[0];
+  if (file) form.avatar = URL.createObjectURL(file);
+};
+const handleCoverChange = (event) => {
+  const file = event.target.files[0];
+  if (file) form.cover = URL.createObjectURL(file);
+};
+
+// --- GUARDAR PERFIL (CONEXIÓN AL BACKEND) ---
+const saveProfile = async () => {
+  const usuario_id = localStorage.getItem("usuario_id");
+
+  if (!usuario_id) {
+    alert("Error de sesión. ID de usuario perdido.");
+    return;
+  }
+
+  isSaving.value = true;
+
+  try {
+    const habilidadesArray = form.skills ? form.skills.split(",").map(h => h.trim()) : [];
+
+    const payload = {
+      usuario_id: usuario_id,
+      profesion: form.profession,
+      biografia: form.bio,
+      categoria: form.category,
+      anios_experiencia: form.experience || 0,
+      sitio_web: form.website,
+      telefono: form.phone,
+      email_publico: form.emailPublic,
+      ciudad: form.location,
+      sector: form.coverageArea,
+      horario: form.workingHours,
+      habilidades: habilidadesArray
+    };
+
+    console.log(" Enviando datos al puerto 3001:", payload);
+
+    //  CAMBIO CRUCIAL: PUERTO 3001
+    await axios.post("http://localhost:3001/api/perfiles", payload);
+
+    alert("¡Perfil configurado exitosamente!");
+    router.push("/client/dashboard"); // O a donde quieras redirigir
+
+  } catch (error) {
+    console.error(" Error al guardar perfil:", error);
+    
+    if (error.code === "ERR_NETWORK") {
+      alert("Error: El servidor del puerto 3001 está apagado.");
+    } else {
+      // Muestra el error real que viene del backend
+      const msg = error.response?.data?.message || "Error desconocido";
+      alert("Hubo un error: " + msg);
+    }
+  } finally {
+    isSaving.value = false;
+  }
+};
+</script>
+
 <template>
   <div class="setup-container">
     <header class="setup-header">
@@ -39,7 +197,6 @@
               
               <div class="input-group full-width">
                 <label>Profesión / Título Principal *</label>
-                
                 <select v-model="selectedProfessionSelect" @change="handleProfessionChange" class="mb-2">
                   <option value="" disabled selected>Selecciona tu profesión</option>
                   <option v-for="job in commonProfessions" :key="job" :value="job">{{ job }}</option>
@@ -125,11 +282,11 @@
                     </option>
                   </select>
                   
-                 <button type="button" class="btn-geo" @click="detectLocation" title="Usar mi ubicación actual">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-geo">
-    <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-  </svg>
-</button>
+                  <button type="button" class="btn-geo" @click="detectLocation" title="Usar mi ubicación actual">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-geo">
+                      <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
                 </div>
                 <small v-if="geoStatus" class="geo-status">{{ geoStatus }}</small>
               </div>
@@ -155,7 +312,9 @@
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary">Guardar Perfil y Continuar</button>
+            <button type="submit" class="btn-primary" :disabled="isSaving">
+              {{ isSaving ? 'Guardando...' : 'Guardar Perfil y Continuar' }}
+            </button>
           </div>
 
         </form>
@@ -164,208 +323,19 @@
   </div>
 </template>
 
-<script setup>
-import { reactive, ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import './ProfessionalSetup.css'; // Asegúrate que tu CSS esté vinculado
-
-const router = useRouter();
-
-// --- ESTADO Y DATOS ---
-
-// 1. Base de datos simulada de Ubicaciones (RD)
-// En una app real, esto vendría de una API o Base de Datos
-const locationsDB = {
-  "Santiago de los Caballeros": ["Villa Olga", "Villa Olímpica", "Los Jardines", "Gurabo", "El Embrujo", "Pekín", "Cienfuegos", "Centro Histórico"],
-  "Santo Domingo": ["Piantini", "Naco", "Gazcue", "Bella Vista", "Zona Colonial", "Arroyo Hondo", "Los Prados"],
-  "La Vega": ["Villa Palmarito", "Las Carolinas", "El Hatico", "Centro Ciudad"],
-  "Puerto Plata": ["Torre Alta", "Bayardo", "Playa Dorada", "San Felipe"]
-};
-
-// 2. Lista de Profesiones Comunes
-const commonProfessions = [
-  "Desarrollador Web", "Plomero", "Electricista", "Diseñador Gráfico",
-  "Abogado", "Contador", "Profesor de Idiomas", "Carpintero",
-  "Maquillista", "Fotógrafo", "Mecánico", "Personal Trainer"
-];
-
-const selectedProfessionSelect = ref(""); // Variable temporal para el select
-const availableSectors = ref([]); // Lista dinámica de sectores
-const geoStatus = ref(""); // Mensaje de estado del GPS
-
-const form = reactive({
-  avatar: null,
-  cover: null,
-  profession: '',
-  bio: '',
-  category: '',
-  experience: null,
-  skills: '',
-  website: '',
-  phone: '',
-  emailPublic: '',
-  location: '',
-  coverageArea: '', 
-  workingHours: '',
-  latitude: null, // Guardaremos coordenadas si usan GPS
-  longitude: null
-});
-
-// --- LÓGICA DE PROFESIÓN ---
-const handleProfessionChange = () => {
-  if (selectedProfessionSelect.value !== 'Otro') {
-    // Si elige una de la lista, guardamos esa en el form
-    form.profession = selectedProfessionSelect.value;
-  } else {
-    // Si elige 'Otro', limpiamos el form para que escriba
-    form.profession = '';
-  }
-};
-
-// --- LÓGICA DE UBICACIÓN ---
-
-// A. Actualizar sectores cuando cambia la ciudad
-const updateSectors = () => {
-  if (form.location && locationsDB[form.location]) {
-    availableSectors.value = locationsDB[form.location];
-    form.coverageArea = ""; // Resetear sector al cambiar ciudad
-  } else {
-    availableSectors.value = [];
-  }
-};
-
-// B. Geolocalización (Pedir al navegador)
-const detectLocation = () => {
-  if (!navigator.geolocation) {
-    geoStatus.value = "Tu navegador no soporta geolocalización.";
-    return;
-  }
-
-  geoStatus.value = "Localizando...";
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-      form.latitude = latitude;
-      form.longitude = longitude;
-      
-      // AQUÍ OCURRE LA MAGIA:
-      // En una app real, llamarías a una API (Google Maps o OpenStreetMap) 
-      // para convertir lat/long en "Santiago". 
-      // Por ahora, simularemos que detectó Santiago para que veas el efecto:
-      
-      form.location = "Santiago de los Caballeros"; 
-      updateSectors(); // Carga los sectores de Santiago automáticamente
-      geoStatus.value = "Ubicación detectada: Santiago";
-    },
-    (error) => {
-      console.error(error);
-      geoStatus.value = "No se pudo obtener la ubicación. Activa el GPS.";
-    }
-  );
-};
-
-// --- LÓGICA DE IMÁGENES (Igual que antes) ---
-const handleAvatarChange = (event) => {
-  const file = event.target.files[0];
-  if (file) form.avatar = URL.createObjectURL(file);
-};
-const handleCoverChange = (event) => {
-  const file = event.target.files[0];
-  if (file) form.cover = URL.createObjectURL(file);
-};
-
-const saveProfile = () => {
-  console.log('Perfil guardado:', form);
-  // Aquí enviarías form a tu backend
-  router.push('/create-first-post');
-};
-</script>
-
 <style scoped>
-/* Agrega estos estilos a tu CSS o déjalos aquí */
-
-/* Animación suave para el input de "Otro" */
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-in;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
+/* Estilos específicos que no estén en el CSS importado */
+.animate-fade-in { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 .mb-2 { margin-bottom: 10px; }
-
-/* Contenedor de ubicación + botón GPS */
-.location-wrapper {
-  display: flex;
-  gap: 10px;
-}
-.location-wrapper select {
-  flex: 1; /* El select ocupa todo el espacio posible */
-}
-.btn-geo {
-  padding: 0 15px;
-  font-size: 1.2rem;
-  background: #EBF4F8;
-  border: 1px solid #c5c6c9;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-.btn-geo:hover {
-  background: #dcebf2;
-  border-color: #0B4C6F;
-}
-.geo-status {
-  display: block;
-  margin-top: 5px;
-  font-size: 0.8rem;
-  color: #0B4C6F;
-}
-
-/* Contador de caracteres */
-.char-counter {
-  text-align: right; font-size: 0.85rem; color: #666; margin-top: 4px;
-}
+.location-wrapper { display: flex; gap: 10px; }
+.location-wrapper select { flex: 1; }
+.btn-geo { display: flex; align-items: center; justify-content: center; padding: 0 12px; background: #EBF4F8; border: 1px solid #c5c6c9; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; height: 46px; }
+.btn-geo:hover { background: white; border-color: #F76B1C; box-shadow: 0 2px 5px rgba(247, 107, 28, 0.15); }
+.icon-geo { width: 24px; height: 24px; color: #0B4C6F; transition: transform 0.2s ease; }
+.btn-geo:hover .icon-geo { color: #F76B1C; transform: translateY(-2px); }
+.geo-status { display: block; margin-top: 5px; font-size: 0.8rem; color: #0B4C6F; }
+.char-counter { text-align: right; font-size: 0.85rem; color: #666; margin-top: 4px; }
 .limit-reached { color: #d9534f; font-weight: bold; }
-
-
-.btn-geo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  background: #EBF4F8; /* Fondo suave */
-  border: 1px solid #c5c6c9;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  height: 46px; /* Misma altura que el input select */
-}
-
-/* Estilo del Ícono SVG */
-.icon-geo {
-  width: 24px;
-  height: 24px;
-  color: #0B4C6F; /* Azul de tu marca */
-  transition: transform 0.2s ease;
-}
-
-/* Efecto al pasar el mouse */
-.btn-geo:hover {
-  background: white;
-  border-color: #F76B1C; /* Borde naranja al hacer hover */
-  box-shadow: 0 2px 5px rgba(247, 107, 28, 0.15);
-}
-
-.btn-geo:hover .icon-geo {
-  color: #F76B1C; /* El ícono cambia a naranja */
-  transform: translateY(-2px); /* Pequeño salto animado */
-}
-
-/* Efecto al hacer click */
-.btn-geo:active {
-  transform: scale(0.95);
-}
+button:disabled { opacity: 0.7; cursor: not-allowed; }
 </style>

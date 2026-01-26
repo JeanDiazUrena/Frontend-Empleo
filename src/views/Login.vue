@@ -1,19 +1,68 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
+import axios from 'axios'; // Importamos la librería para conectar con el backend
 
 const router = useRouter();
 const email = ref('');
 const password = ref('');
 const errorMessage = ref('');
+const isLoading = ref(false); // Para deshabilitar el botón mientras carga
 
-function handleLogin() {
+async function handleLogin() {
   errorMessage.value = '';
+  
+  // 1. Validación básica de campos vacíos
   if (!email.value || !password.value) {
     errorMessage.value = "Por favor completa todos los campos.";
     return;
   }
-  router.push('/client/dashboard');
+
+  isLoading.value = true;
+
+  try {
+    // 2. CONEXIÓN REAL AL BACKEND
+    // Enviamos el email y password a tu servidor (puerto 3000)
+    const response = await axios.post('http://localhost:3000/api/login', {
+      email: email.value,
+      password: password.value
+    });
+
+    // 3. SI EL BACKEND DICE "OK" (Status 200)
+    // El backend te devuelve: { token: "...", user: { rol: "cliente", ... } }
+    const { token, user } = response.data;
+
+    // Guardamos la sesión en el navegador
+    localStorage.setItem('token', token);
+    localStorage.setItem('usuario_id', user.id);
+    localStorage.setItem('user_role', user.rol);
+    localStorage.setItem('user_name', user.nombre);
+
+    console.log("Login exitoso. Rol detectado:", user.rol);
+
+    // 4. REDIRECCIÓN BASADA EN EL ROL DE LA BASE DE DATOS
+    if (user.rol === 'profesional') {
+      router.push('/professional/dashboard');
+    } else {
+      router.push('/client/dashboard');
+    }
+
+  } catch (error) {
+    console.error("Error de autenticación:", error);
+
+    // 5. MANEJO DE ERRORES (Credenciales malas o Servidor apagado)
+    if (error.response) {
+      // El servidor respondió con un error (ej: 401 Credenciales inválidas)
+      errorMessage.value = error.response.data.message || "Usuario o contraseña incorrectos.";
+    } else if (error.request) {
+      // El servidor no respondió (está apagado)
+      errorMessage.value = "Error de conexión: El servidor no responde. Verifica que el backend esté corriendo.";
+    } else {
+      errorMessage.value = "Ocurrió un error inesperado.";
+    }
+  } finally {
+    isLoading.value = false;
+  }
 }
 </script>
 
@@ -40,9 +89,9 @@ function handleLogin() {
             <h1>Bienvenido de nuevo.</h1>
             <p>La plataforma donde profesionales y clientes conectan de forma segura.</p>
             <div class="pills">
-              <span> Seguro</span>
-              <span> Rápido</span>
-              <span> Confiable</span>
+              <span>🔒 Seguro</span>
+              <span>⚡ Rápido</span>
+              <span>🤝 Confiable</span>
             </div>
           </div>
         </div>
@@ -79,7 +128,9 @@ function handleLogin() {
               <a href="#">¿Olvidaste tu contraseña?</a>
             </div>
 
-            <button type="submit" class="btn-submit">Entrar</button>
+            <button type="submit" class="btn-submit" :disabled="isLoading">
+              {{ isLoading ? 'Verificando...' : 'Entrar' }}
+            </button>
           </form>
         </div>
       </div>
@@ -90,13 +141,13 @@ function handleLogin() {
 <style scoped>
 /* FORZAR PANTALLA COMPLETA ABSOLUTA */
 .login-page-fullscreen {
-  position: fixed; /* Esto saca al login del flujo normal y cubre todo */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
   background: white;
-  z-index: 9999; /* Asegura que esté encima de todo */
+  z-index: 9999;
   display: flex;
   flex-direction: column;
 }
@@ -149,8 +200,8 @@ function handleLogin() {
 
 .form-content {
   width: 100%;
-  max-width: 550px; /* Ancho máximo del formulario, pero centrado en el área grande */
-  margin-top: 40px; /* Espacio para el nav */
+  max-width: 550px;
+  margin-top: 40px;
 }
 
 .form-header { text-align: center; margin-bottom: 40px; }
@@ -162,7 +213,18 @@ function handleLogin() {
 .field input:focus { border-color: #0B4C6F; background: white; outline: none; }
 
 .btn-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; background: white; border: 1px solid #D1D5DB; border-radius: 10px; font-weight: 600; cursor: pointer; }
-.btn-submit { width: 100%; background: #0B4C6F; color: white; padding: 16px; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 20px; }
+.btn-submit { width: 100%; background: #0B4C6F; color: white; padding: 16px; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 20px; transition: 0.3s; }
+.btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+
+.error-msg {
+  background-color: #FEE2E2;
+  color: #DC2626;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  text-align: center;
+  border: 1px solid #FCA5A5;
+}
 
 .separator { display: flex; align-items: center; color: #9CA3AF; margin: 20px 0; }
 .separator span { padding: 0 15px; }
@@ -175,6 +237,6 @@ function handleLogin() {
   .image-panel { display: none; }
   .form-panel { width: 100%; padding: 20px; }
   .brand-link { color: #0B4C6F; }
-  .nav-right { display: none; } /* Simplificar en móvil */
+  .nav-right { display: none; }
 }
 </style>
