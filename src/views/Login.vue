@@ -89,9 +89,9 @@ async function handleLogin() {
             <h1>Bienvenido de nuevo.</h1>
             <p>La plataforma donde profesionales y clientes conectan de forma segura.</p>
             <div class="pills">
-              <span>🔒 Seguro</span>
-              <span>⚡ Rápido</span>
-              <span>🤝 Confiable</span>
+              <span> Seguro</span>
+              <span> Rápido</span>
+              <span> Confiable</span>
             </div>
           </div>
         </div>

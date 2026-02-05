@@ -25,7 +25,7 @@ import ChatProfessional from '../views/ChatProfessional.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
 
 const routes = [
-  // 1. RUTA PÚBLICA NORMAL (Usa Layout con Navbar y Footer)
+  // 1. RUTA PUBLICA NORMAL
   {
     path: '/',
     component: PublicLayout,
@@ -34,8 +34,7 @@ const routes = [
     ]
   },
 
-  // 2. RUTAS DE AUTENTICACIÓN (SUELTAS / PANTALLA COMPLETA)
-  // IMPORTANTE: Las sacamos del PublicLayout para que no tengan Navbar/Footer
+  // 2. RUTAS DE AUTENTICACION
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: Register },
 
@@ -64,9 +63,17 @@ const routes = [
     ]
   },
 
-  // 5. CONFIGURACIÓN
+  // 5. CONFIGURACION Y PUBLICACIONES
   { path: '/professional-setup', name: 'ProfessionalSetup', component: ProfessionalSetup },
   { path: '/create-first-post', name: 'CreateFirstPost', component: CreateFirstPost },
+  
+  // --- ESTA ES LA RUTA QUE FALTABA PARA QUE FUNCIONE EL BOTON DE EDITAR ---
+  { 
+    path: '/edit-post/:id', 
+    name: 'EditPost', 
+    component: CreateFirstPost, 
+    props: true 
+  },
 ];
 
 const router = createRouter({

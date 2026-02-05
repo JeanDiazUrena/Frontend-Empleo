@@ -1,29 +1,45 @@
 <script setup>
-import { ref, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import axios from 'axios';
 import './CreateFirstPost.css';
 
 const router = useRouter();
-const fileInputRef = ref(null);
+const route = useRoute();
 
-// 1. Variable reactiva para el mensaje de error
+const fileInputRef = ref(null);
 const errorMessage = ref('');
+const isPublishing = ref(false);
+const isDeleting = ref(false);
+
+// Obtenemos el ID de la URL (ej: /edit-post/123)
+const postId = route.params.id; 
+const isEditing = computed(() => !!postId);
 
 const form = reactive({
   description: '',
-  serviceId: '',
+  serviceTitle: '', 
   imageFile: null
 });
 
 const imagePreview = ref(null);
 
-const myServices = [
-  { id: 1, name: 'Reparación de Laptops' },
-  { id: 2, name: 'Instalación de Software' },
-  { id: 3, name: 'Mantenimiento Preventivo' }
-];
-
-// --- Funciones ---
+// AL CARGAR: Si estamos editando, traemos los datos del servidor
+onMounted(async () => {
+  if (isEditing.value) {
+    try {
+      const response = await axios.get(`http://localhost:3001/api/portfolio/single/${postId}`);
+      const data = response.data;
+      
+      form.description = data.descripcion;
+      form.serviceTitle = data.titulo;
+      imagePreview.value = data.imagen_url; 
+    } catch (error) {
+      console.error("Error cargando publicacion:", error);
+      errorMessage.value = "Error al cargar los datos para editar.";
+    }
+  }
+});
 
 const triggerFileUpload = () => {
   fileInputRef.value.click();
@@ -34,7 +50,7 @@ const handleFileChange = (event) => {
   if (file) {
     form.imageFile = file;
     imagePreview.value = URL.createObjectURL(file);
-    errorMessage.value = ''; // Limpiamos error al seleccionar foto
+    errorMessage.value = ''; 
   }
 };
 
@@ -43,51 +59,104 @@ const removeImage = () => {
   imagePreview.value = null;
 };
 
-// --- FUNCIÓN ACTUALIZADA ---
-const handlePublish = () => {
-  // Limpiar mensaje previo
+// Logica unificada para CREAR o EDITAR
+const handlePublish = async () => {
   errorMessage.value = '';
 
   // Validaciones
-  if (!form.description && !form.imageFile) {
-    errorMessage.value = "⚠️ Por favor, añade una descripción o una imagen.";
+  if (!form.description && !imagePreview.value) {
+    errorMessage.value = "Error: Debes agregar una descripcion o una imagen.";
     return;
   }
-  if (!form.serviceId) {
-    errorMessage.value = "⚠️ Por favor, selecciona un servicio relacionado.";
+  if (!form.serviceTitle || !form.serviceTitle.trim()) {
+    errorMessage.value = "Error: El titulo del servicio es obligatorio.";
+    return;
+  }
+  
+  const userId = localStorage.getItem('usuario_id');
+  if (!userId) {
+    alert("Sesion expirada.");
+    router.push('/login');
     return;
   }
 
-  // Si pasa las validaciones...
-  console.log("--- PUBLICANDO POST ---");
-  console.log("Descripción:", form.description);
-  console.log("Servicio ID:", form.serviceId);
+  const formData = new FormData();
+  formData.append('profesional_id', userId);
+  formData.append('titulo', form.serviceTitle);
+  formData.append('descripcion', form.description);
   
-  // Éxito: Redirigir al Dashboard del Profesional
-  router.push('/professional-dashboard');
+  if (form.imageFile) {
+    formData.append('imagen', form.imageFile);
+  }
+
+  try {
+    isPublishing.value = true;
+    
+    if (isEditing.value) {
+      // MODO EDICION (PUT)
+      await axios.put(`http://localhost:3001/api/portfolio/${postId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert("Publicacion actualizada correctamente.");
+    } else {
+      // MODO CREACION (POST)
+      await axios.post('http://localhost:3001/api/portfolio', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert("Publicacion creada exitosamente.");
+    }
+
+    router.push('/professional/profile'); 
+
+  } catch (error) {
+    console.error("Error al guardar:", error);
+    errorMessage.value = "Error de conexion con el servidor.";
+  } finally {
+    isPublishing.value = false;
+  }
 };
 
-// --- FUNCIÓN ACTUALIZADA ---
+// Logica para ELIMINAR
+const handleDelete = async () => {
+  if (!confirm("Estas seguro de que deseas eliminar esta publicacion?")) {
+    return;
+  }
+
+  try {
+    isDeleting.value = true;
+    await axios.delete(`http://localhost:3001/api/portfolio/${postId}`);
+    alert("Publicacion eliminada.");
+    router.push('/professional/profile');
+  } catch (error) {
+    console.error("Error al eliminar:", error);
+    errorMessage.value = "No se pudo eliminar la publicacion.";
+  } finally {
+    isDeleting.value = false;
+  }
+};
+
 const closePost = () => {
-  // Si cierra sin publicar, también va al dashboard profesional
-  router.push('/professional/dashboard');
+  router.push('/professional/profile');
 };
 </script>
 
 <template>
   <div class="modal-overlay">
     <div class="modal-container">
+      
       <div class="modal-header">
         <button class="btn-close" @click="closePost" title="Cerrar">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-close">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
-        <span class="modal-title-small">Crear Publicación</span>
-        <button class="btn-publish-small" @click="handlePublish">Publicar</button>
+        
+        <span class="modal-title-small">{{ isEditing ? 'Editar Publicacion' : 'Crear Publicacion' }}</span>
+        
+        <button class="btn-publish-small" @click="handlePublish" :disabled="isPublishing">
+          {{ isPublishing ? 'Guardando...' : (isEditing ? 'Guardar' : 'Publicar') }}
+        </button>
       </div>
 
-      <h1 class="main-title">Crear Nueva Publicación</h1>
+      <h1 class="main-title">{{ isEditing ? 'Editar Publicacion' : 'Crear Nueva Publicacion' }}</h1>
 
       <div class="modal-body">
         
@@ -95,66 +164,104 @@ const closePost = () => {
           <h3 class="section-title">Muestra tu Trabajo</h3>
           
           <div class="upload-area" :class="{ 'has-image': imagePreview }">
-            
             <div v-if="!imagePreview" class="upload-placeholder" @click="triggerFileUpload">
-              <p class="upload-text-main">Arrastra y suelta fotos o videos</p>
-              <p class="upload-text-sub">o selecciona desde tu dispositivo</p>
-              <button type="button" class="btn-select-gallery">Seleccionar de la galería</button>
-              <input 
-                type="file" 
-                ref="fileInputRef" 
-                accept="image/*" 
-                @change="handleFileChange" 
-                hidden
-              >
+              <p class="upload-text-main">Haz clic para seleccionar fotos</p>
+              <button type="button" class="btn-select-gallery">Seleccionar</button>
+              <input type="file" ref="fileInputRef" accept="image/*" @change="handleFileChange" hidden>
             </div>
 
             <div v-else class="preview-container">
-              <img :src="imagePreview" alt="Preview del trabajo">
-              <button type="button" class="btn-remove-img" @click="removeImage" title="Eliminar imagen">✕</button>
+              <img :src="imagePreview" alt="Vista previa">
+              <button type="button" class="btn-remove-img" @click="removeImage">Quitar imagen</button>
             </div>
           </div>
         </div>
 
         <div class="section">
-          <h3 class="section-title">Describe el Trabajo Realizado</h3>
+          <h3 class="section-title">Describe el Trabajo</h3>
           <textarea 
             v-model="form.description" 
-            placeholder="Escribe una descripción detallada de tu trabajo, los materiales usados, el tiempo que tomó, etc." 
+            placeholder="Detalles del trabajo..." 
             class="post-textarea"
             rows="4"
-            @input="errorMessage = ''" 
           ></textarea>
         </div>
 
         <div class="section">
-          <h3 class="section-title">Servicios Relacionados</h3>
-          <div class="select-wrapper">
-            <select v-model="form.serviceId" class="service-select" @change="errorMessage = ''">
-              <option value="" disabled selected>Asocia esta publicación a un servicio</option>
-              <option v-for="service in myServices" :key="service.id" :value="service.id">
-                {{ service.name }}
-              </option>
-            </select>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="select-icon">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-            </svg>
-          </div>
+          <h3 class="section-title">Servicio Relacionado</h3>
+          <input 
+            type="text" 
+            v-model="form.serviceTitle" 
+            class="service-input" 
+            placeholder="Ej: Reparacion de laptop..." 
+          />
         </div>
 
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer footer-actions">
         
-        <div v-if="errorMessage" class="error-alert">
-          {{ errorMessage }}
-        </div>
-
-        <button class="btn-publish-large" @click="handlePublish">
-          Publicar en mi Muro
+        <div v-if="errorMessage" class="error-alert">{{ errorMessage }}</div>
+        
+        <button v-if="isEditing" class="btn-delete" @click="handleDelete" :disabled="isDeleting">
+          {{ isDeleting ? 'Eliminando...' : 'Eliminar Publicacion' }}
         </button>
+
+        <button class="btn-publish-large" @click="handlePublish" :disabled="isPublishing">
+          {{ isPublishing ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Publicar en mi Muro') }}
+        </button>
+        
       </div>
 
     </div>
   </div>
 </template>
+
+<style scoped>
+.service-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+.service-input:focus {
+  outline: none;
+  border-color: #0B4C6F;
+  box-shadow: 0 0 0 2px rgba(11, 76, 111, 0.1);
+}
+
+/* Footer para separar botones */
+.footer-actions {
+  display: flex;
+  justify-content: space-between; 
+  align-items: center;
+  gap: 10px;
+}
+
+/* Estilo boton eliminar */
+.btn-delete {
+  background-color: white;
+  border: 1px solid #dc2626;
+  color: #dc2626;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.btn-delete:hover {
+  background-color: #fef2f2;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-alert {
+  color: #dc2626;
+  font-weight: bold;
+}
+</style>

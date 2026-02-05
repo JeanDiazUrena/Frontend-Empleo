@@ -1,155 +1,154 @@
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, computed } from 'vue'; 
 import { useRouter } from 'vue-router';
 import axios from "axios";
 import './ProfessionalSetup.css'; 
 
 const router = useRouter();
+const isSaving = ref(false);
+const isEditingMode = ref(false);
 
-// --- DATOS ESTÁTICOS ---
+const fileAvatar = ref(null);
+const fileCover = ref(null);
+const previewAvatar = ref(null);
+const previewCover = ref(null);
+
 const locationsDB = {
-  "Santiago de los Caballeros": ["Villa Olga", "Villa Olímpica", "Los Jardines", "Gurabo", "El Embrujo", "Pekín", "Cienfuegos", "Centro Histórico"],
+  "Santiago de los Caballeros": ["Villa Olga", "Los Jardines", "Gurabo", "El Embrujo", "Pekin", "Cienfuegos", "Centro Historico"],
   "Santo Domingo": ["Piantini", "Naco", "Gazcue", "Bella Vista", "Zona Colonial", "Arroyo Hondo", "Los Prados"],
   "La Vega": ["Villa Palmarito", "Las Carolinas", "El Hatico", "Centro Ciudad"],
   "Puerto Plata": ["Torre Alta", "Bayardo", "Playa Dorada", "San Felipe"]
 };
-
-const commonProfessions = [
-  "Desarrollador Web", "Plomero", "Electricista", "Diseñador Gráfico",
-  "Abogado", "Contador", "Profesor de Idiomas", "Carpintero",
-  "Maquillista", "Fotógrafo", "Mecánico", "Personal Trainer"
-];
-
+const commonProfessions = ["Plomero", "Electricista", "Abogado", "Desarrollador Web"];
 const selectedProfessionSelect = ref("");
 const availableSectors = ref([]);
-const geoStatus = ref("");
-const isSaving = ref(false);
 
 const form = reactive({
-  avatar: null,
-  cover: null,
-  profession: '',
-  bio: '',
-  category: '',
-  experience: null,
-  skills: '',
-  website: '',
-  phone: '',
-  emailPublic: '',
-  location: '',
-  coverageArea: '', 
-  workingHours: '',
-  latitude: null,
-  longitude: null
+  profession: '', bio: '', category: '', experience: null, 
+  skills: '', website: '', phone: '', emailPublic: '',
+  location: '', coverageArea: '', workingHours: ''
 });
 
-// --- VALIDAR SESIÓN AL CARGAR ---
-onMounted(() => {
+onMounted(async () => {
   const userId = localStorage.getItem("usuario_id");
-  if (!userId) {
-    alert(" Por seguridad, debes iniciar sesión antes de configurar tu perfil.");
-    router.push("/login");
-  } else {
-    console.log(" ID de usuario detectado:", userId);
+  if (!userId) { router.push("/login"); return; }
+
+  try {
+    const { data } = await axios.get(`http://localhost:3001/api/profesionales/${userId}`);
+    
+    if (data) {
+        isEditingMode.value = true;
+        form.bio = data.bio || '';
+        form.experience = data.experience || 0;
+        form.phone = data.phone || '';
+        form.emailPublic = data.emailPublic || '';
+        form.website = data.website || '';
+        form.workingHours = data.workingHours || '';
+        form.skills = data.skills || '';
+        form.category = data.category || ''; 
+
+        if (commonProfessions.includes(data.profession)) {
+            selectedProfessionSelect.value = data.profession;
+            form.profession = data.profession;
+        } else {
+            selectedProfessionSelect.value = 'Otro';
+            form.profession = data.profession;
+        }
+
+        if (data.city) {
+            form.location = data.city;
+            availableSectors.value = locationsDB[form.location] || [];
+            form.coverageArea = data.sector || '';
+        }
+
+        if (data.avatar) previewAvatar.value = data.avatar;
+        if (data.cover) previewCover.value = data.cover;
+    } else {
+        isEditingMode.value = false;
+    }
+  } catch (error) {
+    isEditingMode.value = false;
   }
 });
 
-// --- FUNCIONES UI ---
+const goHome = () => router.push('/');
+
 const handleProfessionChange = () => {
-  if (selectedProfessionSelect.value !== 'Otro') {
-    form.profession = selectedProfessionSelect.value;
-  } else {
-    form.profession = '';
-  }
+  form.profession = selectedProfessionSelect.value !== 'Otro' ? selectedProfessionSelect.value : '';
 };
 
 const updateSectors = () => {
-  if (form.location && locationsDB[form.location]) {
-    availableSectors.value = locationsDB[form.location];
-    form.coverageArea = ""; 
-  } else {
-    availableSectors.value = [];
-  }
+  availableSectors.value = (form.location && locationsDB[form.location]) ? locationsDB[form.location] : [];
+  form.coverageArea = "";
 };
 
-const detectLocation = () => {
-  if (!navigator.geolocation) {
-    geoStatus.value = "Tu navegador no soporta geolocalización.";
-    return;
-  }
-  geoStatus.value = "Localizando...";
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-      form.latitude = latitude;
-      form.longitude = longitude;
-      form.location = "Santiago de los Caballeros"; 
-      updateSectors();
-      geoStatus.value = "Ubicación detectada: Santiago";
-    },
-    (error) => {
-      console.error(error);
-      geoStatus.value = "No se pudo obtener la ubicación.";
-    }
-  );
+const validateFileSize = (file) => {
+    if (file.size > 50 * 1024 * 1024) { alert("Archivo muy grande."); return false; }
+    return true;
 };
 
 const handleAvatarChange = (event) => {
   const file = event.target.files[0];
-  if (file) form.avatar = URL.createObjectURL(file);
+  if (file && validateFileSize(file)) {
+    fileAvatar.value = file;
+    previewAvatar.value = URL.createObjectURL(file);
+  }
 };
+
 const handleCoverChange = (event) => {
   const file = event.target.files[0];
-  if (file) form.cover = URL.createObjectURL(file);
+  if (file && validateFileSize(file)) {
+    fileCover.value = file;
+    previewCover.value = URL.createObjectURL(file);
+  }
 };
 
-// --- GUARDAR PERFIL (CONEXIÓN AL BACKEND) ---
+const coverStyle = computed(() => {
+  return previewCover.value ? { backgroundImage: `url(${previewCover.value})` } : {}; 
+});
+
 const saveProfile = async () => {
   const usuario_id = localStorage.getItem("usuario_id");
+  const usuario_nombre = localStorage.getItem("usuario_nombre");
 
-  if (!usuario_id) {
-    alert("Error de sesión. ID de usuario perdido.");
-    return;
-  }
-
+  if (!usuario_id) return;
   isSaving.value = true;
 
   try {
-    const habilidadesArray = form.skills ? form.skills.split(",").map(h => h.trim()) : [];
+    const formData = new FormData();
+    formData.append('usuario_id', usuario_id);
+    formData.append('nombre', usuario_nombre || '');
+    formData.append('profesion', form.profession);
+    formData.append('biografia', form.bio);
+    formData.append('categoria', form.category);
+    formData.append('anios_experiencia', form.experience || 0);
+    formData.append('sitio_web', form.website || '');
+    formData.append('telefono', form.phone);
+    formData.append('email_publico', form.emailPublic || '');
+    formData.append('ciudad', form.location);
+    formData.append('sector', form.coverageArea);
+    formData.append('horario', form.workingHours || '');
+    formData.append('habilidades', form.skills); 
 
-    const payload = {
-      usuario_id: usuario_id,
-      profesion: form.profession,
-      biografia: form.bio,
-      categoria: form.category,
-      anios_experiencia: form.experience || 0,
-      sitio_web: form.website,
-      telefono: form.phone,
-      email_publico: form.emailPublic,
-      ciudad: form.location,
-      sector: form.coverageArea,
-      horario: form.workingHours,
-      habilidades: habilidadesArray
-    };
+    if (fileAvatar.value) formData.append('avatar', fileAvatar.value);
+    if (fileCover.value) formData.append('cover', fileCover.value);
 
-    console.log(" Enviando datos al puerto 3001:", payload);
+    await axios.post("http://localhost:3001/api/perfiles", formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
 
-    //  CAMBIO CRUCIAL: PUERTO 3001
-    await axios.post("http://localhost:3001/api/perfiles", payload);
-
-    alert("¡Perfil configurado exitosamente!");
-    router.push("/client/dashboard"); // O a donde quieras redirigir
+    alert("Perfil guardado con exito!");
+    
+    if (isEditingMode.value) {
+        router.push('/professional/profile');
+    } else {
+        localStorage.clear(); 
+        router.push('/login');
+    }
 
   } catch (error) {
-    console.error(" Error al guardar perfil:", error);
-    
-    if (error.code === "ERR_NETWORK") {
-      alert("Error: El servidor del puerto 3001 está apagado.");
-    } else {
-      // Muestra el error real que viene del backend
-      const msg = error.response?.data?.message || "Error desconocido";
-      alert("Hubo un error: " + msg);
-    }
+    console.error("Error:", error);
+    alert("Error al guardar.");
   } finally {
     isSaving.value = false;
   }
@@ -159,31 +158,35 @@ const saveProfile = async () => {
 <template>
   <div class="setup-container">
     <header class="setup-header">
-      <div class="logo">SERVIHUB - Configuración Profesional</div>
+      <div class="header-content">
+        <div class="brand-logo" @click="goHome">
+          <img src="/fotos/logo-servihub.png" alt="Logo" class="logo-img" />
+          <span class="brand-text">ServiHub<span class="dot">.</span></span>
+        </div>
+      </div>
     </header>
 
     <div class="form-wrapper">
       <div class="form-card">
-        <h2>Crea tu Perfil de Éxito</h2>
-        <p class="subtitle">Completa estos datos para que los clientes confíen en tu trabajo.</p>
+        <h2>{{ isEditingMode ? 'Editar Perfil' : 'Crea tu Perfil' }}</h2>
+        <p class="subtitle">Manten tu informacion actualizada.</p>
 
         <form @submit.prevent="saveProfile">
           
           <div class="form-section images-section">
-            <h3 class="section-title">1. Tu Imagen Profesional</h3>
+            <h3 class="section-title">1. Imagenes</h3>
             <div class="profile-images-container">
-              <div class="cover-upload" :style="{ backgroundImage: form.cover ? `url(${form.cover})` : 'none' }">
+              <div class="cover-upload" :class="{ 'has-image': previewCover }" :style="coverStyle">
                 <label for="coverInput" class="cover-label">
-                  <span v-if="!form.cover">📷 Subir Foto de Portada</span>
-                  <span v-else class="change-cover-text">Cambiar Portada</span>
+                  <span v-if="!previewCover">Subir Portada</span>
+                  <span v-else class="change-cover-text">Cambiar</span>
                 </label>
                 <input type="file" id="coverInput" accept="image/*" @change="handleCoverChange" hidden />
               </div>
-
               <div class="avatar-upload">
                 <div class="avatar-preview">
-                  <span v-if="!form.avatar">👤</span>
-                  <img v-else :src="form.avatar" alt="Preview" />
+                  <img v-if="previewAvatar" :src="previewAvatar" class="img-preview-real" />
+                  <span v-else class="placeholder-icon">IMG</span>
                 </div>
                 <label for="avatarInput" class="btn-upload-avatar">Cambiar Foto</label>
                 <input type="file" id="avatarInput" accept="image/*" @change="handleAvatarChange" hidden />
@@ -192,128 +195,90 @@ const saveProfile = async () => {
           </div>
 
           <div class="form-section professional-info-section">
-            <h3 class="section-title">2. Detalles Profesionales</h3>
+            <h3 class="section-title">2. Datos Profesionales</h3>
             <div class="form-grid">
               
               <div class="input-group full-width">
-                <label>Profesión / Título Principal *</label>
+                <label>Profesion *</label>
                 <select v-model="selectedProfessionSelect" @change="handleProfessionChange" class="mb-2">
                   <option value="" disabled selected>Selecciona tu profesión</option>
                   <option v-for="job in commonProfessions" :key="job" :value="job">{{ job }}</option>
-                  <option value="Otro">Otro (Escribir manualmente)</option>
+                  <option value="Otro">Otro</option>
                 </select>
-
-                <input 
-                  v-if="selectedProfessionSelect === 'Otro'"
-                  type="text" 
-                  v-model="form.profession" 
-                  placeholder="Escribe tu profesión específica aquí..." 
-                  required
-                  class="animate-fade-in"
-                />
+                <input v-if="selectedProfessionSelect === 'Otro'" type="text" v-model="form.profession" placeholder="Escribe tu titulo (Ej: Técnico de Refrigeración)" required />
               </div>
 
               <div class="input-group full-width">
-                <label for="bio">Biografía Breve *</label>
-                <textarea 
-                  id="bio" 
-                  v-model="form.bio" 
-                  placeholder="Cuéntanos sobre tu experiencia..." 
-                  rows="4"
-                  maxlength="256"
-                  required
-                ></textarea>
-                <div class="char-counter" :class="{ 'limit-reached': form.bio.length >= 256 }">
-                  {{ form.bio.length }} / 256 caracteres
-                </div>
+                <label for="bio">Biografia *</label>
+                <textarea id="bio" v-model="form.bio" placeholder="Describe brevemente tu experiencia y servicios..." rows="4" maxlength="256" required></textarea>
+                <div class="char-counter">{{ form.bio.length }} / 256</div>
               </div>
 
               <div class="input-group">
-                <label for="category">Categoría Principal *</label>
+                <label for="category">Categoria *</label>
                 <select id="category" v-model="form.category" required>
-                  <option value="" disabled selected>Selecciona una opción</option>
-                  <option value="hogar">Hogar y Reparaciones</option>
-                  <option value="tecnologia">Tecnología e Informática</option>
-                  <option value="educacion">Clases y Educación</option>
-                  <option value="belleza">Belleza y Cuidado Personal</option>
-                  <option value="eventos">Eventos y Entretenimiento</option>
-                  <option value="otros">Otros Servicios</option>
+                  <option value="" disabled selected>Selecciona</option>
+                  <option value="hogar">Hogar</option>
+                  <option value="tecnologia">Tecnologia</option>
+                  <option value="educacion">Educacion</option>
+                  <option value="belleza">Belleza</option>
+                  <option value="eventos">Eventos</option>
+                  <option value="otros">Otros</option>
                 </select>
               </div>
 
               <div class="input-group">
-                <label for="experience">Años de Experiencia</label>
-                <input type="number" id="experience" v-model="form.experience" placeholder="Ej. 5" min="0"/>
+                <label for="experience">Anios Exp.</label>
+                <input type="number" id="experience" v-model="form.experience" placeholder="Ej: 5" min="0"/>
               </div>
 
               <div class="input-group full-width">
                 <label for="skills">Habilidades</label>
-                <input type="text" id="skills" v-model="form.skills" placeholder="Ej. Grifos, Fugas, Tuberías PVC..." />
+                <input type="text" id="skills" v-model="form.skills" placeholder="Ej: Instalacion, Mantenimiento, Reparacion..." />
               </div>
 
               <div class="input-group full-width">
-                <label for="website">Sitio Web (Opcional)</label>
-                <input type="url" id="website" v-model="form.website" placeholder="https://..." />
+                <label for="website">Web (Opcional)</label>
+                <input type="url" id="website" v-model="form.website" placeholder="https://mi-sitio-web.com" />
               </div>
             </div>
           </div>
 
           <div class="form-section contact-info-section">
-            <h3 class="section-title">3. Contacto y Zona de Trabajo</h3>
+            <h3 class="section-title">3. Contacto</h3>
             <div class="form-grid">
-              
               <div class="input-group">
-                <label for="phone">Teléfono / WhatsApp *</label>
-                <input type="tel" id="phone" v-model="form.phone" placeholder="809-555-5555" required />
+                <label for="phone">Telefono *</label>
+                <input type="tel" id="phone" v-model="form.phone" placeholder="Ej: 809-555-5555" required />
               </div>
-
               <div class="input-group">
-                <label for="emailPublic">Email Público (Opcional)</label>
-                <input type="email" id="emailPublic" v-model="form.emailPublic" placeholder="contacto@..." />
+                <label for="emailPublic">Email Publico</label>
+                <input type="email" id="emailPublic" v-model="form.emailPublic" placeholder="contacto@ejemplo.com" />
               </div>
-
               <div class="input-group">
-                <label>Ciudad Base *</label>
-                <div class="location-wrapper">
-                  <select v-model="form.location" @change="updateSectors" required>
-                    <option value="" disabled>Elige tu ciudad</option>
-                    <option v-for="(sectores, ciudad) in locationsDB" :key="ciudad" :value="ciudad">
-                      {{ ciudad }}
-                    </option>
-                  </select>
-                  
-                  <button type="button" class="btn-geo" @click="detectLocation" title="Usar mi ubicación actual">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="icon-geo">
-                      <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-                <small v-if="geoStatus" class="geo-status">{{ geoStatus }}</small>
-              </div>
-
-              <div class="input-group">
-                <label>Zona de Cobertura (Sector) *</label>
-                <select v-model="form.coverageArea" :disabled="!form.location">
-                  <option value="" disabled selected>
-                    {{ form.location ? 'Selecciona un sector' : 'Primero elige una ciudad' }}
-                  </option>
-                  <option v-for="sector in availableSectors" :key="sector" :value="sector">
-                    {{ sector }}
-                  </option>
+                <label>Ciudad *</label>
+                <select v-model="form.location" @change="updateSectors" required>
+                  <option value="" disabled>Selecciona</option>
+                  <option v-for="(sectores, ciudad) in locationsDB" :key="ciudad" :value="ciudad">{{ ciudad }}</option>
                 </select>
               </div>
-
-              <div class="input-group full-width">
-                <label for="workingHours">Horario de Trabajo</label>
-                <textarea id="workingHours" v-model="form.workingHours" placeholder="Ej. Lunes a Viernes 8am - 6pm" rows="3"></textarea>
+              <div class="input-group">
+                <label>Sector *</label>
+                <select v-model="form.coverageArea" :disabled="!form.location">
+                  <option value="" disabled selected>Selecciona</option>
+                  <option v-for="sector in availableSectors" :key="sector" :value="sector">{{ sector }}</option>
+                </select>
               </div>
-
+              <div class="input-group full-width">
+                <label for="workingHours">Horario</label>
+                <textarea id="workingHours" v-model="form.workingHours" placeholder="Ej: Lunes a Viernes de 8:00 AM a 5:00 PM" rows="3"></textarea>
+              </div>
             </div>
           </div>
 
           <div class="form-actions">
             <button type="submit" class="btn-primary" :disabled="isSaving">
-              {{ isSaving ? 'Guardando...' : 'Guardar Perfil y Continuar' }}
+              {{ isSaving ? 'Guardando...' : (isEditingMode ? 'Guardar Cambios' : 'Crear Perfil') }}
             </button>
           </div>
 
@@ -324,18 +289,28 @@ const saveProfile = async () => {
 </template>
 
 <style scoped>
-/* Estilos específicos que no estén en el CSS importado */
+.setup-header { background-color: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 15px 0; display: flex; justify-content: center; }
+.header-content { width: 100%; max-width: 1100px; display: flex; justify-content: flex-start; padding: 0 20px; }
+.brand-logo { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.logo-img { height: 40px; width: auto; object-fit: contain; }
+.brand-text { font-family: 'Inter', sans-serif; font-weight: 800; font-size: 1.5rem; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+.dot { color: #F97316; }
 .animate-fade-in { animation: fadeIn 0.3s ease-in; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 .mb-2 { margin-bottom: 10px; }
-.location-wrapper { display: flex; gap: 10px; }
+.location-wrapper { display: flex; gap: 10px; width: 100%; }
 .location-wrapper select { flex: 1; }
-.btn-geo { display: flex; align-items: center; justify-content: center; padding: 0 12px; background: #EBF4F8; border: 1px solid #c5c6c9; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; height: 46px; }
-.btn-geo:hover { background: white; border-color: #F76B1C; box-shadow: 0 2px 5px rgba(247, 107, 28, 0.15); }
-.icon-geo { width: 24px; height: 24px; color: #0B4C6F; transition: transform 0.2s ease; }
-.btn-geo:hover .icon-geo { color: #F76B1C; transform: translateY(-2px); }
-.geo-status { display: block; margin-top: 5px; font-size: 0.8rem; color: #0B4C6F; }
 .char-counter { text-align: right; font-size: 0.85rem; color: #666; margin-top: 4px; }
 .limit-reached { color: #d9534f; font-weight: bold; }
 button:disabled { opacity: 0.7; cursor: not-allowed; }
+.cover-upload { height: 180px; background-color: #E2E8F0; background-size: cover; background-position: center; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 50px; border: 2px dashed #CBD5E1; transition: all 0.3s ease; }
+.cover-upload.has-image { border: 2px solid #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.cover-label { background: rgba(255, 255, 255, 0.9); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; color: #333; transition: 0.2s; }
+.cover-label:hover { transform: scale(1.05); }
+.avatar-upload { position: absolute; bottom: -40px; left: 30px; display: flex; flex-direction: column; align-items: center; }
+.avatar-preview { width: 110px; height: 110px; border-radius: 50%; background: white; border: 4px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.img-preview-real { width: 100%; height: 100%; object-fit: cover; }
+.placeholder-icon { font-size: 3rem; color: #94A3B8; }
+.btn-upload-avatar { font-size: 0.85rem; color: #0B4C6F; background: white; border: 1px solid #0B4C6F; padding: 4px 12px; border-radius: 15px; cursor: pointer; font-weight: 600; }
+.btn-upload-avatar:hover { background: #0B4C6F; color: white; }
 </style>

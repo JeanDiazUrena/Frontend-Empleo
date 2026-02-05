@@ -1,8 +1,7 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue'; // <--- Agregamos onMounted
 import { useRouter } from 'vue-router';
 import axios from "axios";
-
 
 const router = useRouter();
 const step = ref(1); 
@@ -14,9 +13,17 @@ const confirmPassword = ref('');
 const selectedRole = ref(null);
 const errorMessage = ref('');
 
+// --- 1. LIMPIEZA AL ENTRAR A LA PÁGINA ---
+onMounted(() => {
+  // Si entras a registrarte, asumimos que no quieres usar la cuenta anterior
+  console.log("Limpiando datos de sesión anterior...");
+  localStorage.removeItem('usuario_id');
+  localStorage.removeItem('usuario_nombre');
+  localStorage.removeItem('token');
+});
+
 function handleStep1Submit() {
   errorMessage.value = '';
-  
   if (!name.value || !email.value || !password.value) {
     errorMessage.value = "Por favor completa todos los campos.";
     return;
@@ -25,15 +32,7 @@ function handleStep1Submit() {
     errorMessage.value = "Las contraseñas no coinciden.";
     return;
   }
-  
-  // Simulación de validación de correo existente
-  const emailsRegistrados = ['test@correo.com'];
-  if (emailsRegistrados.includes(email.value)) {
-    errorMessage.value = "Este correo ya está registrado.";
-    return;
-  }
-  
-  step.value = 2; // Avanzar al paso de roles
+  step.value = 2;
 }
 
 async function handleRegistration() {
@@ -45,12 +44,25 @@ async function handleRegistration() {
   }
 
   try {
-    await axios.post("http://127.0.0.1:3000/api/register", {
+    const response = await axios.post("http://localhost:3000/api/register", {
       nombre: name.value,
       email: email.value,
       password: password.value,
       rol: selectedRole.value
     });
+
+    console.log("Registro OK:", response.data);
+
+    // --- 2. LIMPIEZA Y GUARDADO SEGURO ---
+    // Primero borramos cualquier rastro viejo por seguridad
+    localStorage.clear(); 
+
+    // Ahora guardamos los datos NUEVOS
+    if (response.data.id) {
+        localStorage.setItem('usuario_id', response.data.id);
+        localStorage.setItem('usuario_nombre', name.value); 
+        console.log(`Guardado nuevo usuario: ${name.value} (ID: ${response.data.id})`);
+    }
 
     if (selectedRole.value === 'profesional') {
       router.push('/professional-setup');
@@ -59,20 +71,11 @@ async function handleRegistration() {
     }
 
   } catch (error) {
-    console.log("ERROR AXIOS:", error);
-
-    if (error.response) {
-      errorMessage.value = error.response.data.message;
-    } else if (error.request) {
-      errorMessage.value = "No hay respuesta del servidor (CORS o URL)";
-    } else {
-      errorMessage.value = error.message;
-    }
+    console.log("ERROR:", error);
+    errorMessage.value = error.response?.data?.message || "Error al conectar con el servidor.";
   }
 }
-
 </script>
-
 <template>
   <div class="split-screen">
     
