@@ -176,7 +176,6 @@ onMounted(() => {
               <span class="value link">{{ user.phone || '-' }}</span>
             </div>
           </div>
-
           <div class="content-card side-card">
             <h3>Habilidades</h3>
             <div class="skills-container">
