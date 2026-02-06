@@ -185,7 +185,6 @@ onMounted(() => {
               <span v-if="formattedSkills.length === 0" class="text-muted">Sin habilidades registradas</span>
             </div>
           </div>
-
         </div>
 
       </div>
