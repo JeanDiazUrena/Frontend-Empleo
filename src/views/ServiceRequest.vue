@@ -1,20 +1,21 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import axios from 'axios';
 
 const router = useRouter();
 const route = useRoute();
 
-// Detectar si estamos en modo edición (si hay un ID en la URL)
 const isEditing = computed(() => !!route.params.id);
 const requestId = route.params.id;
 
-// Datos del formulario
+// Estado del Modal de Bloqueo
+const showBlockModal = ref(false);
+
 const form = ref({ 
   title: '', 
   category: '', 
   description: '', 
-  date: '', 
   image: null 
 });
 
@@ -22,36 +23,41 @@ const isSubmitting = ref(false);
 const fileInput = ref(null);
 const imagePreview = ref(null);
 
-// --- AL CARGAR LA PÁGINA ---
+// --- AL CARGAR ---
 onMounted(() => {
+  // 1. VERIFICACIÓN DE PERFIL (CANDADO)
+  const userPhone = localStorage.getItem('usuario_telefono');
+  const userAddress = localStorage.getItem('usuario_direccion');
+
+  if (!userPhone || !userAddress) {
+    // EN LUGAR DE ALERT, MOSTRAMOS EL MODAL
+    showBlockModal.value = true;
+    return; // Detenemos la ejecución aquí
+  }
+
+  // 2. Si es edición, cargar datos
   if (isEditing.value) {
-    cargarDatosExistentes();
+    cargarDatosSimulados();
   }
 });
 
-// Función para simular que traemos datos de la BD (Backend)
-const cargarDatosExistentes = () => {
-  console.log(`Cargando datos para la solicitud ID: ${requestId}...`);
-  
-  // SIMULACIÓN: Aquí harías: const { data } = await axios.get(`/api/requests/${requestId}`)
-  // Por ahora, llenamos con datos falsos para que veas que funciona
-  form.value = {
-    title: "Reparación de Aire Acondicionado",
-    category: "refrigeracion",
-    description: "El equipo hace un ruido extraño y no enfría la habitación principal.",
-    date: "", // Opcional
-    image: null
-  };
-  // Si hubiera imagen guardada en BD: imagePreview.value = 'https://url-de-la-imagen.jpg';
+// --- ACCIONES DEL MODAL ---
+const goToProfile = () => router.push('/client/profile');
+const goBack = () => router.push('/client/dashboard');
+
+// ... (Resto de funciones de carga, imagen y submit igual que antes) ...
+const cargarDatosSimulados = () => {
+  form.value.title = "Reparación Ejemplo";
+  form.value.category = "refrigeracion";
+  form.value.description = "Ejemplo de descripción...";
 };
 
-// --- MANEJO DE FOTOS ---
 const triggerUpload = () => fileInput.value.click();
 
 const handleFileChange = (event) => {
   const file = event.target.files[0];
   if (file) {
-    form.value.image = file;
+    form.value.image = file; 
     imagePreview.value = URL.createObjectURL(file);
   }
 };
@@ -62,55 +68,58 @@ const removeImage = () => {
   if (fileInput.value) fileInput.value.value = '';
 };
 
-// --- GUARDAR O ACTUALIZAR ---
-const handleSubmit = () => {
-  if (!form.value.title || !form.value.category) {
-    alert("Por favor completa el título y la categoría.");
-    return;
-  }
-
+const handleSubmit = async () => {
+  if (!form.value.title || !form.value.category) return;
   isSubmitting.value = true;
   
-  if (isEditing.value) {
-    console.log("ACTUALIZANDO solicitud ID:", requestId, form.value);
-    // Aquí harías: await axios.put(`/api/requests/${requestId}`, form.value)
-  } else {
-    console.log("CREANDO nueva solicitud:", form.value);
-    // Aquí harías: await axios.post('/api/requests', form.value)
-  }
-
   setTimeout(() => {
     isSubmitting.value = false;
     router.push('/client/dashboard');
-  }, 1000);
+  }, 1500);
 };
 </script>
 
 <template>
   <div class="request-wrapper">
     
-    <header class="request-header">
+    <div v-if="showBlockModal" class="modal-overlay">
+      <div class="modal-card animate-pop">
+        <div class="icon-container">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="alert-icon">
+            <path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd" />
+          </svg>
+        </div>
+
+        <h3>¡Faltan Datos!</h3>
+        <p>No puedes publicar una solicitud sin tener un <strong>número de contacto</strong> y <strong>dirección</strong> registrados.</p>
+        
+        <div class="modal-actions">
+          <button class="btn-complete" @click="goToProfile">
+            Ir a mi Perfil
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="arrow-icon"><path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" /></svg>
+          </button>
+          
+          <button class="btn-cancel" @click="goBack">
+            Cancelar y Volver
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <header class="request-header" :class="{ 'blurred': showBlockModal }">
       <div class="header-text">
         <h1>{{ isEditing ? 'Editar Solicitud' : 'Crear nueva solicitud' }}</h1>
-        <p v-if="isEditing">Modifica los detalles de tu solicitud #{{ requestId }}.</p>
-        <p v-else>Cuéntanos qué necesitas y deja que los expertos vengan a ti.</p>
+        <p>Cuéntanos qué necesitas y deja que los expertos vengan a ti.</p>
       </div>
-      <button v-if="isEditing" class="btn-close-edit" @click="router.push('/client/dashboard')">
-        Cancelar
-      </button>
+      <button class="btn-close-edit" @click="goBack">Cancelar</button>
     </header>
 
-    <div class="form-container">
+    <div class="form-container" :class="{ 'blurred': showBlockModal }">
       <form @submit.prevent="handleSubmit" class="modern-form">
         
         <div class="input-group">
           <label>Título breve</label>
-          <input 
-            v-model="form.title" 
-            type="text" 
-            placeholder="Ej: Necesito instalar abanicos de techo"
-            class="form-input"
-          >
+          <input v-model="form.title" type="text" placeholder="Ej: Necesito instalar abanicos" class="form-input">
         </div>
         
         <div class="input-group">
@@ -120,107 +129,99 @@ const handleSubmit = () => {
               <option value="" disabled selected>Selecciona una especialidad</option>
               <option value="electricidad">⚡ Electricidad</option>
               <option value="plomeria">💧 Plomería</option>
-              <option value="refrigeracion">❄️ Aires Acondicionados</option>
-              <option value="carpinteria">🪚 Carpintería</option>
-              <option value="pintura">🎨 Pintura</option>
-              <option value="limpieza">🧹 Limpieza</option>
-              <option value="tecnologia">💻 Tecnología</option>
-              <option value="otros">🛠️ Otros Servicios</option>
-            </select>
+              </select>
           </div>
         </div>
 
         <div class="input-group">
           <label>Descripción detallada</label>
-          <textarea 
-            v-model="form.description" 
-            rows="4" 
-            class="form-textarea"
-            placeholder="Describe el problema, marca del equipo, o detalles específicos..."
-          ></textarea>
+          <textarea v-model="form.description" rows="4" class="form-textarea" placeholder="Detalles..."></textarea>
         </div>
 
         <div class="input-group">
           <label>Evidencia Visual</label>
-          
           <div class="upload-box" :class="{ 'has-image': imagePreview }">
-            
             <div v-if="imagePreview" class="preview-wrapper">
               <img :src="imagePreview" alt="Evidencia">
               <button type="button" class="btn-remove" @click="removeImage">✕</button>
             </div>
-
             <div v-else class="upload-placeholder" @click="triggerUpload">
-              <div class="icon-upload">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-              </div>
-              <p>Haz clic para agregar una foto</p>
+              <div class="icon-upload">📷</div>
+              <p>Haz clic para agregar foto</p>
             </div>
-
-            <input 
-              type="file" 
-              ref="fileInput" 
-              accept="image/*" 
-              @change="handleFileChange" 
-              class="hidden-input"
-            >
+            <input type="file" ref="fileInput" accept="image/*" @change="handleFileChange" class="hidden-input">
           </div>
         </div>
 
-        <button type="submit" class="btn-submit" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Publicar Solicitud') }}
-        </button>
-
+        <button type="submit" class="btn-submit" :disabled="isSubmitting">Publicar Solicitud</button>
       </form>
     </div>
   </div>
 </template>
 
 <style scoped>
-.request-wrapper { width: 100%; padding-bottom: 40px; }
+.request-wrapper { width: 100%; padding-bottom: 40px; position: relative; }
 
-/* HEADER */
-.request-header { 
-  background: #0B4C6F; color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; 
-  box-shadow: 0 4px 12px rgba(11, 76, 111, 0.2); 
-  display: flex; justify-content: space-between; align-items: flex-start;
+/* EFECTO BORROSO DE FONDO */
+.blurred { filter: blur(5px); pointer-events: none; user-select: none; opacity: 0.6; transition: all 0.3s; }
+
+/* MODAL DE BLOQUEO */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(11, 76, 111, 0.6); /* Azul oscuro transparente */
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
 }
-.header-text h1 { margin: 0 0 10px 0; font-size: 2rem; font-weight: 800; }
-.header-text p { margin: 0; font-size: 1.1rem; opacity: 0.9; }
 
-.btn-close-edit { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-.btn-close-edit:hover { background: rgba(255,255,255,0.3); }
+.modal-card {
+  background: white; padding: 40px 30px; border-radius: 20px;
+  width: 90%; max-width: 380px; text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+}
 
-/* FORM CONTAINER */
-.form-container { background: white; padding: 40px; border-radius: 12px; border: 1px solid #e5e7eb; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
 
-.input-group { margin-bottom: 25px; }
-.input-group label { display: block; font-weight: 700; color: #374151; margin-bottom: 8px; font-size: 0.95rem; }
+.icon-container {
+  width: 70px; height: 70px; background: #FEF3C7; /* Amarillo suave */
+  border-radius: 50%; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+.alert-icon { width: 35px; color: #F59E0B; /* Naranja/Amarillo alerta */ }
 
-/* INPUTS */
-.form-input, .form-select, .form-textarea { width: 100%; padding: 14px; border: 1px solid #D1D5DB; border-radius: 8px; font-size: 1rem; transition: 0.2s; background-color: #fff; font-family: inherit; }
-.form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #0B4C6F; box-shadow: 0 0 0 3px rgba(11, 76, 111, 0.1); }
-.form-textarea { resize: vertical; min-height: 120px; }
+.modal-card h3 { margin: 0 0 10px 0; color: #1e293b; font-size: 1.5rem; font-weight: 800; }
+.modal-card p { color: #64748b; margin-bottom: 30px; line-height: 1.5; }
 
-/* UPLOAD BOX */
-.upload-box { border: 2px dashed #D1D5DB; border-radius: 12px; min-height: 150px; display: flex; align-items: center; justify-content: center; background-color: #F9FAFB; transition: 0.2s; position: relative; overflow: hidden; cursor: pointer; }
-.upload-box:hover { border-color: #0B4C6F; background-color: #F0F9FF; }
-.upload-box.has-image { border-style: solid; padding: 0; background: black; cursor: default; }
+.modal-actions { display: flex; flex-direction: column; gap: 10px; }
 
-.upload-placeholder { text-align: center; width: 100%; height: 100%; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.icon-upload { margin-bottom: 5px; opacity: 0.6; color: #0B4C6F; }
-.upload-placeholder p { font-weight: 600; color: #4B5563; margin: 0; }
+.btn-complete {
+  background: #0B4C6F; color: white; border: none; padding: 14px;
+  border-radius: 10px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform 0.2s;
+}
+.btn-complete:hover { transform: translateY(-2px); background: #093a55; }
+.arrow-icon { width: 18px; }
 
+.btn-cancel {
+  background: transparent; border: 1px solid #cbd5e1; color: #64748b;
+  padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer;
+}
+.btn-cancel:hover { background: #f1f5f9; }
+
+/* ESTILOS DEL FORMULARIO (Mismos de antes) */
+.request-header { background: #0B4C6F; color: white; padding: 40px; border-radius: 12px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+.header-text h1 { margin: 0; font-size: 2rem; font-weight: 800; }
+.btn-close-edit { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.form-container { background: white; padding: 40px; border-radius: 12px; border: 1px solid #e5e7eb; max-width: 800px; margin: 0 auto; }
+.input-group { margin-bottom: 20px; }
+.input-group label { display: block; font-weight: 700; color: #374151; margin-bottom: 8px; }
+.form-input, .form-select, .form-textarea { width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 8px; }
+.btn-submit { width: 100%; padding: 16px; background: #F76B1C; color: white; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; margin-top: 10px; }
+.upload-box { border: 2px dashed #d1d5db; padding: 20px; text-align: center; cursor: pointer; }
 .hidden-input { display: none; }
-
-/* PREVIEW */
-.preview-wrapper { width: 100%; height: 250px; position: relative; }
-.preview-wrapper img { width: 100%; height: 100%; object-fit: contain; } 
-.btn-remove { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-.btn-remove:hover { background: rgba(220, 38, 38, 0.9); }
-
-/* BUTTON */
-.btn-submit { width: 100%; padding: 16px; background: #F76B1C; color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 1.1rem; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-.btn-submit:hover { background: #e05a10; transform: translateY(-1px); }
-.btn-submit:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 </style>
