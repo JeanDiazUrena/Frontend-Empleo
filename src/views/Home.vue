@@ -159,7 +159,7 @@ const searchService = () => {
       </div>
     </section>
 
-    <section class="categories container animate-on-scroll">
+   <section id="explorar-seccion" class="categories container animate-on-scroll">
       <h2 class="section-title">Explora el mercado</h2>
       <div class="cat-grid">
         <div class="cat-item">
