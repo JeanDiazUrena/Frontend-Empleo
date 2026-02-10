@@ -5,8 +5,22 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const searchQuery = ref('');
 
-// --- LÓGICA DE ANIMACIÓN (DINÁMICO) ---
+// --- VARIABLES DE ESTADO (NUEVO) ---
+const isLoggedIn = ref(false);
+const userRole = ref('');
+
+// --- LÓGICA AL CARGAR ---
 onMounted(() => {
+  // 1. Detección de Sesión (Lógica Nueva)
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('user_role');
+
+  if (token) {
+    isLoggedIn.value = true;
+    userRole.value = role;
+  }
+
+  // 2. Animaciones (Tu código original)
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -18,9 +32,30 @@ onMounted(() => {
   document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
 });
 
+// --- FUNCIÓN INTELIGENTE (NUEVO) ---
+const handleAction = () => {
+  if (isLoggedIn.value) {
+    // Si ya tiene sesión, va a su dashboard
+    if (userRole.value === 'profesional') {
+      router.push('/professional/dashboard');
+    } else {
+      router.push('/client/dashboard');
+    }
+  } else {
+    // Si no tiene sesión, va al registro
+    router.push('/register');
+  }
+};
+
 const searchService = () => {
   if (searchQuery.value.trim()) {
-    router.push({ name: 'ClientExplore', query: { q: searchQuery.value } });
+    // Si es cliente logueado, busca dentro de la app
+    if (isLoggedIn.value && userRole.value === 'cliente') {
+      router.push({ path: '/client/explore', query: { q: searchQuery.value } });
+    } else {
+      // Si no, lo mandamos a registrarse primero
+      router.push('/register');
+    }
   }
 };
 </script>
@@ -49,10 +84,10 @@ const searchService = () => {
           </div>
 
           <div class="hero-tags big-tags">
-            <button class="pill" @click="router.push('/register')">Diseño Web</button>
-            <button class="pill" @click="router.push('/register')">Electricidad</button>
-            <button class="pill" @click="router.push('/register')">Construccion</button>
-            <button class="pill" @click="router.push('/register')">Limpieza</button>
+            <button class="pill" @click="handleAction">Diseño Web</button>
+            <button class="pill" @click="handleAction">Electricidad</button>
+            <button class="pill" @click="handleAction">Construccion</button>
+            <button class="pill" @click="handleAction">Limpieza</button>
           </div>
         </div>
       </div>
@@ -179,9 +214,14 @@ const searchService = () => {
     <section class="cta-banner">
       <div class="container cta-content animate-on-scroll">
         <div class="cta-text">
-          <h2>¿Listo para empezar?</h2>
+          <h2 v-if="!isLoggedIn">¿Listo para empezar?</h2>
+          <h2 v-else>Bienvenido de nuevo</h2>
+
           <p>Únete a miles de profesionales y clientes hoy mismo.</p>
-          <button class="btn-start" @click="router.push('/register')">Comenzar Ahora</button>
+          
+          <button class="btn-start" @click="handleAction">
+            {{ isLoggedIn ? 'Ir a mi Panel' : 'Comenzar Ahora' }}
+          </button>
         </div>
         <div class="cta-img-placeholder">
           <img src="/fotos/persona felix.jpg" alt="Comenzar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
@@ -268,9 +308,9 @@ const searchService = () => {
 .cta-img-placeholder { width: 450px; height: 350px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,0.5); }
 
 @media (max-width: 900px) {
-  .hero-content h1 { font-size: 2.5rem; }
-  .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
-  .quality-grid { text-align: left; }
-  .cta-img-placeholder { width: 100%; height: 250px; }
+  .hero-content h1 { font-size: 2.5rem; }
+  .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
+  .quality-grid { text-align: left; }
+  .cta-img-placeholder { width: 100%; height: 250px; }
 }
 </style>
