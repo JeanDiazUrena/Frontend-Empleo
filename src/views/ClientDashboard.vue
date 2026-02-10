@@ -2,60 +2,76 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
+const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
+
 const loading = ref(true);
-const user = ref({ name: "Cliente", avatar: "" });
 const activeRequests = ref([]); 
 const inspirationFeed = ref([]); 
+
+// Control del Modal
 const showIncompleteProfileModal = ref(false);
 
+// --- NAVEGACIÓN ---
 const goToExplore = () => router.push('/client/explore');
 const goToProfile = () => router.push('/client/profile');
 const closeWarning = () => showIncompleteProfileModal.value = false;
 
+// --- AL CARGAR ---
 onMounted(async () => {
-  // 1. Datos básicos desde localStorage (puestos por Register.vue)
-  const storedName = localStorage.getItem('usuario_nombre');
-  const userId = localStorage.getItem('usuario_id');
-  
-  if (storedName) user.value.name = storedName;
+  // Usamos el ID del estado global (más seguro que localStorage directo)
+  const userId = state.user.id;
 
   if (userId) {
     try {
-      // 2. VERIFICAR PERFIL EN PUERTO 3001 (Donde están los datos)
+      // 1. SINCRONIZAR PERFIL (Puerto 3001)
+      // Pedimos los datos más recientes a la base de datos
       const { data } = await axios.get(`http://localhost:3001/api/clientes/${userId}`);
       
-      // Si no hay datos, o faltan teléfono/dirección -> MODAL
-      if (!data || !data.telefono || !data.direccion) {
-        setTimeout(() => {
-          showIncompleteProfileModal.value = true;
-        }, 800); 
-      } else {
-        localStorage.setItem('usuario_telefono', data.telefono);
-        localStorage.setItem('usuario_direccion', data.direccion);
+      if (data) {
+        // Actualizamos el cerebro con la información fresca
+        updateProfile({
+          name: data.nombre,
+          phone: data.telefono,
+          location: data.direccion,
+          avatar: data.avatar
+        });
+
+        // Verificamos si falta información CRÍTICA para mostrar el modal
+        if (!data.telefono || !data.direccion) {
+          console.log("Perfil incompleto detectado.");
+          setTimeout(() => {
+            showIncompleteProfileModal.value = true;
+          }, 1000); // Pequeño retraso para animación suave
+        }
       }
 
-      // 3. Cargar solicitudes (Asumiendo que las manejas en 3000 o 3001)
+      // 2. CARGAR SOLICITUDES (Puerto 3000)
       try {
         const requestsRes = await axios.get(`http://localhost:3000/api/solicitudes/cliente/${userId}`);
         activeRequests.value = requestsRes.data;
-      } catch (err) {
-        console.log("Sin solicitudes o error conexión solicitudes.");
+      } catch (reqError) {
+        console.log("El usuario no tiene solicitudes o el servicio 3000 no responde.");
       }
 
     } catch (error) {
-      console.log("Usuario nuevo detectado (o error 3001).");
-      setTimeout(() => { showIncompleteProfileModal.value = true; }, 800);
+      console.error("Error cargando dashboard:", error);
+      // Si falla la conexión con BD, confiamos en lo que hay en memoria local
+      if (!state.user.phone || !state.user.location) {
+         showIncompleteProfileModal.value = true;
+      }
     } finally {
       loading.value = false;
     }
   } else {
-    loading.value = false;
+    // Si no hay ID, mandamos al login
     router.push('/login');
   }
 });
 </script>
+
 <template>
   <div class="client-content-wrapper">
     
@@ -93,7 +109,7 @@ onMounted(async () => {
     <main class="feed-content">
       
       <div class="welcome-banner">
-        <h2>Hola, {{ user.name }}</h2>
+        <h2>Hola, {{ state.user.name }}</h2>
         <p>¿Qué necesitas resolver hoy?</p>
       </div>
 
@@ -147,11 +163,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* --- ESTILOS DEL MODAL (NUEVOS) --- */
+/* --- ESTILOS DEL MODAL --- */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(11, 76, 111, 0.45); /* Azul ServiHub con transparencia */
-  backdrop-filter: blur(5px); /* Efecto cristal */
+  background: rgba(11, 76, 111, 0.45);
+  backdrop-filter: blur(5px);
   z-index: 9999;
   display: flex; align-items: center; justify-content: center;
 }
@@ -172,99 +188,57 @@ onMounted(async () => {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* Ícono Circular */
 .icon-container {
   position: relative;
   width: 72px; height: 72px;
-  background: #E0F2FE; /* Fondo azul muy suave */
+  background: #E0F2FE;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 24px;
 }
-.user-icon { width: 36px; color: #0B4C6F; } /* Azul Marca */
+.user-icon { width: 36px; color: #0B4C6F; }
 
-/* Punto Naranja de Alerta */
 .notification-dot {
   position: absolute; top: 0; right: 0;
   width: 24px; height: 24px;
-  background: #F76B1C; /* Naranja Marca */
+  background: #F76B1C;
   color: white; font-weight: 800; font-size: 14px;
   border-radius: 50%; border: 3px solid white;
   display: flex; align-items: center; justify-content: center;
 }
 
-/* Tipografía Modal */
-.modal-card h3 { 
-  margin: 0 0 12px 0; 
-  color: #1e293b; 
-  font-size: 1.5rem; 
-  font-weight: 800; 
-}
-.modal-card p { 
-  color: #64748b; 
-  margin-bottom: 32px; 
-  line-height: 1.6; 
-  font-size: 0.95rem;
-}
+.modal-card h3 { margin: 0 0 12px 0; color: #1e293b; font-size: 1.5rem; font-weight: 800; }
+.modal-card p { color: #64748b; margin-bottom: 32px; line-height: 1.6; font-size: 0.95rem; }
 .modal-card p strong { color: #0B4C6F; }
 
-/* Botones Modal */
 .modal-actions { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 
 .btn-complete {
-  background: #0B4C6F; /* Azul Principal */
-  color: white; 
-  border: none; 
-  padding: 14px; 
-  border-radius: 12px; 
-  font-weight: 700; font-size: 1rem;
-  cursor: pointer; 
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(11, 76, 111, 0.2);
+  background: #0B4C6F; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(11, 76, 111, 0.2);
 }
-.btn-complete:hover { 
-  background: #093a55; 
-  transform: translateY(-2px); 
-  box-shadow: 0 10px 15px -3px rgba(11, 76, 111, 0.3);
-}
+.btn-complete:hover { background: #093a55; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(11, 76, 111, 0.3); }
 .arrow-icon { width: 18px; }
 
 .btn-later {
-  background: transparent; border: none;
-  padding: 10px; 
-  font-weight: 600; font-size: 0.95rem;
-  color: #94a3b8; 
-  cursor: pointer;
-  transition: color 0.2s;
+  background: transparent; border: none; padding: 10px; font-weight: 600; font-size: 0.95rem; color: #94a3b8; cursor: pointer; transition: color 0.2s;
 }
 .btn-later:hover { color: #64748b; }
 
-/* Nota al pie con candado */
 .modal-footer-note {
-  margin-top: 24px;
-  font-size: 0.75rem;
-  color: #F76B1C; /* Texto naranja */
-  background: #FFF7ED; /* Fondo naranja muy suave */
-  padding: 8px 16px;
-  border-radius: 20px;
-  display: flex; align-items: center; gap: 6px;
-  font-weight: 600;
+  margin-top: 24px; font-size: 0.75rem; color: #F76B1C; background: #FFF7ED; padding: 8px 16px; border-radius: 20px; display: flex; align-items: center; gap: 6px; font-weight: 600;
 }
 .lock-icon { width: 12px; }
 
-/* --- ESTILOS GENERALES DASHBOARD (YA EXISTENTES) --- */
+/* --- ESTILOS GENERALES --- */
 .client-content-wrapper { display: flex; gap: 24px; width: 100%; padding-bottom: 40px; }
 .feed-content { flex: 1; }
 .sidebar-right { width: 300px; display: none; } 
 @media (min-width: 1024px) { .sidebar-right { display: block; } }
 
-/* Banner */
 .welcome-banner { background: linear-gradient(135deg, #0B4C6F 0%, #083a55 100%); padding: 30px; border-radius: 12px; color: white; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(11, 76, 111, 0.15); }
 .welcome-banner h2 { margin: 0 0 5px 0; font-size: 1.8rem; font-weight: 700; }
 .welcome-banner p { margin: 0; opacity: 0.9; font-size: 1.1rem; }
 
-/* Listas */
 .ongoing-section { margin-bottom: 40px; }
 .section-title { font-size: 1.25rem; color: #333; margin-bottom: 15px; font-weight: 700; }
 .ongoing-list { display: flex; flex-direction: column; gap: 15px; }
@@ -284,7 +258,6 @@ onMounted(async () => {
 
 .empty-requests-box { padding: 20px; background: #F8FAFC; border-radius: 8px; border: 1px dashed #CBD5E1; color: #64748B; text-align: center; }
 
-/* Feed */
 .empty-state-container { text-align: center; padding: 60px; background: white; border: 1px dashed #ccc; border-radius: 12px; }
 .empty-icon-svg { width: 64px; height: 64px; margin: 0 auto 15px; }
 .btn-outline { margin-top: 20px; padding: 12px 24px; border: 1px solid #0B4C6F; color: #0B4C6F; background: white; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; }

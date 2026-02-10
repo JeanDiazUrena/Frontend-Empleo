@@ -1,26 +1,18 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
+// 2. USAR EL ESTADO GLOBAL (isLoggedIn es reactivo automático)
+const { isLoggedIn, state } = useUserSession(); 
 const searchQuery = ref('');
-
-// --- VARIABLES DE ESTADO (NUEVO) ---
-const isLoggedIn = ref(false);
-const userRole = ref('');
 
 // --- LÓGICA AL CARGAR ---
 onMounted(() => {
-  // 1. Detección de Sesión (Lógica Nueva)
-  const token = localStorage.getItem('token');
-  const role = localStorage.getItem('user_role');
-
-  if (token) {
-    isLoggedIn.value = true;
-    userRole.value = role;
-  }
-
-  // 2. Animaciones (Tu código original)
+  // Nota: Ya no necesitamos verificar token aquí manualmente.
+  
+  // Lógica de Animaciones (Intacta)
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -32,28 +24,29 @@ onMounted(() => {
   document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
 });
 
-// --- FUNCIÓN INTELIGENTE (NUEVO) ---
+// --- ACCIÓN INTELIGENTE (Hero Tags y CTA) ---
 const handleAction = () => {
   if (isLoggedIn.value) {
-    // Si ya tiene sesión, va a su dashboard
-    if (userRole.value === 'profesional') {
+    // Si ya tiene sesión, va a su dashboard correspondiente
+    if (state.user.role === 'profesional') {
       router.push('/professional/dashboard');
     } else {
       router.push('/client/dashboard');
     }
   } else {
-    // Si no tiene sesión, va al registro
+    // Si no, va al registro
     router.push('/register');
   }
 };
 
+// --- BUSCADOR ---
 const searchService = () => {
   if (searchQuery.value.trim()) {
-    // Si es cliente logueado, busca dentro de la app
-    if (isLoggedIn.value && userRole.value === 'cliente') {
+    // Si es cliente logueado, busca adentro
+    if (isLoggedIn.value && state.user.role === 'cliente') {
       router.push({ path: '/client/explore', query: { q: searchQuery.value } });
     } else {
-      // Si no, lo mandamos a registrarse primero
+      // Si no, registro (o podrías mandarlo al login)
       router.push('/register');
     }
   }
@@ -159,7 +152,7 @@ const searchService = () => {
       </div>
     </section>
 
-   <section id="explorar-seccion" class="categories container animate-on-scroll">
+    <section id="explorar-seccion" class="categories container animate-on-scroll">
       <h2 class="section-title">Explora el mercado</h2>
       <div class="cat-grid">
         <div class="cat-item">
@@ -215,7 +208,7 @@ const searchService = () => {
       <div class="container cta-content animate-on-scroll">
         <div class="cta-text">
           <h2 v-if="!isLoggedIn">¿Listo para empezar?</h2>
-          <h2 v-else>Bienvenido de nuevo</h2>
+          <h2 v-else>Bienvenido de nuevo, {{ state.user.name }}</h2>
 
           <p>Únete a miles de profesionales y clientes hoy mismo.</p>
           
@@ -245,7 +238,7 @@ const searchService = () => {
 .video-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
 .video-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1; }
 .hero-container { position: relative; z-index: 2; width: 100%; }
-.hero-content { max-width: 850px; color: white; margin: 0 auto; } /* Añadido margin 0 auto por si acaso */
+.hero-content { max-width: 850px; color: white; margin: 0 auto; }
 .hero-content h1 { font-size: 4rem; margin-bottom: 30px; font-weight: 800; line-height: 1.1; }
 .highlight { font-family: serif; font-style: italic; color: #F76B1C; }
 
@@ -308,9 +301,9 @@ const searchService = () => {
 .cta-img-placeholder { width: 450px; height: 350px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,0.5); }
 
 @media (max-width: 900px) {
-  .hero-content h1 { font-size: 2.5rem; }
-  .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
-  .quality-grid { text-align: left; }
-  .cta-img-placeholder { width: 100%; height: 250px; }
+  .hero-content h1 { font-size: 2.5rem; }
+  .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
+  .quality-grid { text-align: left; }
+  .cta-img-placeholder { width: 100%; height: 250px; }
 }
 </style>

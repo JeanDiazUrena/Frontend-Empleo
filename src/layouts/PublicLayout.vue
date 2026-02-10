@@ -1,30 +1,29 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router';
+import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
-const route = useRoute(); // Necesitamos saber en qué página estamos
+const route = useRoute();
 
-// --- ESTADO ---
-const isLoggedIn = ref(false);
-const user = ref({ name: '', initials: '', role: '' });
+// 2. USAR ESTADO GLOBAL (Ya no necesitamos leer localStorage manualmente aquí)
+const { state, isLoggedIn, userInitials, logout } = useUserSession();
+
+// Variables visuales del menú
 const isMenuOpen = ref(false);
 const menuRef = ref(null);
 
-// --- LÓGICA ESPECIAL DE EXPLORAR ---
+// --- LÓGICA INTELIGENTE DE EXPLORAR ---
 const handleExplore = async () => {
   if (isLoggedIn.value) {
-    // CASO A: LOGUEADO -> Va a la vista interna de la app
+    // Si está logueado -> Entra a la app
     router.push('/client/explore');
   } else {
-    // CASO B: NO LOGUEADO -> Scroll a la sección en Home
+    // Si NO está logueado -> Scroll en el Home
     if (route.path !== '/') {
-      // Si no estamos en Home (ej: estamos en Login), primero vamos a Home
       await router.push('/');
-      // Esperamos un poquito a que cargue el Home y luego bajamos
       setTimeout(() => scrollToSection(), 100);
     } else {
-      // Si ya estamos en Home, solo bajamos
       scrollToSection();
     }
   }
@@ -32,24 +31,21 @@ const handleExplore = async () => {
 
 const scrollToSection = () => {
   const section = document.getElementById('explorar-seccion');
-  if (section) {
-    section.scrollIntoView({ behavior: 'smooth' });
-  }
+  if (section) section.scrollIntoView({ behavior: 'smooth' });
 };
 
 // --- ACCIONES DEL MENÚ ---
 const toggleMenu = () => isMenuOpen.value = !isMenuOpen.value;
 
 const handleLogout = () => {
-  localStorage.clear();
-  isLoggedIn.value = false;
+  logout(); // Limpieza profunda desde el cerebro
   isMenuOpen.value = false;
   router.push('/login');
 };
 
 const goToProfile = () => {
   isMenuOpen.value = false;
-  if (user.value.role === 'profesional') {
+  if (state.user.role === 'profesional') {
     router.push('/professional/profile');
   } else {
     router.push('/client/profile');
@@ -62,42 +58,22 @@ const addAccount = () => {
 };
 
 const goToDashboard = () => {
-  if (user.value.role === 'profesional') {
+  if (state.user.role === 'profesional') {
     router.push('/professional/dashboard');
   } else {
     router.push('/client/dashboard');
   }
 };
 
+// CERRAR AL HACER CLIC FUERA
 const handleClickOutside = (event) => {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     isMenuOpen.value = false;
   }
 };
 
-// --- AL CARGAR ---
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-
-  const token = localStorage.getItem('token');
-  const storedName = localStorage.getItem('usuario_nombre') || localStorage.getItem('user_name');
-  const storedRole = localStorage.getItem('user_role');
-
-  if (token && storedName) {
-    isLoggedIn.value = true;
-    user.value.name = storedName;
-    user.value.role = storedRole;
-
-    const parts = storedName.split(' ');
-    user.value.initials = parts.length > 1 
-      ? (parts[0][0] + parts[1][0]).toUpperCase() 
-      : parts[0].substring(0, 2).toUpperCase();
-  }
-});
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-});
+onMounted(() => document.addEventListener('click', handleClickOutside));
+onUnmounted(() => document.removeEventListener('click', handleClickOutside));
 </script>
 
 <template>
@@ -126,9 +102,9 @@ onUnmounted(() => {
             
             <div class="user-menu-container" ref="menuRef">
               <div class="user-trigger" @click="toggleMenu">
-                <span class="user-name">{{ user.name }}</span>
+                <span class="user-name">{{ state.user.name }}</span>
                 <div class="avatar-circle">
-                  {{ user.initials }}
+                  {{ userInitials }}
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" :class="{ 'rotate': isMenuOpen }" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -140,7 +116,7 @@ onUnmounted(() => {
                   <ul>
                     <li class="menu-header-item">
                       <small>Conectado como</small>
-                      <strong>{{ user.name }}</strong>
+                      <strong>{{ state.user.name }}</strong>
                     </li>
                     <li @click="goToProfile">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -179,7 +155,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* LOS MISMOS ESTILOS QUE YA TENÍAS, SIN CAMBIOS VISUALES */
+/* ESTILOS VISUALES IDÉNTICOS A TU DISEÑO ORIGINAL */
 .public-layout { display: flex; flex-direction: column; min-height: 100vh; }
 .navbar { border-bottom: 1px solid #e5e7eb; background: white; padding: 15px 0; position: sticky; top: 0; z-index: 50; }
 .nav-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; padding: 0 20px; }
@@ -193,6 +169,8 @@ onUnmounted(() => {
 .btn-join:hover { background: #F76B1C; color: white; }
 .btn-dashboard { background: #0B4C6F; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
 .btn-dashboard:hover { background: #093a55; transform: translateY(-1px); }
+
+/* MENÚ DE USUARIO */
 .user-menu-container { position: relative; }
 .user-trigger { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 30px; transition: background 0.2s; border: 1px solid transparent; }
 .user-trigger:hover { background-color: #f3f4f6; border-color: #e5e7eb; }
@@ -200,6 +178,8 @@ onUnmounted(() => {
 .avatar-circle { width: 34px; height: 34px; background: #F76B1C; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .arrow-icon { width: 14px; color: #64748b; transition: transform 0.2s; }
 .rotate { transform: rotate(180deg); }
+
+/* DROPDOWN */
 .dropdown-menu { position: absolute; top: 50px; right: 0; width: 220px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; overflow: hidden; z-index: 100; }
 .dropdown-menu ul { list-style: none; padding: 5px; margin: 0; }
 .dropdown-menu li { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 0.9rem; color: #4b5563; cursor: pointer; transition: all 0.2s; }
@@ -215,6 +195,7 @@ onUnmounted(() => {
 .logout:hover { background-color: #fef2f2 !important; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+
 .page-content { flex: 1; }
 .footer { border-top: 1px solid #e5e7eb; padding: 30px 0; text-align: center; color: #888; font-size: 0.9rem; margin-top: auto; }
 @media (max-width: 768px) { .nav-links { display: none; } }
