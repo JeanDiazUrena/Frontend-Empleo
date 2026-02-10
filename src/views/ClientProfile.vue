@@ -1,103 +1,181 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios';
 
 const router = useRouter();
 
-// --- ESTADO INICIAL (VACÍO PARA DB) ---
-const user = ref({
+// --- ESTADO ---
+const user = ref({ 
   name: "", 
-  email: "",      
-  phone: "",
-  location: "",
-  avatar: "",     
-  banner: "",     
-  joinDate: ""    
+  email: "", 
+  phone: "", 
+  location: "", 
+  avatar: "", 
+  banner: "", 
+  joinDate: "" 
 });
 
-const serviceHistory = ref([]); 
-
-// ESTADO DE LA INTERFAZ
-const activeTab = ref('info'); 
+// Variables temporales para edición
 const isEditing = ref(false);
 const tempUser = ref({}); 
-const isLoadingLocation = ref(false); // Nuevo estado para carga de GPS
+const activeTab = ref('info');
+const isLoadingLocation = ref(false);
+const serviceHistory = ref([]); 
 
-// INPUTS REFERENCIAS
+// VARIABLES PARA LOS ARCHIVOS (FILES)
+const avatarFile = ref(null);
+const bannerFile = ref(null);
+
+// Referencias al DOM (Inputs ocultos)
 const avatarInput = ref(null);
 const bannerInput = ref(null);
 
-const isNewProfile = computed(() => !user.value.name);
+const isNewProfile = computed(() => !user.value.phone || !user.value.location);
 
-// --- MÉTODOS ---
-
-// 1. FUNCIÓN DE GEOLOCALIZACIÓN REAL
-const detectLocation = () => {
-  if (!("geolocation" in navigator)) {
-    alert("Tu navegador no soporta geolocalización.");
-    return;
+// --- 1. CARGAR DATOS (Backend + LocalStorage) ---
+onMounted(async () => {
+  const userId = localStorage.getItem('usuario_id');
+  
+  if (!userId) { 
+    router.push('/login'); 
+    return; 
   }
 
-  isLoadingLocation.value = true;
+  // 1. Carga inicial rápida desde LocalStorage
+  user.value.name = localStorage.getItem('usuario_nombre') || "";
+  user.value.email = localStorage.getItem('usuario_email') || "";
+  user.value.phone = localStorage.getItem('usuario_telefono') || "";
+  user.value.location = localStorage.getItem('usuario_direccion') || "";
 
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const { latitude, longitude } = position.coords;
+  // 2. Carga REAL desde la Base de Datos (Prioritaria)
+  try {
+    const { data } = await axios.get(`http://localhost:3001/api/clientes/${userId}`);
+    
+    if (data) {
+      // Si la BD tiene datos, sobrescribimos lo local
+      if (data.nombre) user.value.name = data.nombre;
+      if (data.email) user.value.email = data.email;
       
-      // AQUÍ OCURRE LA MAGIA: 
-      // Normalmente usarías la API de Google Maps para convertir coordenadas en texto.
-      // Como no tenemos API Key ahora, simularemos que obtuvimos la ciudad base de las coordenadas.
-      // En producción: await axios.get(`https://maps.googleapis.com/...lat=${latitude}&lon=${longitude}`)
+      user.value.phone = data.telefono || "";
+      user.value.location = data.direccion || "";
+      user.value.avatar = data.avatar || ""; // URL del servidor
+      user.value.banner = data.banner || ""; // URL del servidor
       
-      console.log(`Coordenadas: ${latitude}, ${longitude}`);
+      if (data.fecha_registro) {
+         user.value.joinDate = new Date(data.fecha_registro).toLocaleDateString();
+      }
       
-      // Simulación de respuesta de API de Mapas
-      tempUser.value.location = `Santiago de los Caballeros (Lat: ${latitude.toFixed(2)})`;
-      
-      isLoadingLocation.value = false;
-    },
-    (error) => {
-      console.error(error);
-      isLoadingLocation.value = false;
-      alert("No pudimos obtener tu ubicación. Por favor escríbela manualmente.");
+      // Actualizamos localStorage para mantener sincronía
+      localStorage.setItem('usuario_nombre', user.value.name);
+      localStorage.setItem('usuario_email', user.value.email);
+    } else {
+      // Si no existe en BD, iniciamos modo edición para crearlo
+      startEditing();
     }
-  );
-};
+  } catch (error) {
+    console.error("Error conectando con el servidor:", error);
+  }
+});
 
+// --- 2. INICIAR EDICIÓN ---
 const startEditing = () => {
+  // Copiamos datos actuales a temporales
   tempUser.value = { ...user.value };
+  avatarFile.value = null;
+  bannerFile.value = null;
   isEditing.value = true;
   activeTab.value = 'info'; 
 };
 
-const saveChanges = () => {
-  // AQUÍ SE ENVÍA A LA BASE DE DATOS
-  user.value = { ...tempUser.value };
-  isEditing.value = false;
-  
-  if (!user.value.joinDate) user.value.joinDate = "Enero 2026";
-};
-
-const cancelEditing = () => {
-  isEditing.value = false;
-};
-
-// IMÁGENES
-const triggerAvatarUpload = () => avatarInput.value.click();
-const triggerBannerUpload = () => bannerInput.value.click();
-
+// --- 3. MANEJO DE IMÁGENES ---
 const handleImageChange = (event, type) => {
   const file = event.target.files[0];
   if (file) {
-    const url = URL.createObjectURL(file);
+    // URL temporal para previsualización inmediata
+    const previewUrl = URL.createObjectURL(file);
+    
     if (type === 'avatar') {
-      if (isEditing) tempUser.value.avatar = url;
-      else user.value.avatar = url;
-    } 
-    if (type === 'banner') {
-      user.value.banner = url; 
+      tempUser.value.avatar = previewUrl; 
+      avatarFile.value = file; // Guardamos el archivo real para enviar
+    } else if (type === 'banner') {
+      tempUser.value.banner = previewUrl; 
+      bannerFile.value = file; // Guardamos el archivo real para enviar
     }
   }
+};
+
+const triggerAvatarUpload = () => avatarInput.value.click();
+const triggerBannerUpload = () => bannerInput.value.click();
+
+// --- 4. GUARDAR CAMBIOS (CONECTADO AL BACKEND) ---
+const saveChanges = async () => {
+  const userId = localStorage.getItem('usuario_id');
+  
+  // Validación mínima
+  if (!tempUser.value.name || !tempUser.value.phone) {
+    alert("El nombre y el teléfono son obligatorios.");
+    return;
+  }
+
+  try {
+    // Usamos FormData para enviar Texto + Archivos
+    const formData = new FormData();
+    
+    formData.append('usuario_id', userId);
+    formData.append('nombre', tempUser.value.name);
+    formData.append('email', tempUser.value.email);
+    formData.append('phone', tempUser.value.phone);
+    formData.append('location', tempUser.value.location);
+
+    // Solo adjuntamos imágenes si se cambiaron
+    if (avatarFile.value) formData.append('avatar', avatarFile.value);
+    if (bannerFile.value) formData.append('banner', bannerFile.value);
+
+    // ENVIAR AL SERVIDOR
+    await axios.post('http://localhost:3001/api/clientes', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    // ÉXITO: Actualizamos la vista y el localStorage
+    user.value = { ...tempUser.value };
+    
+    localStorage.setItem('usuario_nombre', tempUser.value.name);
+    localStorage.setItem('usuario_email', tempUser.value.email);
+    localStorage.setItem('usuario_telefono', tempUser.value.phone);
+    localStorage.setItem('usuario_direccion', tempUser.value.location);
+
+    isEditing.value = false;
+    alert("¡Datos guardados correctamente!");
+
+  } catch (error) {
+    console.error("Error al guardar:", error);
+    alert("Hubo un error al guardar en el servidor.");
+  }
+};
+
+const cancelEditing = () => {
+  if (isNewProfile.value && !user.value.phone) {
+      router.push('/client/dashboard');
+  }
+  isEditing.value = false;
+};
+
+// --- 5. GEOLOCALIZACIÓN ---
+const detectLocation = () => {
+  if (!navigator.geolocation) return alert("Tu navegador no soporta GPS");
+  isLoadingLocation.value = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      // Simulación de dirección (En prod usarías Google Maps API)
+      tempUser.value.location = `Ubicación GPS (Lat: ${pos.coords.latitude.toFixed(4)})`;
+      isLoadingLocation.value = false;
+    },
+    (err) => { 
+      isLoadingLocation.value = false; 
+      alert("No se pudo obtener ubicación."); 
+    }
+  );
 };
 
 const goToExplore = () => router.push('/client/explore');
@@ -107,8 +185,8 @@ const goToExplore = () => router.push('/client/explore');
   <div class="profile-layout">
     
     <div class="profile-header-card">
-      <div class="banner-area" :style="user.banner ? { backgroundImage: `url(${user.banner})` } : {}">
-        <button class="btn-camera banner-cam" title="Cambiar portada" @click="triggerBannerUpload">
+      <div class="banner-area" :style="(isEditing ? tempUser.banner : user.banner) ? { backgroundImage: `url(${isEditing ? tempUser.banner : user.banner})` } : {}">
+        <button v-if="isEditing" class="btn-camera banner-cam" title="Cambiar portada" @click="triggerBannerUpload">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg>
         </button>
         <input type="file" ref="bannerInput" class="hidden" accept="image/*" @change="(e) => handleImageChange(e, 'banner')">
@@ -117,9 +195,9 @@ const goToExplore = () => router.push('/client/explore');
       <div class="header-content">
         <div class="avatar-wrapper">
           <div class="avatar-circle" :class="{ 'editable': isEditing }" @click="isEditing ? triggerAvatarUpload() : null">
-            <img v-if="isEditing ? tempUser.avatar : user.avatar" :src="isEditing ? tempUser.avatar : user.avatar" class="avatar-img">
+            <img v-if="(isEditing ? tempUser.avatar : user.avatar)" :src="isEditing ? tempUser.avatar : user.avatar" class="avatar-img">
             <div v-else class="avatar-placeholder-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
             </div>
             <div v-if="isEditing" class="avatar-overlay">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /></svg>
@@ -130,13 +208,13 @@ const goToExplore = () => router.push('/client/explore');
 
         <div class="user-text">
           <div class="name-badge">
-            <h1>{{ user.name || 'Usuario Nuevo' }}</h1>
+            <h1>{{ isEditing ? (tempUser.name || 'Sin Nombre') : (user.name || 'Usuario Nuevo') }}</h1>
             <span v-if="user.name" class="client-badge">Cliente</span>
           </div>
           <div class="meta-info">
             <span class="meta-item">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon-tiny" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
-              {{ user.location || 'Sin ubicación' }}
+              {{ isEditing ? (tempUser.location || 'Sin ubicación') : (user.location || 'Sin ubicación') }}
             </span>
             <span v-if="user.joinDate" class="meta-item">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon-tiny" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
@@ -197,7 +275,7 @@ const goToExplore = () => router.push('/client/explore');
           <form v-if="isEditing" @submit.prevent="saveChanges" class="info-form">
             <div class="form-group">
               <label>Nombre Completo</label>
-              <input v-model="tempUser.name" type="text" class="form-input" placeholder="Ej. Juan Pérez">
+              <input v-model="tempUser.name" type="text" class="form-input" placeholder="Tu nombre">
             </div>
             <div class="form-group">
               <label>Correo Electrónico</label>
@@ -205,15 +283,13 @@ const goToExplore = () => router.push('/client/explore');
             </div>
             <div class="form-group">
               <label>Teléfono</label>
-              <input v-model="tempUser.phone" type="tel" class="form-input" placeholder="809-000-0000">
+              <input v-model="tempUser.phone" type="tel" class="form-input" placeholder="809-000-0000" required>
             </div>
-            
             <div class="form-group full-width">
               <label>Dirección Principal</label>
               <div class="input-icon-wrap">
                 <svg class="icon-input" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
-                <input v-model="tempUser.location" type="text" class="form-input with-icon" placeholder="Calle, Sector, Ciudad">
-                
+                <input v-model="tempUser.location" type="text" class="form-input with-icon" placeholder="Calle, Sector, Ciudad" required>
                 <button type="button" @click="detectLocation" class="btn-location" :disabled="isLoadingLocation">
                   {{ isLoadingLocation ? '📍 Buscando...' : '📍 Usar GPS' }}
                 </button>
@@ -284,7 +360,7 @@ const goToExplore = () => router.push('/client/explore');
 </template>
 
 <style scoped>
-/* RESET */
+/* RESET & LAYOUT */
 .profile-layout { width: 100%; max-width: 1000px; margin: 0 auto; padding-bottom: 50px; }
 .hidden { display: none; }
 .icon-sm { width: 18px; height: 18px; margin-right: 6px; }
@@ -356,11 +432,7 @@ const goToExplore = () => router.push('/client/explore');
 .icon-input { position: absolute; left: 10px; top: 10px; width: 20px; color: #999; }
 .form-input.with-icon { padding-left: 38px; }
 
-.btn-location {
-  position: absolute; right: 5px; top: 5px;
-  background: #E0F2FE; color: #0B4C6F; border: none; padding: 5px 10px; border-radius: 4px; 
-  cursor: pointer; font-weight: 600; font-size: 0.8rem;
-}
+
 .btn-location:hover { background: #BAE6FD; }
 
 .form-actions { grid-column: span 2; display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }

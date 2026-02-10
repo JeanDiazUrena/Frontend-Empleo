@@ -5,67 +5,57 @@ import axios from 'axios';
 
 const router = useRouter();
 const loading = ref(true);
-
-// --- ESTADO ---
-const user = ref({ 
-  name: "Cliente", 
-  avatar: "" 
-});
-
+const user = ref({ name: "Cliente", avatar: "" });
 const activeRequests = ref([]); 
 const inspirationFeed = ref([]); 
-
-// Control del Modal
 const showIncompleteProfileModal = ref(false);
 
-// --- NAVEGACIÓN ---
 const goToExplore = () => router.push('/client/explore');
+const goToProfile = () => router.push('/client/profile');
+const closeWarning = () => showIncompleteProfileModal.value = false;
 
-const goToProfile = () => {
-  router.push('/client/profile');
-};
-
-const closeWarning = () => {
-  showIncompleteProfileModal.value = false;
-};
-
-// --- AL CARGAR ---
 onMounted(async () => {
-  // 1. Recuperar datos de sesión
+  // 1. Datos básicos desde localStorage (puestos por Register.vue)
   const storedName = localStorage.getItem('usuario_nombre');
   const userId = localStorage.getItem('usuario_id');
   
   if (storedName) user.value.name = storedName;
 
-  // 2. VERIFICACIÓN DE PERFIL (CANDADO)
-  // Buscamos si ya guardó teléfono y dirección en el localStorage
-  const userPhone = localStorage.getItem('usuario_telefono');
-  const userAddress = localStorage.getItem('usuario_direccion');
-
-  // Si falta alguno, mostramos el modal elegante con un pequeño retraso
-  if (!userPhone || !userAddress) {
-    setTimeout(() => {
-      showIncompleteProfileModal.value = true;
-    }, 800); 
-  }
-
-  // 3. CARGAR SOLICITUDES DEL BACKEND
   if (userId) {
     try {
-      // Intentamos conectar con el servidor real
-      const response = await axios.get(`http://localhost:3000/api/solicitudes/cliente/${userId}`);
-      activeRequests.value = response.data;
+      // 2. VERIFICAR PERFIL EN PUERTO 3001 (Donde están los datos)
+      const { data } = await axios.get(`http://localhost:3001/api/clientes/${userId}`);
+      
+      // Si no hay datos, o faltan teléfono/dirección -> MODAL
+      if (!data || !data.telefono || !data.direccion) {
+        setTimeout(() => {
+          showIncompleteProfileModal.value = true;
+        }, 800); 
+      } else {
+        localStorage.setItem('usuario_telefono', data.telefono);
+        localStorage.setItem('usuario_direccion', data.direccion);
+      }
+
+      // 3. Cargar solicitudes (Asumiendo que las manejas en 3000 o 3001)
+      try {
+        const requestsRes = await axios.get(`http://localhost:3000/api/solicitudes/cliente/${userId}`);
+        activeRequests.value = requestsRes.data;
+      } catch (err) {
+        console.log("Sin solicitudes o error conexión solicitudes.");
+      }
+
     } catch (error) {
-      console.log("No hay conexión con el servidor de solicitudes (Modo Offline o Error).");
+      console.log("Usuario nuevo detectado (o error 3001).");
+      setTimeout(() => { showIncompleteProfileModal.value = true; }, 800);
     } finally {
       loading.value = false;
     }
   } else {
     loading.value = false;
+    router.push('/login');
   }
 });
 </script>
-
 <template>
   <div class="client-content-wrapper">
     
