@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from "axios";
-import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR
+import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR
 
 const { login, logout } = useUserSession(); // 2. USAR
 const router = useRouter();

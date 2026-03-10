@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
+import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
 // 2. USAR EL ESTADO GLOBAL (isLoggedIn es reactivo automático)

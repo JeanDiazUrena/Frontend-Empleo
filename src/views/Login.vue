@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
-import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
+import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
 const { login } = useUserSession(); // 2. USAR FUNCIÓN CENTRALIZADA
