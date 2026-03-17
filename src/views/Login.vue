@@ -2,10 +2,11 @@
 import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
-import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
+// OJO: Asegúrate que la ruta sea correcta según tu estructura (../ o @/)
+import { useUserSession } from '../composables/useUserSession'; 
 
 const router = useRouter();
-const { login } = useUserSession(); // 2. USAR FUNCIÓN CENTRALIZADA
+const { login } = useUserSession();
 
 const email = ref('');
 const password = ref('');
@@ -23,23 +24,50 @@ async function handleLogin() {
   isLoading.value = true;
 
   try {
-    // 1. CONEXIÓN AL BACKEND
-    const response = await axios.post('http://localhost:3000/api/login', {
+    // ---------------------------------------------------------
+    // PASO 1: AUTENTICACIÓN BÁSICA (Puerto 3000)
+    // ---------------------------------------------------------
+    const authResponse = await axios.post('http://localhost:3000/api/login', {
       email: email.value,
       password: password.value
     });
 
-    const { token, user } = response.data;
+    const { token, user: basicUser } = authResponse.data;
+    
+    // Preparamos el objeto final combinando datos
+    let fullUserData = { ...basicUser };
 
-    // 2. ACTUALIZAR SESIÓN GLOBAL (Aquí ocurre la magia)
-    // Al usar login(), el cerebro actualiza el localStorage Y el estado reactivo.
-    // Esto hace que el navbar cambie inmediatamente sin recargar.
-    login(user, token);
+    // ---------------------------------------------------------
+    // PASO 2: RECUPERAR DATOS DEL PERFIL (Puerto 3001)
+    // ---------------------------------------------------------
+    // Si es cliente, vamos a buscar su teléfono y dirección al otro servidor
+    if (basicUser.rol === 'cliente') {
+      try {
+        const profileResponse = await axios.get(`http://localhost:3001/api/clientes/${basicUser.id}`);
+        const profileData = profileResponse.data;
 
-    console.log("Login exitoso. Rol detectado:", user.rol);
+        if (profileData) {
+          // AQUÍ OCURRE LA MAGIA:
+          // Le pegamos el teléfono y dirección de la BD 3001 al usuario que vamos a guardar
+          fullUserData.telefono = profileData.telefono;
+          fullUserData.direccion = profileData.direccion;
+          fullUserData.avatar = profileData.avatar; 
+          // (Si tuvieras banner también lo agregas aquí)
+        }
+      } catch (profileError) {
+        console.warn("No se pudo cargar el perfil detallado (3001), se usaran datos básicos.");
+      }
+    }
 
-    // 3. REDIRECCIÓN
-    if (user.rol === 'profesional') {
+    // ---------------------------------------------------------
+    // PASO 3: GUARDAR EN EL CEREBRO Y REDIRIGIR
+    // ---------------------------------------------------------
+    // Ahora 'fullUserData' tiene ID, Nombre, Email (del 3000) Y Teléfono, Dirección (del 3001)
+    login(fullUserData, token);
+
+    console.log("Login completo. Datos fusionados:", fullUserData);
+
+    if (fullUserData.rol === 'profesional') {
       router.push('/professional/dashboard');
     } else {
       router.push('/client/dashboard');
@@ -49,7 +77,7 @@ async function handleLogin() {
     console.error("Error de autenticación:", error);
 
     if (error.response) {
-      errorMessage.value = error.response.data.message || "Usuario o contraseña incorrectos.";
+      errorMessage.value = error.response.data.message || "Credenciales incorrectas.";
     } else if (error.request) {
       errorMessage.value = "Error de conexión: El servidor no responde.";
     } else {
@@ -134,60 +162,38 @@ async function handleLogin() {
 </template>
 
 <style scoped>
-/* TUS ESTILOS ORIGINALES (NO TOCADOS) */
-.login-page-fullscreen {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: white; z-index: 9999; display: flex; flex-direction: column;
-}
-
-.login-nav {
-  position: absolute; top: 0; left: 0; width: 100%; height: 80px;
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0 40px; z-index: 50;
-}
+/* TUS MISMOS ESTILOS */
+.login-page-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; z-index: 9999; display: flex; flex-direction: column; }
+.login-nav { position: absolute; top: 0; left: 0; width: 100%; height: 80px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; z-index: 50; }
 .brand-link { display: flex; align-items: center; gap: 10px; text-decoration: none; font-size: 1.5rem; font-weight: 800; color: white; }
 .nav-logo { height: 35px; }
 .nav-right { display: flex; gap: 15px; align-items: center; }
 .nav-text { color: #666; font-size: 0.95rem; }
 .btn-nav-outline { text-decoration: none; border: 1px solid #0B4C6F; color: #0B4C6F; padding: 8px 20px; border-radius: 6px; font-weight: 600; }
-
 .split-layout { display: flex; width: 100%; height: 100%; }
-
-.image-panel {
-  width: 40%;
-  background-image: url('https://images.unsplash.com/photo-1600880292203-757bb62b4baf?q=80&w=2070&auto=format&fit=crop');
-  background-size: cover; background-position: center; position: relative;
-}
+.image-panel { width: 40%; background-image: url('https://images.unsplash.com/photo-1600880292203-757bb62b4baf?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; position: relative; }
 .overlay { position: absolute; inset: 0; background: rgba(11, 76, 111, 0.92); display: flex; align-items: center; justify-content: center; padding: 40px; color: white; }
 .content-box { max-width: 400px; margin-top: 60px; }
 .content-box h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
 .pills { display: flex; gap: 10px; margin-top: 20px; }
 .pills span { background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-size: 0.85rem; }
-
 .form-panel { width: 60%; display: flex; align-items: center; justify-content: center; padding: 40px; position: relative; }
 .form-content { width: 100%; max-width: 550px; margin-top: 40px; }
-
 .form-header { text-align: center; margin-bottom: 40px; }
 .form-header h2 { font-size: 2.5rem; color: #111; margin-bottom: 10px; font-weight: 800; }
-
 .field { margin-bottom: 20px; }
 .field label { display: block; font-weight: 700; margin-bottom: 8px; color: #374151; }
 .field input { width: 100%; padding: 16px; border: 1px solid #D1D5DB; border-radius: 10px; font-size: 1rem; background: #F9FAFB; }
 .field input:focus { border-color: #0B4C6F; background: white; outline: none; }
-
 .btn-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; background: white; border: 1px solid #D1D5DB; border-radius: 10px; font-weight: 600; cursor: pointer; }
 .btn-submit { width: 100%; background: #0B4C6F; color: white; padding: 16px; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 20px; transition: 0.3s; }
 .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
-
 .error-msg { background-color: #FEE2E2; color: #DC2626; padding: 10px; border-radius: 6px; margin-bottom: 20px; text-align: center; border: 1px solid #FCA5A5; }
-
 .separator { display: flex; align-items: center; color: #9CA3AF; margin: 20px 0; }
 .separator span { padding: 0 15px; }
 .separator::before, .separator::after { content: ""; flex: 1; height: 1px; background: #E5E7EB; }
-
 .forgot { text-align: right; }
 .forgot a { color: #0B4C6F; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
-
 @media (max-width: 1000px) {
   .image-panel { display: none; }
   .form-panel { width: 100%; padding: 20px; }

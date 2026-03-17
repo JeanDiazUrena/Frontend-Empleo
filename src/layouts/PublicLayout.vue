@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router';
-import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
+import { useUserSession } from '../composables/useUserSession'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
 const route = useRoute();

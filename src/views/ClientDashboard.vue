@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-import { useUserSession } from '@/composables/useUserSession'; // 1. IMPORTAR CEREBRO
+import { useUserSession } from '../composables/useUserSession'; // 1. IMPORTAR CEREBRO
 
 const router = useRouter();
 const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
