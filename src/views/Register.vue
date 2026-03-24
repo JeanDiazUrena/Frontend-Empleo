@@ -31,7 +31,7 @@ async function handleRegistration() {
   if (!selectedRole.value) { errorMessage.value = "Selecciona un rol."; return; }
 
   try {
-    const response = await axios.post("http://localhost:3000/api/register", {
+    const response = await axios.post("http://26.93.165.75:3000/api/register", {
       nombre: name.value,
       email: email.value,
       password: password.value,

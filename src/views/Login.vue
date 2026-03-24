@@ -24,7 +24,7 @@ async function handleLogin() {
 
   try {
     // 1. CONEXIÓN AL BACKEND
-    const response = await axios.post('http://localhost:3000/api/login', {
+    const response = await axios.post('http://26.93.165.75:3000/api/login', {
       email: email.value,
       password: password.value
     });
