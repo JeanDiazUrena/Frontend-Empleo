@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
+import { GoogleLogin } from 'vue3-google-login';
 
 const router = useRouter();
 const { login } = useUserSession();
@@ -24,12 +25,12 @@ async function handleLogin() {
 
   try {
     // 1. CONEXIÓN AL BACKEND
-    const response = await axios.post('http://26.93.165.75:3000/api/login', {
+    const response = await axios.post('http://localhost:3000/api/login', {
       email: email.value,
       password: password.value
     });
 
-    const { token, user: basicUser } = authResponse.data;
+    const { token, user: basicUser } = response.data;
     
     // Preparamos el objeto final combinando datos
     let fullUserData = { ...basicUser };
@@ -84,6 +85,48 @@ async function handleLogin() {
     isLoading.value = false;
   }
 }
+
+async function handleGoogleCallback(response) {
+  if (!response.credential) return;
+  errorMessage.value = '';
+  isLoading.value = true;
+  
+  try {
+    const res = await axios.post('http://localhost:3000/api/google', {
+      credential: response.credential
+    });
+
+    const { token, user: basicUser } = res.data;
+    let fullUserData = { ...basicUser };
+
+    if (basicUser.rol === 'cliente') {
+      try {
+        const profileResponse = await axios.get(`http://localhost:3001/api/clientes/${basicUser.id}`);
+        const profileData = profileResponse.data;
+        if (profileData) {
+          fullUserData.telefono = profileData.telefono;
+          fullUserData.direccion = profileData.direccion;
+          fullUserData.avatar = profileData.avatar; 
+        }
+      } catch (profileError) { console.warn("No extra data"); }
+    }
+
+    login(fullUserData, token);
+    if (fullUserData.rol === 'profesional') {
+      router.push('/professional/dashboard');
+    } else {
+      router.push('/client/dashboard');
+    }
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      errorMessage.value = "Cuenta no encontrada. Por favor regístrate como Cliente o Profesional primero.";
+    } else {
+      errorMessage.value = "Error al iniciar sesión con Google.";
+    }
+  } finally {
+    isLoading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -127,10 +170,12 @@ async function handleLogin() {
           <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
 
           <form @submit.prevent="handleLogin">
-            <button type="button" class="btn-google">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-              Continuar con Google
-            </button>
+            <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper">
+              <button type="button" class="btn-google">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+                Continuar con Google
+              </button>
+            </GoogleLogin>
 
             <div class="separator"><span>o ingresa con tu email</span></div>
 
@@ -182,6 +227,7 @@ async function handleLogin() {
 .field label { display: block; font-weight: 700; margin-bottom: 8px; color: #374151; }
 .field input { width: 100%; padding: 16px; border: 1px solid #D1D5DB; border-radius: 10px; font-size: 1rem; background: #F9FAFB; }
 .field input:focus { border-color: #0B4C6F; background: white; outline: none; }
+.google-btn-wrapper { width: 100%; display: block; }
 .btn-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; background: white; border: 1px solid #D1D5DB; border-radius: 10px; font-weight: 600; cursor: pointer; }
 .btn-submit { width: 100%; background: #0B4C6F; color: white; padding: 16px; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 20px; transition: 0.3s; }
 .btn-submit:disabled { background: #ccc; cursor: not-allowed; }

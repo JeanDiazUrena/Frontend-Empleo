@@ -23,6 +23,7 @@ import ServiceRequest from '../views/ServiceRequest.vue';
 import ProfessionalDashboard from '../views/ProfessionalDashboard.vue';
 import ChatProfessional from '../views/ChatProfessional.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
+import Configuraction from '../views/Configuraction.vue';
 
 const routes = [
   // 1. RUTA PUBLICA NORMAL
@@ -60,11 +61,12 @@ const routes = [
       { path: 'dashboard', name: 'ProfessionalDashboard', component: ProfessionalDashboard },
       { path: 'chat', name: 'ProfessionalChat', component: ChatProfessional },
       { path: 'profile', name: 'ProfessionalProfile', component: ProfessionalProfile },
+      { path: 'settings', name: 'ProfessionalSettings', component: Configuraction },
     ]
   },
 
   // 5. CONFIGURACION Y PUBLICACIONES
-  { path: '/professional-setup', name: 'ProfessionalSetup', component: ProfessionalSetup },
+  { path: '/professional/setup', name: 'ProfessionalSetup', component: ProfessionalSetup },
   { path: '/create-first-post', name: 'CreateFirstPost', component: CreateFirstPost },
   
   // --- ESTA ES LA RUTA QUE FALTABA PARA QUE FUNCIONE EL BOTON DE EDITAR ---

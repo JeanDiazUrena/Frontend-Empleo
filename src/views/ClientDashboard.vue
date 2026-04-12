@@ -9,7 +9,7 @@ const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
 
 const loading = ref(true);
 const activeRequests = ref([]); 
-const inspirationFeed = ref([]); 
+const featuredProfessionals = ref([]); 
 
 // Control del Modal
 const showIncompleteProfileModal = ref(false);
@@ -42,9 +42,10 @@ onMounted(async () => {
         // Verificamos si falta información CRÍTICA para mostrar el modal
         if (!data.telefono || !data.direccion) {
           console.log("Perfil incompleto detectado.");
-          setTimeout(() => {
-            showIncompleteProfileModal.value = true;
-          }, 1000); // Pequeño retraso para animación suave
+          // El usuario solicitó no mostrar el modal:
+          // setTimeout(() => {
+          //   showIncompleteProfileModal.value = true;
+          // }, 1000); 
         }
       }
 
@@ -56,11 +57,21 @@ onMounted(async () => {
         console.log("El usuario no tiene solicitudes o el servicio 3000 no responde.");
       }
 
+      // 3. CARGAR PROFESIONALES DESTACADOS (Puerto 3001)
+      try {
+        const prosRes = await axios.get('http://localhost:3001/api/profesionales');
+        if (prosRes.data && prosRes.data.length > 0) {
+          featuredProfessionals.value = prosRes.data.slice(0, 4); // Tomamos 4 profesionales al azar/primeros
+        }
+      } catch (err) {
+        console.log("No se pudieron cargar los profesionales destacados.");
+      }
+
     } catch (error) {
       console.error("Error cargando dashboard:", error);
       // Si falla la conexión con BD, confiamos en lo que hay en memoria local
       if (!state.user.phone || !state.user.location) {
-         showIncompleteProfileModal.value = true;
+         console.log("Faltan datos en memoria local, pero no mostramos modal.");
       }
     } finally {
       loading.value = false;
@@ -109,8 +120,13 @@ onMounted(async () => {
     <main class="feed-content">
       
       <div class="welcome-banner">
-        <h2>Hola, {{ state.user.name }}</h2>
-        <p>¿Qué necesitas resolver hoy?</p>
+        <div class="banner-content">
+          <h2>Hola, {{ state.user.name }}</h2>
+          <p>¿Qué necesitas resolver hoy?</p>
+        </div>
+        <button @click="router.push('/client/request')" class="btn-primary-action">
+          <i class="fa-solid fa-plus"></i> Publicar Solicitud
+        </button>
       </div>
 
       <div class="ongoing-section">
@@ -129,7 +145,7 @@ onMounted(async () => {
             </div>
             
             <button class="btn-view-details" @click="router.push(`/client/request/edit/${req.id}`)">
-              Ver Detalles
+              Ver Detalles <i class="fa-solid fa-arrow-right"></i>
             </button>
           </div>
         </div>
@@ -141,21 +157,55 @@ onMounted(async () => {
 
       <h3 class="section-title">Explora servicios cercanos</h3>
       
-      <div v-if="inspirationFeed.length === 0" class="empty-state-container">
+      <div v-if="featuredProfessionals.length === 0" class="empty-state-container">
         <div class="empty-icon-svg">
-           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#ccc" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+           <i class="fa-solid fa-users" style="font-size: 3rem; color: #cbd5e1;"></i>
         </div>
         <h3>Encuentra al experto ideal</h3>
         <p>Desde plomería hasta tecnología, todo en un solo lugar.</p>
-        <button @click="goToExplore" class="btn-outline">Buscar Profesionales</button>
+        <button @click="goToExplore" class="btn-outline">
+          <i class="fa-solid fa-magnifying-glass"></i> Explorar Directorio
+        </button>
+      </div>
+
+      <div v-else class="services-grid">
+        <div v-for="pro in featuredProfessionals" :key="pro.usuario_id" class="pro-card" @click="goToExplore">
+          <div class="pro-avatar">
+            <img v-if="pro.avatar" :src="pro.avatar.startsWith('http') ? pro.avatar : `http://localhost:3001${pro.avatar}`" alt="Avatar">
+            <span v-else>{{ pro.nombre.charAt(0) }}</span>
+          </div>
+          <div class="pro-info">
+            <h4>{{ pro.nombre }}</h4>
+            <p>{{ pro.profesion || 'Profesional' }}</p>
+            <div class="pro-rating">
+              <i class="fa-solid fa-star" style="color: #FBBF24;"></i>
+              <span>{{ pro.rating || 'Nuevo' }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
     </main>
 
     <aside class="sidebar-right">
-      <div class="info-card">
-        <h3>Profesionales Destacados</h3>
-        <p class="text-muted">Pronto verás recomendaciones aquí.</p>
+      <div class="info-card stats-card">
+        <h3>Tu Resumen</h3>
+        <div class="stat-row">
+          <div class="stat-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+          <div class="stat-text">
+            <strong>{{ activeRequests.length }}</strong>
+            <span>Solicitudes Activas</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-card action-card">
+        <div class="card-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+        <h3>¿No encuentras lo que buscas?</h3>
+        <p class="text-muted">Explora nuestro directorio completo de expertos.</p>
+        <button @click="goToExplore" class="btn-explore-full">
+          Ir al Directorio <i class="fa-solid fa-arrow-right"></i>
+        </button>
       </div>
     </aside>
 
@@ -235,9 +285,37 @@ onMounted(async () => {
 .sidebar-right { width: 300px; display: none; } 
 @media (min-width: 1024px) { .sidebar-right { display: block; } }
 
-.welcome-banner { background: linear-gradient(135deg, #0B4C6F 0%, #083a55 100%); padding: 30px; border-radius: 12px; color: white; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(11, 76, 111, 0.15); }
+.welcome-banner { 
+  background: linear-gradient(135deg, #0B4C6F 0%, #083a55 100%); 
+  padding: 30px; 
+  border-radius: 12px; 
+  color: white; 
+  margin-bottom: 30px; 
+  box-shadow: 0 4px 15px rgba(11, 76, 111, 0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 .welcome-banner h2 { margin: 0 0 5px 0; font-size: 1.8rem; font-weight: 700; }
 .welcome-banner p { margin: 0; opacity: 0.9; font-size: 1.1rem; }
+.btn-primary-action {
+  background: #F76B1C;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-primary-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(247, 107, 28, 0.3);
+}
 
 .ongoing-section { margin-bottom: 40px; }
 .section-title { font-size: 1.25rem; color: #333; margin-bottom: 15px; font-weight: 700; }
@@ -253,17 +331,171 @@ onMounted(async () => {
 .req-details h4 { margin: 0 0 4px 0; font-size: 1.1rem; color: #333; font-weight: 600; }
 .req-status { font-size: 0.9rem; color: #666; text-transform: capitalize; }
 
-.btn-view-details { background: white; border: 1px solid #ccc; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; color: #555; }
-.btn-view-details:hover { border-color: #0B4C6F; color: #0B4C6F; background: #F0F9FF; }
+.btn-view-details { 
+  background: white; 
+  border: 1px solid #cbd5e1; 
+  padding: 10px 18px; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-weight: 700; 
+  font-size: 0.9rem; 
+  transition: all 0.2s ease; 
+  color: #334155; 
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.btn-view-details:hover { 
+  border-color: #0B4C6F; 
+  color: #0B4C6F; 
+  background: #F0F9FF;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(11, 76, 111, 0.1);
+}
 
-.empty-requests-box { padding: 20px; background: #F8FAFC; border-radius: 8px; border: 1px dashed #CBD5E1; color: #64748B; text-align: center; }
+.empty-requests-box { padding: 30px 20px; background: #F8FAFC; border-radius: 10px; border: 1.5px dashed #CBD5E1; color: #64748B; text-align: center; font-weight: 500;}
 
-.empty-state-container { text-align: center; padding: 60px; background: white; border: 1px dashed #ccc; border-radius: 12px; }
+.empty-state-container { text-align: center; padding: 60px; background: white; border: 1.5px dashed #cbd5e1; border-radius: 12px; }
 .empty-icon-svg { width: 64px; height: 64px; margin: 0 auto 15px; }
-.btn-outline { margin-top: 20px; padding: 12px 24px; border: 1px solid #0B4C6F; color: #0B4C6F; background: white; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; }
-.btn-outline:hover { background: #F0F9FF; }
+.btn-outline { 
+  margin-top: 20px; 
+  padding: 12px 28px; 
+  border: 2px solid #0B4C6F; 
+  color: #0B4C6F; 
+  background: white; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-weight: 700; 
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-outline:hover { 
+  background: #0B4C6F;
+  color: white; 
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(11, 76, 111, 0.2);
+}
 
-.info-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; }
-.info-card h3 { font-size: 1.1rem; margin-top: 0; }
-.text-muted { color: #888; font-size: 0.9rem; font-style: italic; }
+.info-card { background: white; padding: 24px; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+.info-card h3 { font-size: 1.15rem; margin-top: 0; color: #1e293b; font-weight: 800; }
+.text-muted { color: #64748b; font-size: 0.95rem; line-height: 1.4; }
+
+.action-card {
+  text-align: center;
+}
+.action-card .card-icon {
+  font-size: 2.8rem;
+  color: #0B4C6F;
+  margin-bottom: 16px;
+  background: #E0F2FE;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+}
+.action-card h3 { margin-bottom: 8px; font-size: 1.1rem; }
+.action-card p { margin-bottom: 20px; }
+
+.btn-explore-full {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #0B4C6F 0%, #083a55 100%);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 10px rgba(11, 76, 111, 0.2);
+}
+.btn-explore-full:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(11, 76, 111, 0.35);
+  background: linear-gradient(135deg, #083a55 0%, #05263a 100%);
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+}
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  background: #E0F2FE;
+  color: #0B4C6F;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+.stat-text {
+  display: flex;
+  flex-direction: column;
+}
+.stat-text strong {
+  font-size: 1.5rem;
+  color: #1e293b;
+  line-height: 1.2;
+}
+.stat-text span {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* CARDS DE PROFESIONALES DESTACADOS */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.pro-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.pro-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+  border-color: #cbd5e1;
+}
+.pro-avatar {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pro-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pro-avatar span { font-size: 2rem; font-weight: 800; color: #94a3b8; }
+.pro-info h4 { margin: 0 0 4px 0; font-size: 1.05rem; color: #1e293b; font-weight: 700; }
+.pro-info p { margin: 0 0 10px 0; font-size: 0.9rem; color: #64748b; text-transform: capitalize; }
+.pro-rating { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600; color: #475569; font-size: 0.95rem; }
 </style>

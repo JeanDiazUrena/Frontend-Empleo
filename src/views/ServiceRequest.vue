@@ -127,8 +127,8 @@ const handleSubmit = async () => {
           <div class="select-wrapper">
             <select v-model="form.category" class="form-select">
               <option value="" disabled selected>Selecciona una especialidad</option>
-              <option value="electricidad">⚡ Electricidad</option>
-              <option value="plomeria">💧 Plomería</option>
+              <option value="electricidad">Electricidad</option>
+              <option value="plomeria">Plomería</option>
               </select>
           </div>
         </div>
@@ -143,10 +143,10 @@ const handleSubmit = async () => {
           <div class="upload-box" :class="{ 'has-image': imagePreview }">
             <div v-if="imagePreview" class="preview-wrapper">
               <img :src="imagePreview" alt="Evidencia">
-              <button type="button" class="btn-remove" @click="removeImage">✕</button>
+              <button type="button" class="btn-remove" @click="removeImage"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div v-else class="upload-placeholder" @click="triggerUpload">
-              <div class="icon-upload">📷</div>
+              <div class="icon-upload"><i class="fa-solid fa-camera"></i></div>
               <p>Haz clic para agregar foto</p>
             </div>
             <input type="file" ref="fileInput" accept="image/*" @change="handleFileChange" class="hidden-input">

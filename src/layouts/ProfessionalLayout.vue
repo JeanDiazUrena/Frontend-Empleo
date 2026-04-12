@@ -8,7 +8,8 @@ const route = useRoute();
 // --- 1. ESTADO DEL USUARIO ---
 const user = ref({
   name: "", 
-  role: ""
+  role: "",
+  avatar: ""
 });
 
 // Variables para el Menú
@@ -35,7 +36,7 @@ const handleLogout = () => {
 
 const goToProfile = () => {
   isMenuOpen.value = false;
-  router.push('/professional/profile');
+  router.push('/professional/settings');
 };
 
 const addAccount = () => {
@@ -51,14 +52,35 @@ const handleClickOutside = (event) => {
 };
 
 // --- 4. CICLO DE VIDA ---
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('click', handleClickOutside);
 
-  // Cargar datos del localStorage
+  // Cargar nombre y avatar del localStorage inmediatamente
   const storedName = localStorage.getItem('usuario_nombre') || localStorage.getItem('user_name');
+  const storedAvatar = localStorage.getItem('usuario_avatar') || localStorage.getItem('user_avatar') || '';
   if (storedName) {
     user.value.name = storedName;
-    user.value.role = "Profesional Verificado"; 
+    user.value.role = "Profesional Verificado";
+    user.value.avatar = storedAvatar;
+  }
+
+  // Consultar la API para obtener la foto real aunque no haya pasado por el perfil aún
+  const userId = localStorage.getItem('usuario_id');
+  if (userId) {
+    try {
+      const res = await fetch(`http://localhost:3001/api/profesionales/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.avatar_url) {
+          user.value.avatar = data.avatar_url;
+          localStorage.setItem('usuario_avatar', data.avatar_url);
+        }
+        if (data?.nombre) {
+          user.value.name = data.nombre;
+          user.value.role = "Profesional Verificado";
+        }
+      }
+    } catch (_) { /* silencioso si la petición falla */ }
   }
 });
 
@@ -85,7 +107,8 @@ const isActive = (path) => route.path.includes(path);
         <div class="user-trigger" @click="toggleMenu">
           <span class="user-name">{{ user.name }}</span>
           <div class="avatar-circle">
-            {{ userInitials }}
+            <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="foto" />
+            <span v-else>{{ userInitials }}</span>
           </div>
           <svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" :class="{ 'rotate': isMenuOpen }" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -128,11 +151,18 @@ const isActive = (path) => route.path.includes(path);
       <aside class="dash-sidebar">
         <div class="mini-profile" @click="goTo('/professional/profile')">
            <div class="avatar-circle-lg">
-             {{ userInitials }}
+             <img
+               v-if="user.avatar"
+               :src="user.avatar"
+               class="avatar-img"
+               alt="foto de perfil"
+               @error="user.avatar = ''"
+             />
+             <span v-else>{{ userInitials }}</span>
            </div>
            <div class="info">
-             <h4>{{ user.name || 'Cargando...' }}</h4>
-             <p class="role-text">{{ user.role || '---' }}</p>
+             <h4>{{ user.name || 'Mi perfil' }}</h4>
+             <p class="role-text">{{ user.role || 'Profesional' }}</p>
            </div>
         </div>
 
@@ -181,7 +211,7 @@ const isActive = (path) => route.path.includes(path);
 .dash-brand { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .brand-icon { height: 32px; width: auto; }
 .brand-text { font-size: 20px; font-weight: 800; color: #333; }
-.dot { color: #F76B1C; }
+.dot { color: #1E293B; }
 
 /* --- DERECHA Y MENÚ (NUEVOS ESTILOS) --- */
 .dash-right { position: relative; display: flex; align-items: center; }
@@ -197,11 +227,13 @@ const isActive = (path) => route.path.includes(path);
 .user-name { font-weight: 600; color: #333; font-size: 0.95rem; }
 .avatar-circle { 
   width: 36px; height: 36px; 
-  background: #0B4C6F; color: white; 
+  background: #334155; color: white; 
   border-radius: 50%; 
   display: flex; align-items: center; justify-content: center; 
   font-weight: bold; font-size: 0.9rem;
+  overflow: hidden;
 }
+.avatar-circle .avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .arrow-icon { width: 16px; color: #64748b; transition: transform 0.2s; }
 .rotate { transform: rotate(180deg); }
 
@@ -220,9 +252,9 @@ const isActive = (path) => route.path.includes(path);
   padding: 12px 16px; font-size: 0.9rem; color: #4b5563; 
   cursor: pointer; transition: all 0.2s; 
 }
-.dropdown-menu li:hover { background-color: #F3F4F6; color: #0B4C6F; }
+.dropdown-menu li:hover { background-color: #F8FAFC; color: #1E293B; }
 .dropdown-menu li svg { width: 18px; height: 18px; color: #94a3b8; transition: color 0.2s; }
-.dropdown-menu li:hover svg { color: #0B4C6F; }
+.dropdown-menu li:hover svg { color: #1E293B; }
 
 .menu-header-item { 
   flex-direction: column; align-items: flex-start !important; 
@@ -247,13 +279,33 @@ const isActive = (path) => route.path.includes(path);
 .dash-body { display: flex; margin-top: 70px; height: calc(100vh - 70px); }
 .dash-sidebar { width: 260px; background: white; border-right: 1px solid #e5e7eb; padding: 24px; display: flex; flex-direction: column; height: 100%; position: fixed; left: 0; top: 70px; bottom: 0; }
 .mini-profile { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid #eee; margin-bottom: 20px; cursor: pointer; }
-.avatar-circle-lg { width: 48px; height: 48px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; }
-.info h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #333; min-height: 1.2em; }
-.role-text { margin: 0; font-size: 0.8rem; color: #777; min-height: 1em; }
+.mini-profile {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 8px 20px;
+  border-bottom: 1px solid #F1F5F9;
+  margin-bottom: 20px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.mini-profile:hover { background: #F8FAFC; }
+.avatar-circle-lg {
+  width: 52px; height: 52px;
+  background: #1E293B; color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; font-weight: 700;
+  overflow: hidden; flex-shrink: 0;
+  border: 2px solid #E2E8F0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.avatar-circle-lg .avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.info h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #1E293B; min-height: 1.2em; }
+.role-text { margin: 0; font-size: 0.8rem; color: #94A3B8; min-height: 1em; }
 .menu-list { list-style: none; padding: 0; margin: 0; }
 .menu-list li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; cursor: pointer; color: #555; font-weight: 500; transition: all 0.2s; margin-bottom: 4px; }
-.menu-list li:hover { background: #F3F4F6; color: #111; }
-.menu-list li.active { background: #E0F2FE; color: #0B4C6F; font-weight: 600; }
+.menu-list li:hover { background: #F1F5F9; color: #1E293B; }
+.menu-list li.active { background: #E2E8F0; color: #1E293B; font-weight: 600; }
 .menu-icon { width: 20px; height: 20px; }
 .dash-content { margin-left: 260px; padding: 30px; width: 100%; overflow-y: auto; }
 </style>

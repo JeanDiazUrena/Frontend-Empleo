@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from "axios";
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR
+import { GoogleLogin } from 'vue3-google-login';
 
 const { login, logout } = useUserSession(); // 2. USAR
 const router = useRouter();
@@ -14,6 +15,7 @@ const password = ref('');
 const confirmPassword = ref('');
 const selectedRole = ref(null);
 const errorMessage = ref('');
+const googleCredential = ref('');
 
 onMounted(() => {
   console.log("Limpiando datos anteriores...");
@@ -21,22 +23,39 @@ onMounted(() => {
 });
 
 function handleStep1Submit() {
-  // ... (Tu validación igual que antes) ...
   if (!name.value || !email.value || !password.value) return;
   step.value = 2;
 }
+
+const handleGoogleCallback = (response) => {
+  if (response.credential) {
+    googleCredential.value = response.credential;
+    step.value = 2; // Saltar al paso 2!
+  }
+};
 
 async function handleRegistration() {
   errorMessage.value = '';
   if (!selectedRole.value) { errorMessage.value = "Selecciona un rol."; return; }
 
   try {
-    const response = await axios.post("http://26.93.165.75:3000/api/register", {
-      nombre: name.value,
-      email: email.value,
-      password: password.value,
-      rol: selectedRole.value
-    });
+    let response;
+    
+    // Si viene de Google
+    if (googleCredential.value) {
+      response = await axios.post("http://localhost:3000/api/google", {
+        credential: googleCredential.value,
+        rol: selectedRole.value
+      });
+    } else {
+      // Registro normal
+      response = await axios.post("http://localhost:3000/api/register", {
+        nombre: name.value,
+        email: email.value,
+        password: password.value,
+        rol: selectedRole.value
+      });
+    }
 
     // --- LA SOLUCIÓN AQUÍ ---
     // Usamos el cerebro para guardar la sesión.
@@ -62,7 +81,11 @@ async function handleRegistration() {
 
   } catch (error) {
     console.log("ERROR:", error);
-    errorMessage.value = "Error en el registro.";
+    if (error.response && error.response.data && error.response.data.message) {
+      errorMessage.value = error.response.data.message;
+    } else {
+      errorMessage.value = "Error en el registro.";
+    }
   }
 }
 </script>
@@ -123,10 +146,12 @@ async function handleRegistration() {
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
           
-          <button type="button" class="google-btn">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-            Continuar con Google
-          </button>
+          <GoogleLogin :callback="handleGoogleCallback">
+            <button type="button" class="google-btn">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+              Continuar con Google
+            </button>
+          </GoogleLogin>
 
           <div class="divider"><span>o regístrate con tu email</span></div>
 
