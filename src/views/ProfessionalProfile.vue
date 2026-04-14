@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession'; 
@@ -42,7 +42,42 @@ const closedDays = computed(() => {
   return Object.entries(parsedSchedule.value).filter(([, d]) => !d.open);
 });
 
+// Lógica de estado Activo en tiempo real
+const getCurrentDayName = () => {
+  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  return days[new Date().getDay()];
+};
+
+const currentDayName = ref(getCurrentDayName());
+const currentTime = ref(new Date());
+let timeInterval = null;
+
+const checkIsOpenNow = (dayName, dayData) => {
+  if (!dayData.open || !dayData.from || !dayData.to) return false;
+  if (dayName !== currentDayName.value) return false;
+
+  const [fromH, fromM] = dayData.from.split(':').map(Number);
+  const [toH, toM] = dayData.to.split(':').map(Number);
+  
+  const now = currentTime.value;
+  const nowTotal = now.getHours() * 60 + now.getMinutes();
+  const fromTotal = fromH * 60 + (fromM || 0);
+  let toTotal = toH * 60 + (toM || 0);
+
+  if (toTotal <= fromTotal) {
+    if (nowTotal >= fromTotal || nowTotal <= toTotal) return true;
+  } else {
+    if (nowTotal >= fromTotal && nowTotal <= toTotal) return true;
+  }
+  return false;
+};
+
 onMounted(async () => {
+  timeInterval = setInterval(() => {
+    currentTime.value = new Date();
+    currentDayName.value = getCurrentDayName();
+  }, 60000);
+
   const userId = state.user?.id || localStorage.getItem('usuario_id');
   if (!userId) { router.push('/login'); return; }
 
@@ -86,6 +121,10 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
   }
+});
+
+onUnmounted(() => {
+  if (timeInterval) clearInterval(timeInterval);
 });
 
 const goToEdit = () => router.push('/professional/setup');
@@ -410,9 +449,9 @@ const categoryStyle = computed(() => {
               :class="dayData.open ? 'row-open' : 'row-closed'"
             >
               <div class="sched-day">{{ day }}</div>
-              <div v-if="dayData.open" class="sched-status open-status">
-                <span class="status-dot"></span>
-                Abierto
+              <div v-if="dayData.open" class="sched-status" :class="checkIsOpenNow(day, dayData) ? 'active-now' : 'open-status'">
+                <span class="status-dot" :class="{ 'is-green': checkIsOpenNow(day, dayData) }"></span>
+                {{ checkIsOpenNow(day, dayData) ? 'Activo ahora' : 'Abierto' }}
               </div>
               <div v-else class="sched-status closed-status">
                 Cerrado
@@ -593,21 +632,21 @@ const categoryStyle = computed(() => {
 .name-row h1 { margin: 0; font-size: 1.65rem; font-weight: 800; color: #0F172A; line-height: 1.2; }
 
 /* Badge verificado: tono neutro corporativo */
-.verified-badge { display: inline-flex; align-items: center; gap: 4px; background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; font-size: 0.76rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.03em; }
+.verified-badge { display: inline-flex; align-items: center; gap: 4px; background: #EFF6FF; color: #0B4C6F; border: 1px solid #BFDBFE; font-size: 0.76rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.03em; }
 .verified-badge svg { width: 13px; height: 13px; }
 
 /* Chips de metadatos: todos grises/neutros */
 .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.meta-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 500; padding: 4px 0; border-radius: 0; color: #475569; background: transparent; border: none; }
-.chip-icon { width: 13px; height: 13px; color: #64748B; }
-.profession { } /* Hereda el estilo base neutro */
-.location { }  /* Hereda el estilo base neutro */
+.meta-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; background: #F1F5F9; color: #475569; border: none; }
+.chip-icon { width: 13px; height: 13px; opacity: 0.8; }
+.profession { background: #EFF6FF; color: #0B4C6F; } 
+.location { background: #EFF6FF; color: #0B4C6F; }  
 .experience { } /* Hereda el estilo base neutro */
-.category-chip { background: transparent; color: #334155; border: none; padding: 4px 0; font-weight: 600; }
+.category-chip { background: #EFF6FF; color: #0B4C6F; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
 
 .header-actions { padding-top: 16px; flex-shrink: 0; }
-.btn-edit { display: inline-flex; align-items: center; gap: 6px; background: white; border: 1.5px solid #CBD5E1; color: #374151; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: 0.2s; }
-.btn-edit:hover { border-color: #334155; color: #0F172A; background: #F8FAFC; }
+.btn-edit { display: inline-flex; align-items: center; gap: 6px; background: white; border: 1.5px solid #0B4C6F; color: #0B4C6F; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: 0.2s; }
+.btn-edit:hover { background: #0B4C6F; color: white; }
 .btn-icon { width: 15px; height: 15px; }
 
 .stats-bar { display: flex; border-top: 1px solid #F1F5F9; padding: 14px 28px; gap: 40px; background: #FAFBFC; }
@@ -619,8 +658,8 @@ const categoryStyle = computed(() => {
 .tabs-nav { display: flex; background: white; border-radius: 8px; border: 1px solid #E2E8F0; overflow: hidden; margin-bottom: 20px; }
 .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 13px 12px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: #94A3B8; transition: 0.2s; }
 .tab-btn svg { width: 16px; height: 16px; }
-.tab-btn:hover { color: #334155; background: #F8FAFC; }
-.tab-btn.active { color: #1E293B; border-bottom-color: #1E293B; background: #F8FAFC; }
+.tab-btn:hover { color: #0B4C6F; background: #F8FAFC; }
+.tab-btn.active { color: #0B4C6F; border-bottom-color: #0B4C6F; background: #F0F9FF; }
 
 /* ===== CONTENT GRID ===== */
 .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -634,13 +673,13 @@ const categoryStyle = computed(() => {
 /* Contacto: íconos monocromáticos sin colores vivos */
 .contact-list { display: flex; flex-direction: column; gap: 16px; }
 .contact-item { display: flex; align-items: center; gap: 14px; }
-.contact-icon { width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; color: #475569; }
+.contact-icon { width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F1F5F9; color: #475569; }
 .contact-icon svg { width: 16px; height: 16px; }
-/* Quitar colores por tipo; todos neutros */
-.phone-icon { background: transparent; color: #475569; }
-.email-icon { background: transparent; color: #475569; }
-.web-icon   { background: transparent; color: #475569; }
-.loc-icon   { background: transparent; color: #475569; }
+/* Todos azules monócromos */
+.phone-icon { background: #EFF6FF; color: #0B4C6F; }
+.email-icon { background: #EFF6FF; color: #0B4C6F; }
+.web-icon   { background: #EFF6FF; color: #0B4C6F; }
+.loc-icon   { background: #EFF6FF; color: #0B4C6F; }
 .contact-info { display: flex; flex-direction: column; }
 .contact-label { font-size: 0.7rem; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
 .contact-val { font-size: 0.92rem; color: #1E293B; font-weight: 500; margin-top: 1px; }
@@ -669,8 +708,10 @@ const categoryStyle = computed(() => {
 .sched-status { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; }
 .open-status { color: #475569; }
 .closed-status { color: #94A3B8; }
+.active-now { color: #059669; }
 .status-dot { width: 7px; height: 7px; background: #94A3B8; border-radius: 50%; }
 .row-open .status-dot { background: #475569; }
+.status-dot.is-green { background: #10B981; box-shadow: 0 0 0 2px #D1FAE5; }
 .sched-time { font-size: 0.88rem; color: #475569; font-weight: 500; }
 .closed-text { color: #CBD5E1; }
 .time-arrow { color: #CBD5E1; margin: 0 6px; font-weight: 400; }
@@ -680,8 +721,8 @@ const categoryStyle = computed(() => {
 .port-title { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; color: #0F172A; }
 .port-subtitle { margin: 0; font-size: 0.83rem; color: #94A3B8; }
 
-.btn-add-portfolio { display: inline-flex; align-items: center; gap: 6px; background: #1E293B; color: white; border: none; padding: 9px 16px; border-radius: 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
-.btn-add-portfolio:hover { background: #0F172A; transform: translateY(-1px); }
+.btn-add-portfolio { display: inline-flex; align-items: center; gap: 6px; background: #F76B1C; color: white; border: none; padding: 9px 16px; border-radius: 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-add-portfolio:hover { background: #ea580c; transform: translateY(-1px); }
 .add-icon { width: 16px; height: 16px; }
 
 .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }

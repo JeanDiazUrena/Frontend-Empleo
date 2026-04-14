@@ -584,16 +584,16 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 .badge-icon { width: 14px; height: 14px; }
 
 .meta-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.meta-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 600; padding: 4px 0; border-radius: 0; background: transparent; color: #475569; }
+.meta-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; font-weight: 600; padding: 4px 12px; border-radius: 20px; background: #F1F5F9; color: #475569; border: none; }
 .chip-icon { width: 14px; height: 14px; }
-.chip-phone { background: transparent; color: #15803D; }
-.chip-join { background: transparent; color: #92400E; }
+.chip-phone { background: #EFF6FF; color: #0B4C6F; }
+.chip-join { background: #EFF6FF; color: #0B4C6F; }
 .chip-warning { background: #FEF3C7; color: #92400E; cursor: pointer; border: 1px solid #FCD34D; transition: 0.2s; padding: 4px 10px; border-radius: 20px; }
 .chip-warning:hover { background: #FEF9C3; }
 
 .header-actions { padding-top: 14px; flex-shrink: 0; }
-.btn-edit { display: inline-flex; align-items: center; gap: 6px; background: white; border: 1.5px solid #E5E7EB; color: #374151; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
-.btn-edit:hover { border-color: #0B4C6F; color: #0B4C6F; background: #F0F9FF; }
+.btn-edit { display: inline-flex; align-items: center; gap: 6px; background: white; border: 1.5px solid #0B4C6F; color: #0B4C6F; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+.btn-edit:hover { background: #0B4C6F; color: white; }
 .btn-icon { width: 16px; height: 16px; }
 
 .stats-bar { display: flex; border-top: 1px solid #F3F4F6; padding: 16px 28px; gap: 40px; background: #FAFAFA; }
@@ -626,12 +626,12 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 /* Contacto Grid */
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
 .contact-item { display: flex; align-items: center; gap: 14px; }
-.contact-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; }
+.contact-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F8FAFC; }
 .contact-icon svg { width: 20px; height: 20px; }
-.name-icon { background: transparent; color: #4F46E5; }
-.email-icon { background: transparent; color: #9D174D; }
-.phone-icon { background: transparent; color: #065F46; }
-.loc-icon { background: transparent; color: #92400E; }
+.name-icon { background: #EFF6FF; color: #0B4C6F; }
+.email-icon { background: #EFF6FF; color: #0B4C6F; }
+.phone-icon { background: #EFF6FF; color: #0B4C6F; }
+.loc-icon { background: #EFF6FF; color: #0B4C6F; }
 .contact-info { display: flex; flex-direction: column; min-width: 0; }
 .contact-label { font-size: 0.75rem; color: #9CA3AF; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .contact-val { font-size: 0.95rem; color: #111; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -657,8 +657,8 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 .history-meta { display: flex; align-items: center; gap: 10px; }
 .hist-date { font-size: 0.82rem; color: #9CA3AF; }
 .hist-status-badge { font-size: 0.78rem; font-weight: 700; padding: 2px 10px; border-radius: 20px; }
-.btn-view { background: white; border: 1.5px solid #E5E7EB; color: #374151; padding: 7px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: 0.2s; }
-.btn-view:hover { border-color: #0B4C6F; color: #0B4C6F; }
+.btn-view { background: white; border: 1.5px solid #0B4C6F; color: #0B4C6F; padding: 7px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+.btn-view:hover { background: #0B4C6F; color: white; }
 
 /* ===== EMPTY STATES ===== */
 .empty-state-full { background: white; border-radius: 12px; border: 1px solid #E5E7EB; text-align: center; padding: 60px 20px; }
