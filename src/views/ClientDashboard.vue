@@ -10,6 +10,7 @@ const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
 const loading = ref(true);
 const activeRequests = ref([]); 
 const featuredProfessionals = ref([]); 
+const clientJobs = ref([]); 
 
 // Control del Modal
 const showIncompleteProfileModal = ref(false);
@@ -49,22 +50,32 @@ onMounted(async () => {
         }
       }
 
-      // 2. CARGAR SOLICITUDES (Puerto 3000)
+      // 2. CARGAR SOLICITUDES (Puerto 3001)
       try {
-        const requestsRes = await axios.get(`http://localhost:3000/api/solicitudes/cliente/${userId}`);
+        const requestsRes = await axios.get(`http://localhost:3001/api/solicitudes/cliente/${userId}`);
         activeRequests.value = requestsRes.data;
       } catch (reqError) {
-        console.log("El usuario no tiene solicitudes o el servicio 3000 no responde.");
+        console.log("El usuario no tiene solicitudes o el servicio 3001 no responde.");
       }
 
       // 3. CARGAR PROFESIONALES DESTACADOS (Puerto 3001)
       try {
         const prosRes = await axios.get('http://localhost:3001/api/profesionales');
         if (prosRes.data && prosRes.data.length > 0) {
-          featuredProfessionals.value = prosRes.data.slice(0, 4); // Tomamos 4 profesionales al azar/primeros
+          // Filtramos profesionales que no tengan nombre (evita crashes en el render)
+          const validPros = prosRes.data.filter(p => p.nombre);
+          featuredProfessionals.value = validPros.slice(0, 4);
         }
       } catch (err) {
         console.log("No se pudieron cargar los profesionales destacados.");
+      }
+
+      // 4. CARGAR TRABAJOS (Puerto 3003)
+      try {
+          const trabajosRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${userId}`);
+          clientJobs.value = trabajosRes.data;
+      } catch (err) {
+          console.log("El servicio de trabajos (3003) no está disponible o no hay trabajos.");
       }
 
     } catch (error) {
@@ -81,6 +92,20 @@ onMounted(async () => {
     router.push('/login');
   }
 });
+
+const confirmarTrabajo = async (trabajoId) => {
+    try {
+        const res = await axios.post(`http://localhost:3003/api/trabajos/${trabajoId}/confirmar`, {
+            cliente_id: state.user.id
+        });
+        if (res.data.success) {
+            router.push(`/client/review/${trabajoId}?ref=${res.data.profesional_id}`);
+        }
+    } catch(e) {
+        alert("Error al confirmar el trabajo.");
+        console.error(e);
+    }
+};
 </script>
 
 <template>
@@ -155,6 +180,27 @@ onMounted(async () => {
         </div>
       </div>
 
+      <div class="ongoing-section">
+        <h3 class="section-title" v-if="clientJobs.length > 0">Tus Trabajos en Curso</h3>
+        <div v-if="clientJobs.length > 0" class="ongoing-list">
+          <div v-for="job in clientJobs" :key="job.id" class="ongoing-card">
+            <div class="card-left">
+              <div class="status-indicator" :class="job.estado === 'FINALIZADO_PROFESIONAL' ? 'orange' : 'green'"></div>
+              <div class="req-details">
+                <h4>Trabajo #{{ job.id }}</h4>
+                <span class="req-status">
+                  Estado: {{ job.estado }} • {{ new Date(job.fecha_creacion).toLocaleDateString() }}
+                </span>
+              </div>
+            </div>
+            
+            <button v-if="job.estado === 'FINALIZADO_PROFESIONAL'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="confirmarTrabajo(job.id)">
+              <i class="fa-solid fa-check"></i> Confirmar & Calificar
+            </button>
+          </div>
+        </div>
+      </div>
+
       <h3 class="section-title">Explora servicios cercanos</h3>
       
       <div v-if="featuredProfessionals.length === 0" class="empty-state-container">
@@ -171,8 +217,8 @@ onMounted(async () => {
       <div v-else class="services-grid">
         <div v-for="pro in featuredProfessionals" :key="pro.usuario_id" class="pro-card" @click="goToExplore">
           <div class="pro-avatar">
-            <img v-if="pro.avatar" :src="pro.avatar.startsWith('http') ? pro.avatar : `http://localhost:3001${pro.avatar}`" alt="Avatar">
-            <span v-else>{{ pro.nombre.charAt(0) }}</span>
+            <img v-if="pro.avatar && typeof pro.avatar === 'string'" :src="pro.avatar.startsWith('http') ? pro.avatar : `http://localhost:3001${pro.avatar}`" alt="Avatar">
+            <span v-else>{{ (pro.nombre || 'P').charAt(0) }}</span>
           </div>
           <div class="pro-info">
             <h4>{{ pro.nombre }}</h4>

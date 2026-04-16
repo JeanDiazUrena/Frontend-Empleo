@@ -8,6 +8,7 @@ const router = useRouter();
 const { state } = useUserSession();
 
 const jobRequests = ref([]);
+const professionalJobs = ref([]);
 const profileStatus = ref(null); // null = cargando, false = sin perfil, true = tiene perfil
 const isLoading = ref(true);
 const userAvatar = ref('');
@@ -16,6 +17,19 @@ const userDisplayName = ref('');
 const goToSetup = () => router.push('/professional/setup');
 const goToProfile = () => router.push('/professional/profile');
 const goToPost = () => router.push('/create-first-post');
+
+const contactClient = async (clienteId) => {
+  try {
+    const userId = state.user?.id || localStorage.getItem('usuario_id');
+    await axios.post('http://localhost:3001/api/chat/conversacion', {
+      cliente_id: clienteId,
+      profesional_usuario_id: userId
+    });
+    router.push('/professional/chat');
+  } catch(e) {
+    console.error("Error al contactar:", e);
+  }
+};
 
 onMounted(async () => {
   const userId = state.user?.id || localStorage.getItem('usuario_id');
@@ -34,12 +48,41 @@ onMounted(async () => {
       localStorage.setItem('usuario_avatar', data.avatar_url);
     }
     if (data?.nombre) userDisplayName.value = data.nombre;
-  } catch {
+
+      try {
+        const solRes = await axios.get(`http://localhost:3001/api/solicitudes`);
+        jobRequests.value = solRes.data;
+      } catch(e) { console.error("Error cargando solicitudes", e); }
+
+      try {
+        const trabRes = await axios.get(`http://localhost:3003/api/trabajos/profesional/${userId}`);
+        professionalJobs.value = trabRes.data;
+      } catch(e) { console.error("Error cargando trabajos", e); }
+      
+    } catch {
     profileStatus.value = false;
   } finally {
     isLoading.value = false;
   }
 });
+
+const finalizarTrabajo = async (trabajoId) => {
+    try {
+        const userId = state.user?.id || localStorage.getItem('usuario_id');
+        const res = await axios.put(`http://localhost:3003/api/trabajos/${trabajoId}/terminar`, {
+            profesional_id: userId
+        });
+        if (res.data.success) {
+            alert("Has marcado el trabajo como terminado. El cliente debe confirmar para liberar el pago.");
+            // Update local state
+            const job = professionalJobs.value.find(j => j.id === trabajoId);
+            if (job) job.estado = 'FINALIZADO_PROFESIONAL';
+        }
+    } catch(e) {
+        alert("Error al finalizar el trabajo.");
+        console.error(e);
+    }
+};
 </script>
 
 <template>
@@ -138,6 +181,34 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- TRABAJOS EN CURSO (NUEVO EFECTO DOMINÓ) -->
+        <div class="section-card" style="margin-bottom: 24px;" v-if="professionalJobs.length > 0">
+          <div class="sc-header">
+            <h3>Tus Trabajos Activos</h3>
+            <p>Trabajos en progreso. MÁRCALOS COMO TERMINADOS cuando finalices para que el cliente confirme.</p>
+          </div>
+
+          <div class="jobs-list">
+            <div v-for="job in professionalJobs" :key="job.id" class="job-card" style="border-left: 4px solid #1E293B;">
+              <div class="job-header">
+                <div>
+                  <h4 style="margin:0 0 4px; font-size:1.1rem; color:#1E293B;">Trabajo #{{ job.id }}</h4>
+                  <span style="font-size: 0.85rem; font-weight:600; color:#F76B1C;" v-if="job.estado === 'EN_PROGRESO'">EN PROGRESO</span>
+                  <span style="font-size: 0.85rem; font-weight:600; color:#22C55E;" v-else-if="job.estado === 'FINALIZADO_PROFESIONAL'">ESPERANDO CLIENTE</span>
+                  <span style="font-size: 0.85rem; font-weight:600; color:#94A3B8;" v-else>{{ job.estado }}</span>
+                </div>
+                <span class="job-category">{{ new Date(job.fecha_creacion).toLocaleDateString() }}</span>
+              </div>
+              
+              <div class="job-footer" v-if="job.estado === 'EN_PROGRESO'">
+                <button class="btn-primary-action job-action-btn" style="background: #F76B1C;" @click="finalizarTrabajo(job.id)">
+                  <i class="fa-solid fa-flag-checkered"></i> Marcar como terminado
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- SOLICITUDES DE TRABAJO -->
         <div class="section-card">
           <div class="sc-header">
@@ -151,10 +222,35 @@ onMounted(async () => {
             </div>
             <div class="empty-jobs-text">
               <h4>No hay solicitudes activas</h4>
-              <p>Las solicitudes de clientes que se adapten a tu área aparecerán aquí.</p>
-              <button class="btn-primary-action" @click="router.push('/client/explore')">
-                Explorar Solicitudes <i class="fa-solid fa-arrow-right"></i>
-              </button>
+              <p>Las solicitudes de clientes que necesitan tus servicios aparecerán aquí.</p>
+            </div>
+          </div>
+
+          <div v-else class="jobs-list">
+            <div v-for="req in jobRequests" :key="req.id" class="job-card">
+              <div class="job-header">
+                <div class="client-info">
+                  <img v-if="req.cliente_avatar" :src="req.cliente_avatar.startsWith('http') ? req.cliente_avatar : `http://localhost:3001${req.cliente_avatar}`" class="client-avatar" alt="Avatar"/>
+                  <div v-else class="client-avatar-initial">{{ req.cliente_nombre ? req.cliente_nombre.charAt(0) : 'C' }}</div>
+                  <div class="client-details">
+                    <h4>{{ req.cliente_nombre || 'Cliente' }}</h4>
+                    <span>{{ new Date(req.fecha_creacion).toLocaleDateString() }}</span>
+                  </div>
+                </div>
+                <span class="job-category">{{ req.categoria }}</span>
+              </div>
+              <h3 class="job-title">{{ req.titulo }}</h3>
+              <p class="job-desc">{{ req.descripcion }}</p>
+
+              <div v-if="req.imagen_url" class="job-image">
+                <img :src="req.imagen_url" alt="Referencia" />
+              </div>
+
+              <div class="job-footer">
+                <button class="btn-primary-action job-action-btn" @click="contactClient(req.cliente_id)">
+                  <i class="fa-solid fa-paper-plane"></i> Contactar Cliente
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -283,6 +379,23 @@ onMounted(async () => {
 .empty-jobs-text { display: flex; flex-direction: column; align-items: flex-start; }
 .empty-jobs-text h4 { margin: 0 0 6px; font-size: 1rem; color: #1E293B; font-weight: 700; }
 .empty-jobs-text p { margin: 0; font-size: 0.88rem; line-height: 1.5; color: #64748B; }
+
+.jobs-list { display: flex; flex-direction: column; padding: 20px; gap: 20px; }
+.job-card { border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; transition: box-shadow 0.2s; }
+.job-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+.job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.client-info { display: flex; align-items: center; gap: 12px; }
+.client-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
+.client-avatar-initial { width: 44px; height: 44px; border-radius: 50%; background: #334155; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; }
+.client-details h4 { margin: 0 0 2px; font-size: 1rem; color: #1E293B; font-weight: 700; }
+.client-details span { font-size: 0.8rem; color: #94A3B8; }
+.job-category { background: #F1F5F9; color: #475569; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: capitalize; }
+.job-title { margin: 0 0 8px; font-size: 1.15rem; color: #0F172A; font-weight: 800; }
+.job-desc { margin: 0 0 16px; font-size: 0.92rem; line-height: 1.6; color: #475569; }
+.job-image { margin-bottom: 16px; border-radius: 8px; overflow: hidden; max-height: 250px; background: #F8FAFC; border: 1px solid #E2E8F0; }
+.job-image img { width: 100%; height: 100%; object-fit: contain; }
+.job-footer { display: flex; justify-content: flex-end; }
+.job-action-btn { width: auto; padding: 10px 20px; font-size: 0.9rem; }
 
 @media (max-width: 640px) {
   .quick-actions-grid { grid-template-columns: 1fr; }

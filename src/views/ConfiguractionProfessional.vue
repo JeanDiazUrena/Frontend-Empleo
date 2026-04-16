@@ -1,5 +1,13 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
+
+// ─── COMPOSABLES ──────────────────────────────────────────────
+import { usePassword } from '../composables/settings/usePassword';
+import { useEmail } from '../composables/settings/useEmail';
+import { usePayments } from '../composables/settings/usePayments';
+import { useTwoFA } from '../composables/settings/useTwoFA';
+import { useSessions } from '../composables/settings/useSessions';
+import { useDangerZone } from '../composables/settings/useDangerZone';
 
 // ─── TABS ─────────────────────────────────────────────────────
 const activeTab = ref('password');
@@ -13,113 +21,13 @@ const tabs = [
   { id: 'danger',    label: 'Zona peligrosa',    icon: 'danger' },
 ];
 
-// ─── CONTRASEÑA ───────────────────────────────────────────────
-const pwd = ref({ current: '', next: '', confirm: '' });
-const showPwd = ref({ current: false, next: false, confirm: false });
-const pwdMsg = ref('');
-const pwdSuccess = ref(false);
-
-const strength = computed(() => {
-  const v = pwd.value.next;
-  if (!v) return 0;
-  let s = 0;
-  if (v.length >= 8) s++;
-  if (/[A-Z]/.test(v)) s++;
-  if (/[0-9]/.test(v)) s++;
-  if (/[^A-Za-z0-9]/.test(v)) s++;
-  return s;
-});
-const strengthLabel = computed(() => ['', 'Débil', 'Regular', 'Buena', 'Excelente'][strength.value]);
-const strengthColor = computed(() => ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][strength.value]);
-
-function updatePassword() {
-  if (!pwd.value.current || !pwd.value.next || !pwd.value.confirm) {
-    pwdMsg.value = 'Completa todos los campos.'; pwdSuccess.value = false; return;
-  }
-  if (pwd.value.next !== pwd.value.confirm) {
-    pwdMsg.value = 'Las contraseñas no coinciden.'; pwdSuccess.value = false; return;
-  }
-  if (strength.value < 2) {
-    pwdMsg.value = 'La contraseña es demasiado débil.'; pwdSuccess.value = false; return;
-  }
-  pwdMsg.value = 'Contraseña actualizada correctamente.';
-  pwdSuccess.value = true;
-  pwd.value = { current: '', next: '', confirm: '' };
-}
-
-// ─── EMAIL ────────────────────────────────────────────────────
-const currentEmail = ref('usuario@example.com');
-const newEmail = ref('');
-const emailCode = ref('');
-const codeSent = ref(false);
-const emailMsg = ref('');
-const emailSuccess = ref(false);
-
-function sendCode() {
-  if (!newEmail.value || !newEmail.value.includes('@')) {
-    emailMsg.value = 'Ingresa un correo válido.'; emailSuccess.value = false; return;
-  }
-  codeSent.value = true;
-  emailMsg.value = 'Código de verificación enviado.'; emailSuccess.value = true;
-}
-function confirmEmail() {
-  if (emailCode.value.length < 4) {
-    emailMsg.value = 'Ingresa el código recibido.'; emailSuccess.value = false; return;
-  }
-  currentEmail.value = newEmail.value;
-  newEmail.value = ''; emailCode.value = ''; codeSent.value = false;
-  emailMsg.value = 'Correo actualizado correctamente.'; emailSuccess.value = true;
-}
-
-// ─── TARJETAS ─────────────────────────────────────────────────
-const cards = ref([
-  { id: 1, brand: 'visa',       last4: '4321', exp: '12/26' },
-  { id: 2, brand: 'mastercard', last4: '8899', exp: '08/25' },
-]);
-const showAddCard = ref(false);
-const newCard = ref({ number: '', name: '', exp: '', cvv: '' });
-const cardMsg = ref('');
-
-function removeCard(id) { cards.value = cards.value.filter(c => c.id !== id); }
-function addCard() {
-  if (!newCard.value.number || !newCard.value.name || !newCard.value.exp || !newCard.value.cvv) {
-    cardMsg.value = 'Completa todos los datos.'; return;
-  }
-  cards.value.push({
-    id: Date.now(),
-    brand: 'visa',
-    last4: newCard.value.number.slice(-4),
-    exp: newCard.value.exp,
-  });
-  newCard.value = { number: '', name: '', exp: '', cvv: '' };
-  showAddCard.value = false; cardMsg.value = '';
-}
-
-// ─── 2FA ──────────────────────────────────────────────────────
-const twofa = ref({ enabled: false, method: 'sms', showQR: false });
-function toggleTwoFA() {
-  twofa.value.enabled = !twofa.value.enabled;
-  if (twofa.value.enabled && twofa.value.method === 'app') twofa.value.showQR = true;
-  else twofa.value.showQR = false;
-}
-
-// ─── SESIONES ─────────────────────────────────────────────────
-const sessions = ref([
-  { id: 1, device: 'Chrome / Windows 11', location: 'Santo Domingo, DO', time: 'Ahora mismo', current: true },
-  { id: 2, device: 'Safari / iPhone 14',  location: 'Santiago, DO',       time: 'Hace 2 horas',  current: false },
-  { id: 3, device: 'Firefox / macOS',     location: 'Nueva York, US',     time: 'Ayer, 18:32',   current: false },
-]);
-function closeSessions() {
-  sessions.value = sessions.value.filter(s => s.current);
-}
-function closeSession(id) {
-  sessions.value = sessions.value.filter(s => s.id !== id);
-}
-
-// ─── DANGER ZONE ──────────────────────────────────────────────
-const confirmDelete = ref('');
-const showDeleteModal = ref(false);
-const showDeactivateModal = ref(false);
+// ─── ESTADO E INSTANCIAS DE COMPOSABLES ───────────────────────
+const { pwd, showPwd, pwdMsg, pwdSuccess, isUpdating: isPwdUpdating, strength, strengthLabel, strengthColor, updatePassword } = usePassword();
+const { currentEmail, newEmail, emailCode, codeSent, emailMsg, emailSuccess, isSending: isEmailSending, isConfirming: isEmailConfirming, sendCode, confirmEmail } = useEmail();
+const { cards, showAddCard, newCard, cardMsg, isUpdating: isCardUpdating, removeCard, addCard } = usePayments();
+const { twofa, isUpdating: isTwoFAUpdating, toggleTwoFA } = useTwoFA();
+const { sessions, isUpdating: isSessionsUpdating, closeSession, closeOtherSessions } = useSessions();
+const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeactivating, deactivateAccount, deleteAccount } = useDangerZone();
 </script>
 
 <template>
@@ -233,7 +141,9 @@ const showDeactivateModal = ref(false);
         </div>
 
         <div v-if="pwdMsg" :class="['form-msg', pwdSuccess ? 'success' : 'error']">{{ pwdMsg }}</div>
-        <button class="btn-primary" @click="updatePassword">Actualizar contraseña</button>
+        <button class="btn-primary" @click="updatePassword" :disabled="isPwdUpdating">
+          {{ isPwdUpdating ? 'Actualizando...' : 'Actualizar contraseña' }}
+        </button>
       </div>
     </div>
 
@@ -264,7 +174,9 @@ const showDeactivateModal = ref(false);
           <label>Código de verificación</label>
           <div class="input-row">
             <input type="text" v-model="emailCode" placeholder="123456" maxlength="6" class="code-input" />
-            <button class="btn-primary" @click="confirmEmail">Confirmar cambio</button>
+            <button class="btn-primary" @click="confirmEmail" :disabled="isEmailConfirming">
+              {{ isEmailConfirming ? 'Confirmando...' : 'Confirmar cambio' }}
+            </button>
           </div>
           <span class="hint-text">Revisa tu bandeja de entrada y la carpeta de spam.</span>
         </div>
@@ -339,7 +251,9 @@ const showDeactivateModal = ref(false);
           <div v-if="cardMsg" class="form-msg error">{{ cardMsg }}</div>
           <div class="btn-row">
             <button class="btn-outline" @click="showAddCard = false; cardMsg = ''">Cancelar</button>
-            <button class="btn-primary" @click="addCard">Guardar tarjeta</button>
+            <button class="btn-primary" @click="addCard" :disabled="isCardUpdating">
+              {{ isCardUpdating ? 'Guardando...' : 'Guardar tarjeta' }}
+            </button>
           </div>
         </div>
       </div>
@@ -403,7 +317,9 @@ const showDeactivateModal = ref(false);
           <h2>Sesiones activas</h2>
           <p>Dispositivos conectados a tu cuenta en este momento.</p>
         </div>
-        <button class="btn-outline-danger" @click="closeSessions">Cerrar otras sesiones</button>
+        <button class="btn-outline-danger" @click="closeOtherSessions" :disabled="isSessionsUpdating">
+          {{ isSessionsUpdating ? 'Cerrando...' : 'Cerrar otras sesiones' }}
+        </button>
       </div>
 
       <div class="sessions-list">
@@ -478,9 +394,9 @@ const showDeactivateModal = ref(false);
             <button class="btn-outline" @click="showDeleteModal = false; confirmDelete = ''">Cancelar</button>
             <button
               class="btn-danger"
-              :disabled="confirmDelete !== 'ELIMINAR'"
-              @click="showDeleteModal = false; confirmDelete = ''"
-            >Sí, eliminar mi cuenta</button>
+              :disabled="confirmDelete !== 'ELIMINAR' || isDeleting"
+              @click="deleteAccount"
+            >{{ isDeleting ? 'Eliminando...' : 'Sí, eliminar mi cuenta' }}</button>
           </div>
         </div>
       </div>
@@ -494,7 +410,9 @@ const showDeactivateModal = ref(false);
           <p>Tu perfil dejará de aparecer para los clientes. Podrás reactivarla iniciando sesión nuevamente.</p>
           <div class="modal-actions">
             <button class="btn-outline" @click="showDeactivateModal = false">Cancelar</button>
-            <button class="btn-warn" @click="showDeactivateModal = false">Confirmar desactivación</button>
+            <button class="btn-warn" @click="deactivateAccount" :disabled="isDeactivating">
+              {{ isDeactivating ? 'Desactivando...' : 'Confirmar desactivación' }}
+            </button>
           </div>
         </div>
       </div>

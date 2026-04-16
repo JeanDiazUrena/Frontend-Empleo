@@ -18,12 +18,15 @@ import ClientProfile from '../views/ClientProfile.vue';
 import ChatClient from '../views/ChatClient.vue';
 import ClientExplore from '../views/ClientExplore.vue';
 import ServiceRequest from '../views/ServiceRequest.vue';
+import ClientReview from '../views/ClientReview.vue';
 
 // VISTAS PROFESIONAL
 import ProfessionalDashboard from '../views/ProfessionalDashboard.vue';
 import ChatProfessional from '../views/ChatProfessional.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
-import Configuraction from '../views/Configuraction.vue';
+import Configuraction from '../views/ConfiguractionProfessional.vue';
+import ConfiguracionCliente from '../views/ConfiguractioncClient.vue';
+
 
 const routes = [
   // 1. RUTA PUBLICA NORMAL
@@ -50,6 +53,8 @@ const routes = [
       { path: 'explore', name: 'ClientExplore', component: ClientExplore },
       { path: 'request', name: 'ServiceRequest', component: ServiceRequest },
       { path: 'request/edit/:id', name: 'EditRequest', component: ServiceRequest },
+      { path: 'review/:id', name: 'ClientReview', component: ClientReview },
+      { path: 'settings', name: 'ClientSettings', component: ConfiguracionCliente },
     ]
   },
 
@@ -68,13 +73,13 @@ const routes = [
   // 5. CONFIGURACION Y PUBLICACIONES
   { path: '/professional/setup', name: 'ProfessionalSetup', component: ProfessionalSetup },
   { path: '/create-first-post', name: 'CreateFirstPost', component: CreateFirstPost },
-  
+
   // --- ESTA ES LA RUTA QUE FALTABA PARA QUE FUNCIONE EL BOTON DE EDITAR ---
-  { 
-    path: '/edit-post/:id', 
-    name: 'EditPost', 
-    component: CreateFirstPost, 
-    props: true 
+  {
+    path: '/edit-post/:id',
+    name: 'EditPost',
+    component: CreateFirstPost,
+    props: true
   },
 ];
 

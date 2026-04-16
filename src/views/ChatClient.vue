@@ -12,6 +12,33 @@ const { state } = useUserSession();
 const myId = computed(() => state.user?.id || localStorage.getItem('usuario_id'));
 const myName = computed(() => state.user?.name || localStorage.getItem('usuario_nombre') || 'Yo');
 
+const isHiring = ref(false);
+
+const contratarProfesional = async () => {
+    if (!activeConv.value) return;
+    const confirmHire = confirm(`¿Deseas contratar formalmente a ${activeConv.value.otro_nombre}? Esto creará un trabajo en progreso.`);
+    if (!confirmHire) return;
+
+    isHiring.value = true;
+    try {
+        const res = await axios.post('http://localhost:3003/api/trabajos', {
+            cliente_id: myId.value,
+            profesional_id: activeConv.value.profesional_usuario_id,
+            solicitud_id: null // Opcionalmente podríamos tener un selector si viene de una solicitud específica
+        });
+
+        if (res.data.success) {
+            alert('¡El profesional ha sido contratado! Puedes ver el progreso en tu panel.');
+            router.push('/client/dashboard');
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Error al intentar contratar al profesional.');
+    } finally {
+        isHiring.value = false;
+    }
+};
+
 // Estado
 const conversations = ref([]);
 const activeConv = ref(null);
@@ -273,6 +300,9 @@ onMounted(async () => {
             </div>
           </div>
           <div class="header-status">
+            <button class="btn-hire" @click="contratarProfesional" :disabled="isHiring">
+                <i class="fa-solid fa-handshake"></i> Contratar Profesional
+            </button>
             <template v-if="onlineUsers.includes(activeConv.profesional_usuario_id)">
               <span class="online-dot"></span>
               <span>En línea</span>
@@ -562,6 +592,32 @@ onMounted(async () => {
 .offline-dot { width: 9px; height: 9px; background: #94A3B8; border-radius: 50%; box-shadow: 0 0 0 2px #E2E8F0; }
 .offline-text { color: #64748B !important; }
 @keyframes pulse-online { 0%,100% { box-shadow: 0 0 0 2px #D1FAE5; } 50% { box-shadow: 0 0 0 4px rgba(34,197,94,0.2); } }
+
+.btn-hire {
+    background: #22C55E;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 12px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(34, 197, 94, 0.3);
+}
+.btn-hire:hover:not(:disabled) {
+    background: #16A34A;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(34, 197, 94, 0.4);
+}
+.btn-hire:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
 /* MESSAGES AREA */
 .messages-area {
