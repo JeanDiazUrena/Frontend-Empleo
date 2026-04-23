@@ -301,9 +301,23 @@ const searchService = () => {
 .cta-img-placeholder { width: 450px; height: 350px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,0.5); }
 
 @media (max-width: 900px) {
-  .hero-content h1 { font-size: 2.5rem; }
+  .hero { height: auto; min-height: 500px; padding: 120px 20px 60px; }
+  .hero-content h1 { font-size: 2.2rem; }
+  .big-search { flex-direction: column; height: auto; gap: 10px; background: none; border: none; backdrop-filter: none; }
+  .big-search input { background: white; border-radius: 8px; height: 60px; color: #333; width: 100%; border: 1px solid #ddd; }
+  .big-search input::placeholder { color: #888; }
+  .big-search button { width: 100%; height: 60px; border-radius: 8px; }
+  .big-tags { justify-content: center; }
+  .big-tags .pill { padding: 8px 16px; font-size: 14px; }
+  
   .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
   .quality-grid { text-align: left; }
+  .quality-image { order: -1; } /* Imagen arriba del texto en móviles */
   .cta-img-placeholder { width: 100%; height: 250px; }
+}
+
+@media (max-width: 480px) {
+  .hero-content h1 { font-size: 1.8rem; }
+  .section-title { font-size: 28px; }
 }
 </style>

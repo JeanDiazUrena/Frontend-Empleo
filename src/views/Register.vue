@@ -357,4 +357,18 @@ async function handleRegistration() {
 .error-alert { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
 .footer-text { text-align: center; font-size: 1rem; color: #666; margin-top: 24px; }
 .link { color: #0B4C6F; font-weight: 700; text-decoration: none; }
+
+@media (max-width: 768px) {
+  .form-side { padding: 80px 20px 40px; }
+  .row-inputs { flex-direction: column; gap: 20px; }
+}
+
+@media (max-width: 480px) {
+  .form-header h2 { font-size: 1.5rem; }
+  .role-card { padding: 16px; gap: 12px; }
+  .role-icon { width: 44px; height: 44px; }
+  .role-icon svg { width: 20px; height: 20px; }
+  .role-info h3 { font-size: 1rem; }
+  .role-info p { font-size: 0.8rem; }
+}
 </style>

@@ -12,6 +12,8 @@ const professionals = ref([]);
 const isLoading = ref(true);
 const hasSearched = ref(false);
 const selectedPro = ref(null); // Para modal de detalle
+const selectedProReviews = ref([]); // Reseñas del profesional seleccionado
+const isLoadingReviews = ref(false);
 
 const CATEGORIES = [
   { label: 'Todas las Categorías', value: '' },
@@ -73,15 +75,40 @@ const clearFilters = () => {
   loadProfessionals();
 };
 
-const openDetail = (pro) => { selectedPro.value = pro; };
-const closeDetail = () => { selectedPro.value = null; };
+const openDetail = async (pro) => { 
+  selectedPro.value = pro; 
+  selectedProReviews.value = [];
+  isLoadingReviews.value = true;
+  try {
+    const { data } = await axios.get(`http://localhost:3003/api/resenas/profesional/${pro.usuario_id}`);
+    const fetched = data || [];
+    // Enriquecer con nombres de clientes
+    for (let r of fetched) {
+      try {
+        const cRes = await axios.get(`http://localhost:3001/api/clientes/${r.cliente_id}`);
+        r.cliente_nombre = cRes.data?.nombre || "Cliente";
+        r.cliente_avatar = cRes.data?.avatar || null;
+      } catch (e) { r.cliente_nombre = "Cliente"; }
+    }
+    selectedProReviews.value = fetched;
+  } catch (err) {
+    console.error("Error cargando reseñas:", err);
+  } finally {
+    isLoadingReviews.value = false;
+  }
+};
+const closeDetail = () => { selectedPro.value = null; selectedProReviews.value = []; };
 
 const contactPro = (pro) => {
   router.push({ path: '/client/chat', query: { profesional_id: pro.usuario_id } });
 };
 
 const requestService = () => {
-  router.push('/client/request');
+  if (selectedPro.value && selectedPro.value.usuario_id) {
+    router.push({ path: '/client/request', query: { profesional_id: selectedPro.value.usuario_id } });
+  } else {
+    router.push('/client/request');
+  }
 };
 
 const skillsOf = (pro) =>
@@ -97,7 +124,7 @@ onMounted(loadProfessionals);
     <div class="explore-hero">
       <div class="hero-inner">
         <div class="hero-label"><i class="fa-solid fa-magnifying-glass"></i> Directorio de Profesionales</div>
-        <h1>Encuentra al experto ideal<br>para tu proyecto</h1>
+        <h1>Encuentra al experto ideal <br class="hide-on-mobile"> para tu proyecto</h1>
         <p>Más de {{ professionals.length }} profesionales listos para ayudarte</p>
 
         <div class="search-bar-big">
@@ -312,6 +339,43 @@ onMounted(loadProfessionals);
               <img :src="selectedPro.foto_reciente" class="portfolio-preview-img" alt="Trabajo reciente" />
             </div>
 
+            <!-- RESEÑAS -->
+            <div class="detail-section">
+              <div class="dsection-label d-flex-between">
+                Reseñas de Clientes
+                <span v-if="selectedProReviews.length > 0" class="review-count">
+                  {{ selectedProReviews.length }} opinión{{ selectedProReviews.length !== 1 ? 'es' : '' }}
+                </span>
+              </div>
+ 
+              <div v-if="isLoadingReviews" class="reviews-loading">
+                <i class="fa-solid fa-spinner fa-spin"></i> Cargando reseñas...
+              </div>
+ 
+              <div v-else-if="selectedProReviews.length === 0" class="reviews-empty">
+                <i class="fa-regular fa-star empty-star-icon"></i>
+                <p>Aún no tiene reseñas. ¡Sé el primero en contratarlo!</p>
+              </div>
+ 
+              <div v-else class="modal-reviews-list">
+                <div v-for="r in selectedProReviews" :key="r.id" class="modal-review-card">
+                  <div class="review-card-header">
+                    <div class="review-client">
+                      <img v-if="r.cliente_avatar" :src="r.cliente_avatar.startsWith('http') ? r.cliente_avatar : `http://localhost:3001${r.cliente_avatar}`" class="review-avatar">
+                      <span class="review-client-name">{{ r.cliente_nombre }}</span>
+                    </div>
+                    <div class="review-stars">
+                      <i v-for="i in 5" :key="i" :class="i <= r.calificacion ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
+                    </div>
+                  </div>
+                  <p class="review-text">{{ r.comentario }}</p>
+                  <div class="review-date-wrap">
+                    <span class="review-date">{{ new Date(r.fecha_creacion).toLocaleDateString() }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <!-- Acciones -->
@@ -479,12 +543,59 @@ onMounted(loadProfessionals);
 .btn-chat { flex: 1; background: white; border: 1.5px solid #E5E7EB; color: #374151; padding: 12px 20px; border-radius: 10px; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
 .btn-chat:hover { border-color: #0B4C6F; color: #0B4C6F; }
 
+/* RESEÑAS MODAL */
+.d-flex-between { display: flex; justify-content: space-between; align-items: center; }
+.review-count { color: #F59E0B; font-weight: 800; font-size: 0.85rem; }
+.reviews-loading { padding: 20px; text-align: center; color: #9CA3AF; }
+.reviews-empty { padding: 20px; text-align: center; color: #9CA3AF; background: #F8FAFC; border-radius: 10px; border: 1px dashed #E5E7EB; }
+.empty-star-icon { display: block; font-size: 1.5rem; margin-bottom: 8px; }
+.modal-reviews-list { display: flex; flex-direction: column; gap: 12px; }
+.modal-review-card { background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #F1F5F9; }
+.review-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: flex-start; }
+.review-client { display: flex; align-items: center; gap: 10px; }
+.review-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.review-client-name { font-weight: 700; font-size: 0.88rem; color: #111; }
+.review-stars { color: #F59E0B; font-size: 0.82rem; display: flex; gap: 2px; }
+.review-text { margin: 0; font-size: 0.88rem; color: #4B5563; line-height: 1.6; }
+.review-date-wrap { text-align: right; margin-top: 6px; }
+.review-date { font-size: 0.72rem; color: #9CA3AF; }
+
+@media (max-width: 480px) {
+  .review-card-header { flex-direction: column; gap: 8px; }
+  .review-stars { order: -1; } /* Estrellas arriba del nombre en pantallas muy pequeñas */
+}
+
 /* RESPONSIVE */
 @media (max-width: 768px) {
-  .explore-hero { padding: 32px 16px; }
-  .explore-hero h1 { font-size: 1.6rem; }
+  .results-header { margin-bottom: 15px; text-align: center; }
+  .results-title { font-size: 1rem; }
+  .hide-on-mobile { display: none; }
+  .explore-hero { padding: 40px 20px; text-align: center; }
+  .explore-hero h1 { font-size: 1.8rem; }
+  .search-bar-big { flex-direction: column; height: auto; padding: 16px; gap: 12px; border-radius: 20px; max-width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+  .search-icon { display: none; }
+  .search-bar-big input { width: 100%; text-align: center; font-size: 1rem; padding: 10px 0; }
+  .btn-search { width: 100%; padding: 14px; border-radius: 12px; font-size: 1rem; }
+  
+  .filters-row { flex-direction: column; align-items: stretch; margin-top: 15px; gap: 12px; }
+  .filter-pill { width: 100%; border-radius: 12px; padding: 12px; font-size: 0.95rem; }
+  .filter-clear { width: 100%; border-radius: 12px; padding: 12px; }
+  
   .pros-grid { grid-template-columns: 1fr; }
+  
+  .pro-detail-modal { border-radius: 0; max-height: 100vh; height: 100%; margin: 0; }
+  .detail-header-content { flex-direction: column; align-items: center; text-align: center; padding: 0 20px 20px; }
+  .detail-avatar { width: 100px; height: 100px; margin-top: -50px; }
+  .detail-name-block { width: 100%; }
+  .detail-chips { justify-content: center; }
+  .detail-footer { flex-direction: column; padding: 20px; position: sticky; bottom: 0; background: white; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); }
+  .btn-request, .btn-chat { width: 100%; }
 }
+
+@media (max-width: 480px) {
+  .explore-hero h1 { font-size: 1.5rem; }
+}
+
 .e-icon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
 .e-icon-chip { width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 2px; }
 .btn-icon-wrap { display: inline-flex; align-items: center; justify-content: center; margin-right: 6px; }

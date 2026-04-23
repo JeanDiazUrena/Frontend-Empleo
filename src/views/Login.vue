@@ -238,9 +238,17 @@ async function handleGoogleCallback(response) {
 .forgot { text-align: right; }
 .forgot a { color: #0B4C6F; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
 @media (max-width: 1000px) {
+  .login-page-fullscreen { position: relative; height: auto; min-height: 100vh; }
+  .login-nav { padding: 0 20px; }
   .image-panel { display: none; }
-  .form-panel { width: 100%; padding: 20px; }
+  .form-panel { width: 100%; padding: 80px 20px 40px; }
   .brand-link { color: #0B4C6F; }
   .nav-right { display: none; }
+}
+
+@media (max-width: 480px) {
+  .form-header h2 { font-size: 1.8rem; }
+  .btn-submit { font-size: 1rem; padding: 14px; }
+  .field input { padding: 12px; }
 }
 </style>

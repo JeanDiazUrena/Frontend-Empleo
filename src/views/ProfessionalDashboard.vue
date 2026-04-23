@@ -31,6 +31,29 @@ const contactClient = async (clienteId) => {
   }
 };
 
+const acceptJobRequest = async (req) => {
+  const confirmHire = confirm(`¿Deseas aceptar la solicitud de ${req.cliente_nombre}? Se creará un trabajo formal.`);
+  if (!confirmHire) return;
+
+  try {
+    const userId = state.user?.id || localStorage.getItem('usuario_id');
+    const res = await axios.post('http://localhost:3003/api/trabajos', {
+      cliente_id: req.cliente_id,
+      profesional_id: userId,
+      solicitud_id: req.id
+    });
+    
+    if (res.data.success) {
+      alert("¡Trabajo aceptado! Ahora puedes verlo en tus trabajos activos.");
+      jobRequests.value = jobRequests.value.filter(r => r.id !== req.id);
+      professionalJobs.value.unshift(res.data.trabajo);
+    }
+  } catch(e) {
+    console.error(e);
+    alert("Error al intentar aceptar la solicitud.");
+  }
+};
+
 onMounted(async () => {
   const userId = state.user?.id || localStorage.getItem('usuario_id');
   if (!userId) { router.push('/login'); return; }
@@ -50,7 +73,7 @@ onMounted(async () => {
     if (data?.nombre) userDisplayName.value = data.nombre;
 
       try {
-        const solRes = await axios.get(`http://localhost:3001/api/solicitudes`);
+        const solRes = await axios.get(`http://localhost:3001/api/solicitudes?profesional_id=${userId}`);
         jobRequests.value = solRes.data;
       } catch(e) { console.error("Error cargando solicitudes", e); }
 
@@ -247,8 +270,11 @@ const finalizarTrabajo = async (trabajoId) => {
               </div>
 
               <div class="job-footer">
-                <button class="btn-primary-action job-action-btn" @click="contactClient(req.cliente_id)">
-                  <i class="fa-solid fa-paper-plane"></i> Contactar Cliente
+                <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1; margin-right: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s;" @click="contactClient(req.cliente_id)">
+                  <i class="fa-solid fa-paper-plane"></i> Charla
+                </button>
+                <button class="btn-primary-action job-action-btn" @click="acceptJobRequest(req)">
+                  <i class="fa-solid fa-check"></i> Tomar Trabajo
                 </button>
               </div>
             </div>
@@ -397,10 +423,24 @@ const finalizarTrabajo = async (trabajoId) => {
 .job-footer { display: flex; justify-content: flex-end; }
 .job-action-btn { width: auto; padding: 10px 20px; font-size: 0.9rem; }
 
-@media (max-width: 640px) {
-  .quick-actions-grid { grid-template-columns: 1fr; }
-  .no-profile-card { padding: 32px 20px; }
-  .welcome-card { flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .welcome-card { flex-direction: column; text-align: center; gap: 12px; }
   .welcome-btn-profile { width: 100%; justify-content: center; }
+  
+  .qa-card { padding: 16px; align-items: flex-start; }
+  .qa-icon { font-size: 1.2rem; }
+  .qa-text strong { font-size: 0.9rem; }
+  .qa-text span { font-size: 0.72rem; }
+  
+  .job-header { flex-direction: column; gap: 10px; }
+  .job-category { align-self: flex-start; }
+  .job-footer { flex-direction: column; gap: 8px; }
+  .job-action-btn { width: 100%; justify-content: center; margin-right: 0 !important; }
+}
+
+@media (max-width: 480px) {
+  .no-profile-card { padding: 30px 16px; }
+  .npc-steps { gap: 10px; }
+  .step-text { font-size: 0.8rem; }
 }
 </style>

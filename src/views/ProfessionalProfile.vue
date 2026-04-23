@@ -15,6 +15,7 @@ const user = ref({
 
 const activeTab = ref('info');
 const portfolioItems = ref([]); 
+const reviews = ref([]);
 const isLoading = ref(true);
 
 // --- HORARIO PARSEADO ---
@@ -112,6 +113,22 @@ onMounted(async () => {
         email: user.value.emailPublic,
         avatar: user.value.avatar
       });
+      
+      // LOAD REVIEWS
+      try {
+        const reviewRes = await axios.get(`http://localhost:3003/api/resenas/profesional/${userId}`);
+        const fetchedReviews = reviewRes.data;
+        for (let r of fetchedReviews) {
+          try {
+            const cRes = await axios.get(`http://localhost:3001/api/clientes/${r.cliente_id}`);
+            r.cliente_nombre = cRes.data?.nombre || "Cliente";
+            r.cliente_avatar = cRes.data?.avatar || null;
+          } catch(e) { r.cliente_nombre = "Cliente"; }
+        }
+        reviews.value = fetchedReviews;
+      } catch(e) {
+        console.error("Error loading reviews:", e);
+      }
       
     } else {
       router.push('/professional/setup');
@@ -337,7 +354,7 @@ const categoryStyle = computed(() => {
             <span>En Portafolio</span>
           </div>
           <div class="stat-item">
-            <strong>0</strong>
+            <strong>{{ reviews.length }}</strong>
             <span>Reseñas</span>
           </div>
           <div class="stat-item" v-if="user.joinDate">
@@ -592,10 +609,29 @@ const categoryStyle = computed(() => {
 
       <!-- ===== TAB: RESEÑAS ===== -->
       <div v-if="activeTab === 'reviews'" class="content-block">
-        <div class="empty-state-full">
+        <div v-if="reviews.length === 0" class="empty-state-full">
           <div class="empty-icon"><i class="fa-solid fa-star"></i></div>
           <h4>Aún no tienes reseñas</h4>
           <p>Completa servicios y pide a tus clientes que te dejen una valoración.</p>
+        </div>
+        
+        <div v-else class="reviews-list" style="display: flex; flex-direction: column; gap: 16px;">
+          <div v-for="resena in reviews" :key="resena.id" class="review-card" style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `http://localhost:3001${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar">
+                <div v-else style="width: 44px; height: 44px; border-radius: 50%; background: #F1F5F9; color: #1E293B; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">{{ resena.cliente_nombre?.charAt(0) || 'C' }}</div>
+                <div>
+                  <h4 style="margin: 0; color: #0F172A; font-size: 1rem;">{{ resena.cliente_nombre }}</h4>
+                  <span style="font-size: 0.8rem; color: #94A3B8;">{{ new Date(resena.fecha_creacion).toLocaleDateString() }}</span>
+                </div>
+              </div>
+              <div style="display: flex; color: #F59E0B; font-size: 1.1rem; gap: 2px;">
+                <i v-for="i in 5" :key="i" :class="i <= resena.calificacion ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
+              </div>
+            </div>
+            <p style="margin: 0; color: #475569; font-size: 0.95rem; line-height: 1.5;">{{ resena.comentario || 'El cliente dejó una calificación de ' + resena.calificacion + ' estrellas.' }}</p>
+          </div>
         </div>
       </div>
 
@@ -804,11 +840,37 @@ const categoryStyle = computed(() => {
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
+  .header-content { flex-direction: column; align-items: center; text-align: center; padding: 0 20px 24px; }
+  .avatar-wrapper { margin-top: -60px; margin-left: 0; }
+  .user-text { padding-top: 16px; width: 100%; }
+  .name-row { justify-content: center; }
+  .meta-chips { justify-content: center; gap: 6px; }
+  .header-actions { width: 100%; margin-top: 10px; }
+  .btn-edit { width: 100%; justify-content: center; }
+  
+  .stats-bar { padding: 16px; gap: 15px; flex-wrap: wrap; justify-content: center; }
+  .stat-item { align-items: center; flex: 1; min-width: 80px; }
+  .stat-item strong { font-size: 1rem; }
+  .stat-item span { font-size: 0.65rem; }
+
   .content-grid { grid-template-columns: 1fr; }
   .full-card { grid-column: 1; }
-  .meta-chips { gap: 6px; }
-  .header-content { flex-wrap: wrap; }
-  .schedule-view-row { grid-template-columns: 100px 90px 1fr; }
-  .tab-btn span { display: none; }
+  
+  .tab-btn { font-size: 0.75rem; padding: 12px 8px; }
+  .tab-btn svg { width: 14px; height: 14px; }
+  .tab-btn span { display: none; } /* Ocultar texto si el espacio es crítico */
+  
+  .portfolio-grid { grid-template-columns: 1fr; }
+  .schedule-view-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sched-time { grid-column: 1 / -1; margin-top: 4px; padding-left: 20px; }
+
+  .portfolio-header { flex-direction: column; gap: 12px; align-items: stretch; }
+  .btn-add-portfolio { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .banner-area { height: 140px; }
+  .avatar-circle { width: 100px; height: 100px; }
+  .name-row h1 { font-size: 1.4rem; }
 }
 </style>

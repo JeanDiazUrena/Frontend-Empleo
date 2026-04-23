@@ -133,6 +133,9 @@ const handleSubmit = async () => {
   if (form.value.budget_min) fd.append('presupuesto_min', form.value.budget_min);
   if (form.value.budget_max) fd.append('presupuesto_max', form.value.budget_max);
   if (form.value.image)      fd.append('imagen', form.value.image);
+  if (route.query.profesional_id) {
+    fd.append('profesional_id', route.query.profesional_id);
+  }
 
   try {
     await axios.post('http://localhost:3001/api/solicitudes', fd, {

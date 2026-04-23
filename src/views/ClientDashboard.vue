@@ -194,7 +194,7 @@ const confirmarTrabajo = async (trabajoId) => {
               </div>
             </div>
             
-            <button v-if="job.estado === 'FINALIZADO_PROFESIONAL'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="confirmarTrabajo(job.id)">
+            <button v-if="job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'EN_PROGRESO'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="confirmarTrabajo(job.id)">
               <i class="fa-solid fa-check"></i> Confirmar & Calificar
             </button>
           </div>
@@ -544,4 +544,23 @@ const confirmarTrabajo = async (trabajoId) => {
 .pro-info h4 { margin: 0 0 4px 0; font-size: 1.05rem; color: #1e293b; font-weight: 700; }
 .pro-info p { margin: 0 0 10px 0; font-size: 0.9rem; color: #64748b; text-transform: capitalize; }
 .pro-rating { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600; color: #475569; font-size: 0.95rem; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .welcome-banner { flex-direction: column; text-align: center; gap: 20px; padding: 24px 20px; }
+  .welcome-banner h2 { font-size: 1.5rem; }
+  .btn-primary-action { width: 100%; justify-content: center; }
+  
+  .ongoing-card { flex-direction: column; align-items: stretch; gap: 15px; }
+  .card-left { align-items: flex-start; }
+  .btn-view-details { width: 100%; justify-content: center; }
+  
+  .empty-state-container { padding: 40px 20px; }
+  .services-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .welcome-banner h2 { font-size: 1.3rem; }
+  .stat-row { flex-direction: column; text-align: center; padding: 20px; }
+}
 </style>

@@ -194,6 +194,29 @@ const isActive = (path) => route.path.includes(path);
         <RouterView />
       </main>
 
+      <!-- BOTTOM NAV PARA MÓVIL (PROFESIONAL) -->
+      <nav class="bottom-nav">
+        <div class="nav-item" :class="{ active: isActive('dashboard') }" @click="goTo('/professional/dashboard')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <span>Tareas</span>
+        </div>
+        <div class="nav-item" :class="{ active: isActive('chat') }" @click="goTo('/professional/chat')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          <span>Chat</span>
+        </div>
+        <div class="nav-item" :class="{ active: isActive('profile') }" @click="goTo('/professional/profile')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          <span>Mi Perfil</span>
+        </div>
+        <div class="nav-item" @click="toggleMenu">
+          <div class="avatar-circle" style="width: 24px; height: 24px;">
+            <img v-if="user.avatar" :src="user.avatar" class="avatar-img" />
+            <span v-else style="font-size: 0.6rem">{{ userInitials }}</span>
+          </div>
+          <span>Menú</span>
+        </div>
+      </nav>
+
     </div>
   </div>
 </template>
@@ -201,7 +224,7 @@ const isActive = (path) => route.path.includes(path);
 <style scoped>
 /* RESET & FULL WIDTH */
 .dashboard-layout-fullscreen {
-  display: flex; flex-direction: column; min-height: 100vh; width: 100vw; background-color: #F8F9FA; position: absolute; top: 0; left: 0;
+  display: flex; flex-direction: column; min-height: 100vh; width: 100%; max-width: 100vw; background-color: #F8F9FA; position: relative; overflow-x: hidden;
 }
 
 /* NAVBAR */
@@ -276,7 +299,7 @@ const isActive = (path) => route.path.includes(path);
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
 
 /* --- RESTO DEL DASHBOARD (Sidebar, etc) --- */
-.dash-body { display: flex; margin-top: 70px; height: calc(100vh - 70px); }
+.dash-body { display: flex; margin-top: 70px; height: calc(100vh - 70px); width: 100%; overflow-x: hidden; }
 .dash-sidebar { width: 260px; background: white; border-right: 1px solid #e5e7eb; padding: 24px; display: flex; flex-direction: column; height: 100%; position: fixed; left: 0; top: 70px; bottom: 0; }
 .mini-profile { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid #eee; margin-bottom: 20px; cursor: pointer; }
 .mini-profile {
@@ -308,4 +331,31 @@ const isActive = (path) => route.path.includes(path);
 .menu-list li.active { background: #E2E8F0; color: #1E293B; font-weight: 600; }
 .menu-icon { width: 20px; height: 20px; }
 .dash-content { margin-left: 260px; padding: 30px; width: 100%; overflow-y: auto; }
+
+/* === RESPONSIVE TOOLS === */
+.bottom-nav { display: none; }
+
+@media (max-width: 900px) {
+  .dash-navbar { padding: 0 16px; }
+  .user-name { display: none; }
+}
+
+@media (max-width: 768px) {
+  .dash-sidebar { display: none; }
+  .dash-content { margin-left: 0; padding: 20px; padding-bottom: 90px; }
+
+  .bottom-nav {
+    display: flex; justify-content: space-around; align-items: center;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 65px; background: white;
+    border-top: 1px solid #e5e7eb; z-index: 100;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; color: #64748b; cursor: pointer; flex: 1;
+  }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-item span { font-size: 0.7rem; font-weight: 600; }
+  .nav-item.active { color: #1E293B; }
+}
 </style>

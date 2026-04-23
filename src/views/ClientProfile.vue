@@ -19,6 +19,7 @@ const isSaving = ref(false);
 const saveSuccess = ref(false);
 const saveError = ref('');
 const serviceHistory = ref([]);
+const clientReviews = ref([]);
 
 // Archivos de imagen
 const avatarFile = ref(null);
@@ -88,9 +89,26 @@ onMounted(async () => {
 
       // Precargar solicitudes
       try {
-        const reqRes = await axios.get(`http://localhost:3000/api/solicitudes/cliente/${userId}`);
+        const reqRes = await axios.get(`http://localhost:3001/api/solicitudes/cliente/${userId}`);
         serviceHistory.value = reqRes.data || [];
       } catch {}
+
+      // LOAD REVIEWS GIVEN BY CLIENT
+      try {
+        const reviewRes = await axios.get(`http://localhost:3003/api/resenas/cliente/${userId}`);
+        const fetchedReviews = reviewRes.data;
+        for (let r of fetchedReviews) {
+          try {
+            const pRes = await axios.get(`http://localhost:3001/api/profesionales/${r.profesional_id}`);
+            r.profesional_nombre = pRes.data?.nombre || "Profesional";
+            r.profesional_avatar = pRes.data?.avatar_url || null;
+            r.profesion = pRes.data?.profesion || "";
+          } catch(e) { r.profesional_nombre = "Profesional"; }
+        }
+        clientReviews.value = fetchedReviews;
+      } catch(e) {
+        console.error("Error loading reviews:", e);
+      }
     }
   } catch (error) {
     console.error('Error cargando perfil:', error);
@@ -432,10 +450,34 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 
       <!-- ===== TAB: RESEÑAS ===== -->
       <div v-if="activeTab === 'reviews'" class="content-block">
-        <div class="empty-state-full">
+        <div v-if="clientReviews.length === 0" class="empty-state-full">
           <div class="empty-icon"><i class="fa-solid fa-star"></i></div>
           <h4>Sin reseñas aún</h4>
           <p>Cuando califiques a un profesional, tus reseñas aparecerán aquí.</p>
+        </div>
+
+        <div v-else class="reviews-list" style="display: flex; flex-direction: column; gap: 16px;">
+          <div v-for="resena in clientReviews" :key="resena.id" class="review-card" style="background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <img v-if="resena.profesional_avatar" :src="resena.profesional_avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;" alt="Pro">
+                <div v-else style="width: 48px; height: 48px; border-radius: 50%; background: #EFF6FF; color: #0B4C6F; display: flex; align-items: center; justify-content: center; font-weight: bold;">{{ resena.profesional_nombre?.charAt(0) || 'P' }}</div>
+                <div>
+                  <h4 style="margin: 0; color: #111; font-size: 1rem;">{{ resena.profesional_nombre }}</h4>
+                  <p style="margin: 0; font-size: 0.8rem; color: #6B7280;">{{ resena.profesion }}</p>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="display: flex; color: #F59E0B; font-size: 1rem; gap: 2px; justify-content: flex-end; margin-bottom: 4px;">
+                  <i v-for="i in 5" :key="i" :class="i <= resena.calificacion ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
+                </div>
+                <span style="font-size: 0.75rem; color: #9CA3AF;">{{ new Date(resena.fecha_creacion).toLocaleDateString() }}</span>
+              </div>
+            </div>
+            <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; border-left: 4px solid #0B4C6F;">
+              <p style="margin: 0; color: #374151; font-size: 0.92rem; line-height: 1.5; font-style: italic;">"{{ resena.comentario || 'Sin comentario' }}"</p>
+            </div>
+          </div>
         </div>
       </div>
 

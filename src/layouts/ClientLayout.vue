@@ -157,12 +157,37 @@ onUnmounted(() => {
         <RouterView />
       </main>
 
+      <!-- BOTON FLOTANTE MÓVIL (Petición rápida) -->
+      <button class="mobile-fab" @click="goTo('/client/request')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" style="width: 24px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+      </button>
+
+      <!-- BOTTOM NAV PARA MÓVIL -->
+      <nav class="bottom-nav">
+        <div class="nav-item" :class="{ active: isActive('dashboard') }" @click="goTo('/client/dashboard')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+          <span>Inicio</span>
+        </div>
+        <div class="nav-item" :class="{ active: isActive('explore') }" @click="goTo('/client/explore')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <span>Explorar</span>
+        </div>
+        <div class="nav-item" :class="{ active: isActive('chat') }" @click="goTo('/client/chat')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          <span>Chat</span>
+        </div>
+        <div class="nav-item" :class="{ active: isActive('profile') }" @click="goTo('/client/profile')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          <span>Perfil</span>
+        </div>
+      </nav>
+
     </div>
   </div>
 </template>
 
 <style scoped>
-.dashboard-layout-fullscreen { display: flex; flex-direction: column; min-height: 100vh; width: 100vw; background-color: #F8F9FA; position: absolute; top: 0; left: 0; }
+.dashboard-layout-fullscreen { display: flex; flex-direction: column; min-height: 100vh; width: 100%; max-width: 100vw; background-color: #F8F9FA; position: relative; overflow-x: hidden; }
 
 /* NAVBAR */
 .dash-navbar { height: 70px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; position: fixed; top: 0; left: 0; right: 0; z-index: 50; }
@@ -203,7 +228,7 @@ onUnmounted(() => {
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
 
 /* SIDEBAR Y CONTENIDO */
-.dash-body { display: flex; margin-top: 70px; height: calc(100vh - 70px); }
+.dash-body { display: flex; margin-top: 70px; height: calc(100vh - 70px); width: 100%; overflow-x: hidden; }
 .dash-sidebar { width: 260px; background: white; border-right: 1px solid #e5e7eb; padding: 24px; display: flex; flex-direction: column; height: 100%; position: fixed; left: 0; top: 70px; bottom: 0; }
 .menu-list { list-style: none; padding: 0; margin: 20px 0 0 0; }
 .menu-list li { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; cursor: pointer; color: #555; font-weight: 500; transition: all 0.2s; margin-bottom: 4px; }
@@ -213,5 +238,43 @@ onUnmounted(() => {
 .action-area { margin-bottom: 10px; }
 .btn-create { width: 100%; background: #F76B1C; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; }
 .btn-create:hover { background: #e05a10; }
+
 .dash-content { margin-left: 260px; padding: 30px; width: 100%; overflow-y: auto; }
+
+/* === RESPONSIVE TOOLS === */
+.mobile-fab { display: none; }
+.bottom-nav { display: none; }
+
+@media (max-width: 900px) {
+  .dash-navbar { padding: 0 16px; }
+  .user-name { display: none; }
+}
+
+@media (max-width: 768px) {
+  .dash-sidebar { display: none; }
+  .dash-content { margin-left: 0; padding: 20px; padding-bottom: 90px; }
+  
+  .mobile-fab {
+    display: flex; align-items: center; justify-content: center;
+    position: fixed; bottom: 85px; right: 20px;
+    width: 56px; height: 56px;
+    background: #F76B1C; border-radius: 50%;
+    box-shadow: 0 4px 15px rgba(247, 107, 28, 0.4);
+    border: none; cursor: pointer; z-index: 45;
+  }
+
+  .bottom-nav {
+    display: flex; justify-content: space-around; align-items: center;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 65px; background: white;
+    border-top: 1px solid #e5e7eb; z-index: 100;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; color: #64748b; cursor: pointer; flex: 1;
+  }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-item span { font-size: 0.7rem; font-weight: 600; }
+  .nav-item.active { color: #0B4C6F; }
+}
 </style>
