@@ -18,7 +18,7 @@ const isLoading = ref(true);
 const isSaving = ref(false);
 const saveSuccess = ref(false);
 const saveError = ref('');
-const serviceHistory = ref([]);
+const serviceHistory = ref([]);     
 const clientReviews = ref([]);
 
 // Archivos de imagen

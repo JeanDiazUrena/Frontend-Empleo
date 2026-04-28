@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
 
+import ConfirmacionCliente from '../components/ConfirmacionCliente.vue';
+
 const router = useRouter();
 const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
 
@@ -118,17 +120,20 @@ onMounted(async () => {
   }
 });
 
-const confirmarTrabajo = async (trabajoId) => {
-    try {
-        const res = await axios.post(`http://localhost:3003/api/trabajos/${trabajoId}/confirmar`, {
-            cliente_id: state.user.id
-        });
-        if (res.data.success) {
-            router.push(`/client/review/${trabajoId}?ref=${res.data.profesional_id}`);
-        }
-    } catch(e) {
-        showToast('Error al confirmar el trabajo. Intenta de nuevo.', 'error');
-        console.error(e);
+// --- PAGO Y CONFIRMACIÓN ---
+const showPaymentModal = ref(false);
+const jobToPay = ref(null);
+
+const openPaymentModal = (job) => {
+    jobToPay.value = job;
+    showPaymentModal.value = true;
+};
+
+const handlePaymentSuccess = () => {
+    showPaymentModal.value = false;
+    if (jobToPay.value) {
+        // Redirigir a reseña después del pago
+        router.push(`/client/review/${jobToPay.value.id}?ref=${jobToPay.value.profesional_id}`);
     }
 };
 </script>
@@ -241,7 +246,7 @@ const confirmarTrabajo = async (trabajoId) => {
               <button class="btn-view-details" @click="openJobDetail(job)">
                 <i class="fa-solid fa-circle-info"></i> Ver detalles
               </button>
-              <button v-if="job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'EN_PROGRESO'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="confirmarTrabajo(job.id)">
+              <button v-if="job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'EN_PROGRESO'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="openPaymentModal(job)">
                 <i class="fa-solid fa-check"></i> Confirmar & Calificar
               </button>
             </div>
@@ -299,7 +304,7 @@ const confirmarTrabajo = async (trabajoId) => {
               <button
                 v-if="selectedJob.estado === 'FINALIZADO_PROFESIONAL' || selectedJob.estado === 'EN_PROGRESO'"
                 class="jm-btn-confirm"
-                @click="confirmarTrabajo(selectedJob.id); closeJobModal()"
+                @click="openPaymentModal(selectedJob); closeJobModal()"
               >
                 <i class="fa-solid fa-check"></i> Confirmar & Calificar
               </button>
@@ -307,6 +312,17 @@ const confirmarTrabajo = async (trabajoId) => {
           </div>
         </div>
       </Teleport>
+
+      <!-- ===== MODAL CONFIRMACION Y PAGO ===== -->
+      <ConfirmacionCliente 
+         v-if="showPaymentModal"
+         :trabajo_id="jobToPay.id" 
+         :profesional_id="jobToPay.profesional_id"
+         :monto_total="jobToPay.presupuesto ? jobToPay.presupuesto.replace(/[^0-9.]/g, '') : '0'" 
+         :metodo_pago="jobToPay.metodo_pago || 'EFECTIVO'" 
+         @close="showPaymentModal = false"
+         @success="handlePaymentSuccess"
+      />
 
       <!-- ===== TRABAJOS ANTERIORES (COLAPSABLE) ===== -->
       <div class="past-jobs-section" v-if="pastJobs.length > 0">

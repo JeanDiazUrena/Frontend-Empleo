@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { io } from 'socket.io-client';
+import axios from 'axios';
 
 const router = useRouter();
 const route = useRoute(); 
@@ -9,6 +11,17 @@ const route = useRoute();
 const user = ref({ name: "Cliente", initials: "CL" });
 const isMenuOpen = ref(false);
 const menuRef = ref(null);
+const unreadCount = ref(0);
+let socket = null;
+
+const fetchUnreadCount = async () => {
+  const userId = localStorage.getItem('usuario_id');
+  if (!userId) return;
+  try {
+    const { data } = await axios.get(`http://localhost:3001/api/chat/unread-count/${userId}`);
+    unreadCount.value = data.count || 0;
+  } catch (e) { console.error(e); }
+};
 
 // --- NAVEGACIÓN GENERAL ---
 const goTo = (path) => router.push(path);
@@ -43,19 +56,38 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside);
 
   // Cargar nombre real del localStorage
-  const storedName = localStorage.getItem('usuario_nombre');
-  if (storedName) {
-    user.value.name = storedName;
-    // Generar iniciales (Ej: Juan Perez -> JP)
-    const parts = storedName.split(' ');
-    user.value.initials = parts.length > 1 
-      ? (parts[0][0] + parts[1][0]).toUpperCase() 
-      : parts[0].substring(0, 2).toUpperCase();
+  const userId = localStorage.getItem('usuario_id');
+  if (userId) {
+    fetchUnreadCount();
+    
+    socket = io('http://localhost:3001', { query: { userId } });
+    socket.on('notification_new_message', (msg) => {
+      if (msg.remitente_id !== userId) {
+        unreadCount.value++;
+      }
+    });
+
+    socket.on('update_unread_count', (data) => {
+      if (data.usuarioId === userId) {
+        fetchUnreadCount();
+      }
+    });
+
+    const storedName = localStorage.getItem('usuario_nombre');
+    if (storedName) {
+      user.value.name = storedName;
+      // Generar iniciales (Ej: Juan Perez -> JP)
+      const parts = storedName.split(' ');
+      user.value.initials = parts.length > 1 
+        ? (parts[0][0] + parts[1][0]).toUpperCase() 
+        : parts[0].substring(0, 2).toUpperCase();
+    }
   }
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
+  if (socket) socket.disconnect();
 });
 </script>
 
@@ -140,7 +172,8 @@ onUnmounted(() => {
             <svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            Mensajes
+            <span style="flex: 1;">Mensajes</span>
+            <span v-if="unreadCount > 0" class="notif-badge">{{ unreadCount }}</span>
           </li>
 
           <li :class="{ active: isActive('profile') }" @click="goTo('/client/profile')">
@@ -172,9 +205,10 @@ onUnmounted(() => {
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <span>Explorar</span>
         </div>
-        <div class="nav-item" :class="{ active: isActive('chat') }" @click="goTo('/client/chat')">
+        <div class="nav-item" :class="{ active: isActive('chat') }" @click="goTo('/client/chat')" style="position: relative;">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
           <span>Chat</span>
+          <span v-if="unreadCount > 0" class="notif-badge-mobile">{{ unreadCount }}</span>
         </div>
         <div class="nav-item" :class="{ active: isActive('profile') }" @click="goTo('/client/profile')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -276,5 +310,21 @@ onUnmounted(() => {
   .nav-item svg { width: 22px; height: 22px; }
   .nav-item span { font-size: 0.7rem; font-weight: 600; }
   .nav-item.active { color: #0B4C6F; }
+}
+
+.notif-badge {
+  background: #2563EB; color: white;
+  font-size: 0.75rem; font-weight: 700;
+  padding: 2px 0; border-radius: 50%;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: auto;
+}
+.notif-badge-mobile {
+  position: absolute; top: 5px; right: 25%;
+  background: #2563EB; color: white;
+  font-size: 0.65rem; font-weight: 800;
+  padding: 1px 6px; border-radius: 10px;
+  border: 2px solid white;
 }
 </style>

@@ -14,11 +14,115 @@ const conversations = ref([]);
 const activeConv = ref(null);
 const messages = ref([]);
 const newMessage = ref('');
+const profBankInfo = ref({
+  banco: 'Banco Popular',
+  numero_cuenta: '792012345',
+  tipo: 'Corriente',
+  titular: state.user?.name || 'Profesional ServiHub'
+});
 const isLoadingConvs = ref(true);
 const isLoadingMsgs = ref(false);
 const searchQuery = ref('');
 const messagesEnd = ref(null);
 let socket = null;
+
+const showAttachmentMenu = ref(false);
+const fileInput = ref(null);
+const lightbox = ref({ show: false, url: '' });
+
+const openLightbox = (url) => {
+  lightbox.value = { show: true, url };
+};
+
+const downloadImage = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `imagen_${Date.now()}.png`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (err) {
+    window.open(url, '_blank');
+  }
+};
+
+const triggerFileSelect = (type) => {
+  showAttachmentMenu.value = false;
+  if (fileInput.value) {
+    fileInput.value.setAttribute('accept', type === 'image' ? 'image/*' : '*/*');
+    fileInput.value.click();
+  }
+};
+
+const onFileChange = async (e) => {
+  const file = e.target.files[0];
+  if (!file || !activeConv.value) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const { data } = await axios.post('http://localhost:3001/api/chat/upload', formData);
+    const tipo = file.type.startsWith('image/') ? 'imagen' : 'archivo';
+    
+    socket.emit('send_message', {
+      conversacion_id: activeConv.value.id,
+      remitente_id: myId.value,
+      contenido: data.url,
+      tipo: tipo
+    });
+  } catch (err) {
+    console.error("Error uploading file:", err);
+  }
+  e.target.value = '';
+};
+
+const copyToClipboard = (text) => {
+  navigator.clipboard.writeText(text);
+  // Opcional: mostrar un toast de éxito si tienes el sistema inyectado
+};
+
+const enviarDatosBancarios = () => {
+  if (!activeConv.value) return;
+  showAttachmentMenu.value = false;
+  
+  // Enviamos los datos como un string JSON
+  const bankDataString = JSON.stringify(profBankInfo.value);
+  
+  socket.emit('send_message', {
+    conversacion_id: activeConv.value.id,
+    remitente_id: myId.value,
+    contenido: bankDataString,
+    tipo: 'bank_info'
+  });
+};
+
+const abrirModalCotizacion = () => {
+  showAttachmentMenu.value = false;
+  // Próximo paso: Abrir modal de cotización
+};
+
+const compartirUbicacion = () => {
+  if (!activeConv.value) return;
+  showAttachmentMenu.value = false;
+  
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((position) => {
+      const { latitude, longitude } = position.coords;
+      const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+      
+      socket.emit('send_message', {
+        conversacion_id: activeConv.value.id,
+        remitente_id: myId.value,
+        contenido: `Mi ubicación actual: ${mapsUrl}`
+      });
+    }, (err) => {
+      console.error("Error obteniendo ubicación:", err);
+    });
+  }
+};
 
 const filteredConvs = computed(() => {
   if (!searchQuery.value) return conversations.value;
@@ -72,8 +176,10 @@ const selectConversation = async (conv) => {
 
   axios.put(`http://localhost:3001/api/chat/leer/${conv.id}`, { lector_id: myId.value }).catch(() => {});
   conv.no_leidos = 0;
-
-  if (socket) socket.emit('join_conversation', conv.id);
+  if (socket) {
+    socket.emit('messages_read', { usuarioId: myId.value });
+    socket.emit('join_conversation', conv.id);
+  }
 };
 
 const sendMessage = () => {
@@ -120,6 +226,21 @@ const getInitials = (name) => {
 onMounted(async () => {
   connectSocket();
 
+  // Cargar datos bancarios reales del profesional
+  try {
+    const { data: finData } = await axios.get(`http://localhost:3001/api/profesionales/${myId.value}/financiero`);
+    if (finData) {
+      profBankInfo.value = {
+        banco: finData.banco || 'No especificado',
+        numero_cuenta: finData.cuenta_bancaria || 'No especificado',
+        tipo: 'Corriente', // Opcional: podrías añadir este campo a la DB también
+        titular: state.user?.name || 'Profesional ServiHub'
+      };
+    }
+  } catch (err) {
+    console.log("No se pudieron cargar datos financieros para el chat, usando defaults.");
+  }
+
   socket.on('online_users', (users) => {
     onlineUsers.value = users;
   });
@@ -145,6 +266,24 @@ onMounted(async () => {
 
 <template>
   <div class="chat-shell">
+
+    <!-- ===== LIGHTBOX ===== -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="lightbox.show" class="lightbox-overlay" @click="lightbox.show = false">
+          <button class="lightbox-close" @click="lightbox.show = false">×</button>
+          <img :src="lightbox.url" class="lightbox-img" @click.stop />
+          <div class="lightbox-actions" @click.stop>
+            <button @click="downloadImage(lightbox.url)">
+              <i class="fa-solid fa-download"></i> Descargar
+            </button>
+            <a :href="lightbox.url" target="_blank">
+              <i class="fa-solid fa-expand"></i> Ver original
+            </a>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- SIDEBAR -->
     <aside class="chat-sidebar">
@@ -258,7 +397,59 @@ onMounted(async () => {
 
               <div class="bubble-row">
                 <div class="bubble" :class="msg.remitente_id === myId ? 'bubble-mine' : 'bubble-theirs'">
-                  <p>{{ msg.contenido }}</p>
+                  <!-- RENDER SEGÚN TIPO -->
+                  <template v-if="msg.tipo === 'imagen'">
+                    <div class="image-bubble-wrap">
+                      <img :src="msg.contenido" class="msg-image" @click="openLightbox(msg.contenido)" />
+                      <button class="img-hover-dl" @click.stop="downloadImage(msg.contenido)">
+                        <i class="fa-solid fa-download"></i>
+                      </button>
+                    </div>
+                  </template>
+                  
+                  <template v-else-if="msg.tipo === 'archivo'">
+                    <a :href="msg.contenido" target="_blank" class="msg-file">
+                      <i class="fa-solid fa-file-arrow-down"></i>
+                      <span>Archivo Adjunto</span>
+                    </a>
+                  </template>
+
+                  <template v-else-if="msg.tipo === 'bank_info'">
+                    <div class="bank-info-card">
+                      <div class="bic-header">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span>Datos de Pago</span>
+                      </div>
+                      <div class="bic-body">
+                        <div class="bic-field">
+                          <label>Banco</label>
+                          <p>{{ JSON.parse(msg.contenido).banco }}</p>
+                        </div>
+                        <div class="bic-field">
+                          <label>Número de Cuenta</label>
+                          <div class="bic-row">
+                            <span class="acc-num">{{ JSON.parse(msg.contenido).numero_cuenta }}</span>
+                            <button class="copy-btn" @click="copyToClipboard(JSON.parse(msg.contenido).numero_cuenta)" title="Copiar cuenta">
+                              <i class="fa-regular fa-copy"></i>
+                            </button>
+                          </div>
+                        </div>
+                        <div class="bic-field">
+                          <label>Titular</label>
+                          <p>{{ JSON.parse(msg.contenido).titular }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <template v-else-if="msg.contenido.includes('https://www.google.com/maps')">
+                    <p>{{ msg.contenido.split('https://')[0] }}</p>
+                    <a :href="'https://' + msg.contenido.split('https://')[1]" target="_blank" class="location-link">
+                      <i class="fa-solid fa-map-location-dot"></i> Ver en Google Maps
+                    </a>
+                  </template>
+
+                  <p v-else>{{ msg.contenido }}</p>
                   <div class="bubble-meta">
                     <span class="bubble-time">{{ formatTime(msg.created_at) }}</span>
                     <span v-if="msg.remitente_id === myId" class="read-tick" :class="{ read: msg.leido }"><i class="fa-solid fa-check-double"></i></span>
@@ -272,6 +463,44 @@ onMounted(async () => {
 
         <!-- INPUT -->
         <div class="chat-input-area">
+          <div class="attachment-container">
+            <button class="btn-plus" @click="showAttachmentMenu = !showAttachmentMenu">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+            
+            <Transition name="menu-pop">
+              <div v-if="showAttachmentMenu" class="attachment-menu">
+                <button @click="triggerFileSelect('image')">
+                  <div class="menu-icon img-icon"><i class="fa-solid fa-image"></i></div>
+                  <span>Fotos</span>
+                </button>
+                <button @click="triggerFileSelect('file')">
+                  <div class="menu-icon file-icon"><i class="fa-solid fa-file-lines"></i></div>
+                  <span>Documentos</span>
+                </button>
+
+                <div class="menu-divider"></div>
+
+                <button @click="abrirModalCotizacion" class="menu-special">
+                  <div class="menu-icon quote-icon text-emerald-600"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                  <span>Crear Cotización</span>
+                </button>
+
+                <button v-if="activeConv.metodo_pago === 'TRANSFERENCIA'" @click="enviarDatosBancarios" class="menu-special">
+                  <div class="menu-icon bank-icon text-blue-600"><i class="fa-solid fa-building-columns"></i></div>
+                  <span>Información Bancaria</span>
+                </button>
+
+                <button @click="compartirUbicacion" class="menu-special">
+                  <div class="menu-icon loc-icon text-orange-600"><i class="fa-solid fa-location-dot"></i></div>
+                  <span>Compartir Ubicación</span>
+                </button>
+              </div>
+            </Transition>
+          </div>
+
+          <input type="file" ref="fileInput" style="display:none" @change="onFileChange" />
+
           <textarea
             v-model="newMessage"
             @keydown="handleKeydown"
@@ -411,19 +640,17 @@ onMounted(async () => {
 .conv-time { font-size: 0.7rem; color: #94A3B8; flex-shrink: 0; }
 .conv-bottom { display: flex; justify-content: space-between; align-items: center; }
 .conv-last-msg { font-size: 0.78rem; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 158px; }
-.unread-badge {
-  min-width: 20px;
-  height: 20px;
-  background: #F76B1C;
+.badge-unread {
+  background: #2563EB;
   color: white;
-  border-radius: 20px;
-  font-size: 0.65rem;
-  font-weight: 800;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
-  animation: pulse-badge 1.5s infinite;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 @keyframes pulse-badge { 0%,100% { box-shadow: 0 0 0 0 rgba(247,107,28,0.4); } 50% { box-shadow: 0 0 0 5px rgba(247,107,28,0); } }
 
@@ -647,5 +874,187 @@ onMounted(async () => {
   .chat-sidebar.visible { display: flex; position: absolute; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; }
 }
 
+
+.location-link {
+  display: block;
+  margin-top: 8px;
+  background: white;
+  color: #1E293B;
+  padding: 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: 0.2s;
+}
+.msg-mine .location-link { color: #c95210; }
+.location-link:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+/* --- ATTACHMENT PANEL --- */
+.attachment-container { position: relative; }
+.btn-plus {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: #F1F5F9; color: #64748B; cursor: pointer; transition: 0.2s;
+  display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+}
+.btn-plus:hover { background: #E2E8F0; color: #1E293B; }
+
+.attachment-menu {
+  position: absolute; bottom: 65px; left: 0; background: white;
+  border-radius: 16px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 4px; min-width: 190px;
+  border: 1px solid #E2E8F0; z-index: 100;
+}
+.attachment-menu button {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border: none; background: none; width: 100%; cursor: pointer;
+  border-radius: 10px; transition: all 0.2s;
+}
+.attachment-menu button:hover { background: #F8FAFC; }
+.attachment-menu span { font-size: 0.85rem; font-weight: 600; color: #475569; }
+
+.menu-divider { height: 1px; background: #F1F5F9; margin: 4px 6px; }
+.menu-icon { 
+  width: 34px; height: 34px; border-radius: 10px; 
+  display: flex; align-items: center; justify-content: center; font-size: 1rem; 
+  flex-shrink: 0;
+}
+.img-icon   { background: #E0F2FE; color: #0284C7; }
+.file-icon  { background: #F1F5F9; color: #64748B; }
+.bank-icon  { background: #EFF6FF; color: #2563EB; }
+.quote-icon { background: #ECFDF5; color: #059669; }
+.loc-icon   { background: #FFF7ED; color: #EA580C; }
+
+.menu-pop-enter-active, .menu-pop-leave-active { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.menu-pop-enter-from, .menu-pop-leave-to { opacity: 0; transform: scale(0.8) translateY(10px); transform-origin: bottom left; }
+
+.msg-image { max-width: 100%; border-radius: 10px; cursor: pointer; margin-bottom: 5px; border: 1px solid rgba(0,0,0,0.05); }
+.msg-file {
+  display: flex; align-items: center; gap: 10px; padding: 12px;
+  background: rgba(255,255,255,0.15); border-radius: 10px;
+  text-decoration: none; color: inherit; font-weight: 700; font-size: 0.85rem;
+  border: 1px solid rgba(255,255,255,0.1); margin-bottom: 5px;
+}
+.bubble-theirs .msg-file { background: #F1F5F9; color: #1E293B; }
+
+/* === BANK INFO CARD === */
+.bank-info-card {
+  width: 240px;
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+.msg-mine .bank-info-card {
+  border-color: #FED7AA;
+}
+.bic-header {
+  background: #F8FAFC;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #E2E8F0;
+  color: #1E293B;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.msg-mine .bic-header {
+  background: #FFF7ED;
+  color: #c95210;
+  border-bottom-color: #FFEDD5;
+}
+.bic-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bic-field label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: #94A3B8;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.bic-field p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #1E293B;
+  font-weight: 600;
+}
+.bic-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F1F5F9;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.acc-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1E293B;
+}
+.copy-btn {
+  background: white;
+  border: 1px solid #E2E8F0;
+  color: #64748B;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+.copy-btn:hover {
+  background: #1E293B;
+  color: white;
+  border-color: #1E293B;
+}
+
+/* --- LIGHTBOX --- */
+.lightbox-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+  z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px; backdrop-filter: blur(8px);
+}
+.lightbox-img { max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 8px; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+.lightbox-close {
+  position: absolute; top: 30px; right: 30px; background: none; border: none;
+  color: white; font-size: 2.5rem; cursor: pointer; opacity: 0.7; transition: 0.2s;
+}
+.lightbox-close:hover { opacity: 1; transform: scale(1.1); }
+.lightbox-actions {
+  margin-top: 24px; display: flex; gap: 16px;
+}
+.lightbox-actions button, .lightbox-actions a {
+  background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);
+  padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;
+}
+.lightbox-actions button:hover, .lightbox-actions a:hover { background: white; color: black; }
+
+.image-bubble-wrap { position: relative; cursor: pointer; }
+.img-hover-dl {
+  position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+  background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s;
+  cursor: pointer;
+}
+.image-bubble-wrap:hover .img-hover-dl { opacity: 1; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
 </style>

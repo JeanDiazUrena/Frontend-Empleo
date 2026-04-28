@@ -11,6 +11,33 @@ const { state } = useUserSession();
 const isLoading = ref(false);
 const showSuccess = ref(false);
 const errorMessage = ref('');
+const trabajoInfo = ref({ titulo: '', profesional_nombre: '' });
+
+const fetchWorkDetails = async () => {
+  const trabajoId = route.params.id;
+  const profesionalId = route.query.ref;
+  if (!trabajoId || !profesionalId) return;
+
+  try {
+    // 1. Obtener info del trabajo (para el título)
+    const resTrabajo = await axios.get(`http://localhost:3003/api/trabajos/${trabajoId}`);
+    if (resTrabajo.data) {
+      trabajoInfo.value.titulo = resTrabajo.data.titulo;
+    }
+
+    // 2. Obtener info del profesional (para el nombre)
+    const resProf = await axios.get(`http://localhost:3001/api/profesionales/${profesionalId}`);
+    if (resProf.data) {
+      trabajoInfo.value.profesional_nombre = resProf.data.nombre;
+    }
+  } catch (err) {
+    console.error("Error cargando detalles para reseña:", err);
+  }
+};
+
+onMounted(() => {
+  fetchWorkDetails();
+});
 
 const form = ref({
   calificacion: 5,
@@ -73,7 +100,21 @@ const submitReview = async () => {
           <i class="fa-solid fa-star"></i>
         </div>
         <h2>Califica el Servicio</h2>
-        <p>Tu opinión ayuda a otros a encontrar a los mejores profesionales en ServiHub.</p>
+        
+        <!-- Contexto del Trabajo -->
+        <div class="review-context-box" v-if="trabajoInfo.profesional_nombre || trabajoInfo.titulo">
+          <div class="context-item">
+            <span class="context-label">Profesional</span>
+            <span class="context-value">{{ trabajoInfo.profesional_nombre || 'Cargando...' }}</span>
+          </div>
+          <div class="context-divider"></div>
+          <div class="context-item">
+            <span class="context-label">Servicio</span>
+            <span class="context-value">{{ trabajoInfo.titulo || 'Cargando...' }}</span>
+          </div>
+        </div>
+
+        <p v-else>Tu opinión ayuda a otros a encontrar a los mejores profesionales en ServiHub.</p>
       </div>
 
       <div class="error-banner" v-if="errorMessage">
@@ -183,6 +224,44 @@ const submitReview = async () => {
   color: #64748B;
   font-size: 0.95rem;
   line-height: 1.5;
+}
+
+/* Caja de Contexto Premium */
+.review-context-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  display: flex;
+  margin: 15px 0;
+  padding: 12px;
+  text-align: left;
+}
+.context-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px;
+}
+.context-divider {
+  width: 1px;
+  background: #E2E8F0;
+  margin: 5px 0;
+}
+.context-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94A3B8;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.context-value {
+  font-size: 0.9rem;
+  color: #1E293B;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .error-banner {

@@ -13,6 +13,8 @@ const profileStatus = ref(null); // null = cargando, false = sin perfil, true = 
 const isLoading = ref(true);
 const userAvatar = ref('');
 const userDisplayName = ref('');
+const hasPaymentMethod = ref(true);
+const showPaymentBlock = ref(false);
 
 // --- TOAST SYSTEM ---
 const toast = ref({ show: false, msg: '', type: 'success' });
@@ -39,7 +41,11 @@ const showDetailModal = ref(false);
 const showPastJobs = ref(false);
 
 const openDetail = (req) => {
-  selectedRequest.value = req;
+  selectedRequest.value = {
+    ...req,
+    cliente_nombre: req.cliente_nombre || 'Cliente',
+    categoria: req.categoria || 'Servicio'
+  };
   showDetailModal.value = true;
 };
 
@@ -49,6 +55,7 @@ const openJobDetail = (job) => {
   selectedRequest.value = {
     ...job,
     cliente_nombre: job.cliente_nombre || 'Cliente',
+    categoria: job.categoria || 'Servicio',
     titulo: job.titulo,
     descripcion: job.descripcion,
     horario: job.horario,
@@ -66,6 +73,7 @@ const closeDetail = () => {
 const goToSetup = () => router.push('/professional/setup');
 const goToProfile = () => router.push('/professional/profile');
 const goToPost = () => router.push('/create-first-post');
+const goToPayments = () => router.push('/professional/settings?tab=payments');
 
 const contactClient = async (clienteId) => {
   try {
@@ -81,6 +89,11 @@ const contactClient = async (clienteId) => {
 };
 
 const acceptJobRequest = async (req) => {
+  if (!hasPaymentMethod.value) {
+    showPaymentBlock.value = true;
+    return;
+  }
+
   const confirmed = await askConfirm(`¿Deseas aceptar la solicitud de ${req.cliente_nombre}? Se creará un trabajo formal.`);
   if (!confirmed) return;
 
@@ -107,7 +120,9 @@ const acceptJobRequest = async (req) => {
       titulo: req.titulo,
       descripcion: req.descripcion,
       horario: horarioStr,
-      presupuesto: presupuestoStr
+      presupuesto: presupuestoStr,
+      cliente_nombre: req.cliente_nombre,
+      categoria: req.categoria
     });
     
     if (res.data.success) {
@@ -125,7 +140,11 @@ const acceptJobRequest = async (req) => {
 
       showToast('¡Trabajo aceptado! Se ha creado un chat con el cliente para coordinar.', 'success');
       jobRequests.value = jobRequests.value.filter(r => r.id !== req.id);
-      professionalJobs.value.unshift(res.data.trabajo);
+      professionalJobs.value.unshift({
+        ...res.data.trabajo,
+        cliente_nombre: res.data.trabajo.cliente_nombre || req.cliente_nombre || 'Cliente',
+        categoria: res.data.trabajo.categoria || req.categoria || 'Servicio'
+      });
       closeDetail(); // Close modal if open
     }
   } catch(e) {
@@ -154,12 +173,31 @@ onMounted(async () => {
 
       try {
         const solRes = await axios.get(`http://localhost:3001/api/solicitudes?profesional_id=${userId}`);
-        jobRequests.value = solRes.data;
+        jobRequests.value = solRes.data.map(s => ({
+          ...s,
+          cliente_nombre: s.cliente_nombre || 'Cliente',
+          categoria: s.categoria || 'Servicio'
+        }));
       } catch(e) { console.error("Error cargando solicitudes", e); }
+
+      // Check financial status
+      try {
+        const finRes = await axios.get(`http://localhost:3001/api/profesionales/${userId}/financiero`);
+        if (!finRes.data.stripe_card_token) {
+           hasPaymentMethod.value = false;
+        }
+      } catch(e) { 
+         // If 404 or error, they likely haven't set it up
+         hasPaymentMethod.value = false;
+      }
 
       try {
         const trabRes = await axios.get(`http://localhost:3003/api/trabajos/profesional/${userId}`);
-        professionalJobs.value = trabRes.data;
+        professionalJobs.value = trabRes.data.map(j => ({
+          ...j,
+          cliente_nombre: j.cliente_nombre || 'Cliente',
+          categoria: j.categoria || 'Servicio'
+        }));
       } catch(e) { console.error("Error cargando trabajos", e); }
       
     } catch {
@@ -217,12 +255,45 @@ const finalizarTrabajo = async (trabajoId) => {
       </div>
     </Teleport>
 
+    <!-- MODAL DE BLOQUEO POR FALTA DE MÉTODO DE PAGO -->
+    <Teleport to="body">
+      <div v-if="showPaymentBlock" class="confirm-overlay" @click.self="showPaymentBlock = false">
+        <div class="payment-block-card animate-pop">
+          <div class="pb-header-gradient"></div>
+          <button @click="showPaymentBlock = false" class="pb-close-btn">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          
+          <div class="pb-content">
+            <div class="pb-icon-circle">
+              <i class="fa-solid fa-credit-card"></i>
+            </div>
+            
+            <h3 class="pb-title">Método de Cobro Requerido</h3>
+            <p class="pb-desc">
+              Para poder recibir solicitudes y aceptar trabajos, necesitas ingresar una tarjeta para que el sistema pueda cobrar automáticamente la comisión (15%) por el uso de la plataforma.
+            </p>
+            
+            <div class="pb-actions">
+              <button class="pb-btn-primary" @click="goToPayments">
+                <i class="fa-solid fa-gear"></i>
+                Configurar Método de Pago
+              </button>
+              <button class="pb-btn-secondary" @click="showPaymentBlock = false">
+                Hacerlo más tarde
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- CARGANDO -->
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
       <p>Cargando tu panel...</p>
     </div>
+
 
     <template v-else>
 
@@ -447,7 +518,9 @@ const finalizarTrabajo = async (trabajoId) => {
                 <div class="detail-info">
                   <label>Título:</label>
                   <p class="detail-title">{{ selectedRequest.titulo }}</p>
-                  
+
+
+
                   <div class="detail-meta-grid">
                     <div class="detail-meta-item">
                       <label><i class="fa-solid fa-tag"></i> Categoría</label>
@@ -484,6 +557,18 @@ const finalizarTrabajo = async (trabajoId) => {
                           <span v-if="selectedRequest.presupuesto_min && selectedRequest.presupuesto_max"> – </span>
                           <span v-if="selectedRequest.presupuesto_max">RD$ {{ Number(selectedRequest.presupuesto_max).toLocaleString() }}</span>
                         </template>
+                      </p>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedRequest.metodo_pago">
+                      <label><i class="fa-solid fa-wallet"></i> Pago Preferido</label>
+                      <p class="detail-tag flex items-center gap-2">
+                        <i v-if="selectedRequest.metodo_pago === 'EFECTIVO'" class="fa-solid fa-money-bill-wave text-green-600"></i>
+                        <i v-else-if="selectedRequest.metodo_pago === 'TRANSFERENCIA'" class="fa-solid fa-building-columns text-blue-600"></i>
+                        <i v-else-if="selectedRequest.metodo_pago === 'TARJETA_CREDITO'" class="fa-solid fa-credit-card text-purple-600"></i>
+                        {{ 
+                          selectedRequest.metodo_pago === 'TARJETA_CREDITO' ? 'Tarjeta de Crédito' : 
+                          selectedRequest.metodo_pago.charAt(0) + selectedRequest.metodo_pago.slice(1).toLowerCase()
+                        }}
                       </p>
                     </div>
                     <div class="detail-meta-item" v-if="selectedRequest.ubicacion">
@@ -636,6 +721,111 @@ const finalizarTrabajo = async (trabajoId) => {
 .tag-urgente { background: #FEF2F2 !important; color: #DC2626 !important; }
 .tag-normal  { background: #FFFBEB !important; color: #D97706 !important; }
 .tag-flexible { background: #F0FDF4 !important; color: #16A34A !important; }
+
+/* MODAL DE BLOQUEO DE PAGOS */
+.payment-block-card {
+  max-width: 480px;
+  width: 90%;
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  position: relative;
+  text-align: center;
+}
+.pb-header-gradient {
+  height: 6px;
+  background: linear-gradient(90deg, #3B82F6 0%, #2563EB 50%, #1E40AF 100%);
+}
+.pb-content {
+  padding: 40px 32px;
+}
+.pb-icon-circle {
+  width: 72px;
+  height: 72px;
+  background: #EFF6FF;
+  color: #2563EB;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 24px;
+}
+.pb-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0 0 12px;
+}
+.pb-desc {
+  font-size: 0.9rem;
+  color: #64748B;
+  line-height: 1.6;
+  margin: 0 0 32px;
+}
+.pb-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pb-btn-primary {
+  background: #1E293B;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pb-btn-primary:hover {
+  background: #0F172A;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.pb-btn-secondary {
+  background: white;
+  color: #64748B;
+  border: 1.5px solid #E2E8F0;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pb-btn-secondary:hover {
+  background: #F8FAFC;
+  color: #1E293B;
+  border-color: #CBD5E1;
+}
+.pb-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #F1F5F9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #94A3B8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+.pb-close-btn:hover {
+  background: #E2E8F0;
+  color: #475569;
+}
 
 /* ===== TARJETA DE BIENVENIDA ===== */
 .welcome-card {

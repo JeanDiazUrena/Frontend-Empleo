@@ -25,10 +25,9 @@ const form = ref({
   category:    '',
   description: '',
   urgency:     'normal',
-  budget_min:  '',
-  budget_max:  '',
   location:    '',
   availability:'',
+  metodo_pago: 'EFECTIVO', // Default option
   image:       null,
 });
 
@@ -130,8 +129,7 @@ const handleSubmit = async () => {
   fd.append('urgencia',    form.value.urgency);
   fd.append('ubicacion',   form.value.location);
   fd.append('disponibilidad', form.value.availability);
-  if (form.value.budget_min) fd.append('presupuesto_min', form.value.budget_min);
-  if (form.value.budget_max) fd.append('presupuesto_max', form.value.budget_max);
+  fd.append('metodo_pago', form.value.metodo_pago);
   if (form.value.image)      fd.append('imagen', form.value.image);
   if (route.query.profesional_id) {
     fd.append('profesional_id', route.query.profesional_id);
@@ -208,7 +206,6 @@ onMounted(() => {
       <div class="success-pills">
         <span>{{ form.title }}</span>
         <span>Urgencia: {{ urgencyOptions.find(u=>u.id===form.urgency)?.label }}</span>
-        <span v-if="form.budget_max">Hasta RD$ {{ form.budget_max }}</span>
       </div>
       <div class="success-actions">
         <button class="btn-primary" @click="router.push('/client/dashboard')">
@@ -384,20 +381,16 @@ onMounted(() => {
             <p>Información adicional para atraer mejores propuestas</p>
           </div>
 
-          <div class="two-col">
-            <div class="field-group">
-              <label>Presupuesto mínimo (RD$)</label>
-              <div class="input-prefix-wrap">
-                <span class="prefix">RD$</span>
-                <input v-model="form.budget_min" type="number" min="0" class="field-input prefix-input" placeholder="0" />
-              </div>
+          <!-- Banner Informativo -->
+          <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 mb-6 flex gap-3 shadow-sm">
+            <div class="text-blue-500 mt-0.5">
+              <i class="fa-solid fa-circle-info text-lg"></i>
             </div>
-            <div class="field-group">
-              <label>Presupuesto máximo (RD$)</label>
-              <div class="input-prefix-wrap">
-                <span class="prefix">RD$</span>
-                <input v-model="form.budget_max" type="number" min="0" class="field-input prefix-input" placeholder="5,000" />
-              </div>
+            <div>
+              <h4 class="font-bold text-sm mb-1">Cotización Profesional</h4>
+              <p class="text-sm opacity-90 leading-relaxed">
+                Nota: El costo final del servicio será establecido por el profesional mediante una cotización oficial una vez evalúe los detalles de tu solicitud.
+              </p>
             </div>
           </div>
 
@@ -410,12 +403,53 @@ onMounted(() => {
             <label>¿Cuándo estás disponible?</label>
             <select v-model="form.availability" class="field-input">
               <option value="">Selecciona disponibilidad</option>
-              <option value="manana">Mañana (8am - 12pm)</option>
-              <option value="tarde">Tarde (12pm - 6pm)</option>
-              <option value="noche">Noche (6pm - 9pm)</option>
-              <option value="finde">Fines de semana</option>
-              <option value="cualquier">Cualquier momento</option>
+              <option value="Lo antes posible">Lo antes posible</option>
+              <option value="Mañanas">Mañanas (8am - 12pm)</option>
+              <option value="Tardes">Tardes (12pm - 6pm)</option>
+              <option value="Fines de semana">Fines de semana</option>
             </select>
+          </div>
+
+          <!-- SECCIÓN: Método de Pago Preferido -->
+          <div class="field-group">
+            <label class="block text-sm font-bold text-slate-700 mb-3">Método de Pago Preferido</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <!-- EFECTIVO -->
+              <label :class="['payment-option-card', { active: form.metodo_pago === 'EFECTIVO' }]">
+                <input type="radio" v-model="form.metodo_pago" value="EFECTIVO" class="hidden" />
+                <div class="option-icon text-green-600 bg-green-50">
+                  <i class="fa-solid fa-money-bill-wave"></i>
+                </div>
+                <span class="option-label">Efectivo</span>
+                <div v-if="form.metodo_pago === 'EFECTIVO'" class="check-badge">
+                  <i class="fa-solid fa-circle-check"></i>
+                </div>
+              </label>
+
+              <!-- TRANSFERENCIA -->
+              <label :class="['payment-option-card', { active: form.metodo_pago === 'TRANSFERENCIA' }]">
+                <input type="radio" v-model="form.metodo_pago" value="TRANSFERENCIA" class="hidden" />
+                <div class="option-icon text-blue-600 bg-blue-50">
+                  <i class="fa-solid fa-building-columns"></i>
+                </div>
+                <span class="option-label">Transferencia</span>
+                <div v-if="form.metodo_pago === 'TRANSFERENCIA'" class="check-badge">
+                  <i class="fa-solid fa-circle-check"></i>
+                </div>
+              </label>
+
+              <!-- TARJETA -->
+              <label :class="['payment-option-card', { active: form.metodo_pago === 'TARJETA_CREDITO' }]">
+                <input type="radio" v-model="form.metodo_pago" value="TARJETA_CREDITO" class="hidden" />
+                <div class="option-icon text-purple-600 bg-purple-50">
+                  <i class="fa-solid fa-credit-card"></i>
+                </div>
+                <span class="option-label">Tarjeta</span>
+                <div v-if="form.metodo_pago === 'TARJETA_CREDITO'" class="check-badge">
+                  <i class="fa-solid fa-circle-check"></i>
+                </div>
+              </label>
+            </div>
           </div>
 
           <!-- Resumen de la solicitud -->
@@ -435,9 +469,13 @@ onMounted(() => {
                 ● {{ urgencyOptions.find(u=>u.id===form.urgency)?.label }}
               </span>
             </div>
-            <div v-if="form.budget_max" class="summary-row">
-              <span class="summary-label">Presupuesto</span>
-              <span>Hasta RD$ {{ Number(form.budget_max).toLocaleString() }}</span>
+            <div v-if="form.availability" class="summary-row">
+              <span class="summary-label">Disponibilidad</span>
+              <span>{{ form.availability }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Método Pago</span>
+              <span class="font-bold text-blue-700 capitalize">{{ form.metodo_pago.toLowerCase().replace('_', ' ') }}</span>
             </div>
             <div v-if="imagePreview" class="summary-row">
               <span class="summary-label">Foto</span>
@@ -823,5 +861,57 @@ onMounted(() => {
   .btn-next, .btn-submit { margin-left: 0; width: 100%; justify-content: center; }
   .btn-prev { width: 100%; justify-content: center; }
   .step-dot .step-label { display: none; }
+}
+/* === PAYMENT OPTION CARDS === */
+.payment-option-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.payment-option-card:hover {
+  border-color: #CBD5E1;
+  background: #F8FAFC;
+  transform: translateY(-2px);
+}
+.payment-option-card.active {
+  border-color: #2563EB;
+  background: #EFF6FF;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+.option-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+.option-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+}
+.payment-option-card.active .option-label {
+  color: #1E40AF;
+}
+.check-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: white;
+  color: #2563EB;
+  font-size: 1.1rem;
+  line-height: 1;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 </style>

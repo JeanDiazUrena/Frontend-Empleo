@@ -479,12 +479,26 @@ onMounted(loadProfessionals);
 
 /* Avatar de la tarjeta */
 .pro-card-avatar-wrap { padding: 0 16px; }
-.pro-card-avatar { width: 64px; height: 64px; border-radius: 50%; border: 3px solid white; overflow: hidden; margin-top: -32px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: white; }
+.pro-card-avatar { 
+  width: 64px; 
+  height: 64px; 
+  border-radius: 50%; 
+  border: 3px solid white; 
+  overflow: hidden; 
+  margin-top: -32px; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+  background: white;
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .pro-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .pro-card-initials { width: 100%; height: 100%; background: #E0F2FE; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800; color: #0B4C6F; }
 
 /* Body */
-.pro-card-body { padding: 10px 16px 12px; flex: 1; }
+.pro-card-body { padding: 16px 16px 12px; flex: 1; }
 .pro-card-name { margin: 0 0 2px; font-size: 1.05rem; font-weight: 800; color: #111; }
 .pro-card-profession { margin: 0 0 8px; font-size: 0.85rem; color: #4F46E5; font-weight: 600; }
 .pro-card-bio { margin: 0 0 10px; font-size: 0.83rem; color: #6B7280; line-height: 1.5; }
@@ -509,7 +523,22 @@ onMounted(loadProfessionals);
 
 .detail-banner { height: 140px; background: linear-gradient(135deg, #0B4C6F, #1a8fcc); background-size: cover; background-position: center; }
 .detail-header-content { display: flex; gap: 16px; padding: 0 24px 16px; align-items: flex-end; border-bottom: 1px solid #F3F4F6; }
-.detail-avatar { width: 80px; height: 80px; border-radius: 50%; border: 4px solid white; overflow: hidden; margin-top: -40px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); flex-shrink: 0; background: white; }
+.detail-avatar { 
+  width: 80px; 
+  height: 80px; 
+  border-radius: 50%; 
+  border: 4px solid white; 
+  overflow: hidden; 
+  margin-top: -40px; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+  flex-shrink: 0; 
+  background: white; 
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .detail-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .detail-initials { width: 100%; height: 100%; background: #E0F2FE; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; color: #0B4C6F; }
 .detail-name-block { flex: 1; padding-top: 8px; }

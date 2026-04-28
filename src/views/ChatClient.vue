@@ -12,6 +12,105 @@ const { state } = useUserSession();
 const myId = computed(() => state.user?.id || localStorage.getItem('usuario_id'));
 const myName = computed(() => state.user?.name || localStorage.getItem('usuario_nombre') || 'Yo');
 
+const hasActiveJob = ref(false);
+const isSharingLocation = ref(false);
+const showAttachmentMenu = ref(false);
+const fileInput = ref(null);
+const lightbox = ref({ show: false, url: '' });
+
+const openLightbox = (url) => {
+  lightbox.value = { show: true, url };
+};
+
+const downloadImage = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `imagen_${Date.now()}.png`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (err) {
+    window.open(url, '_blank');
+  }
+};
+
+const triggerFileSelect = (type) => {
+  showAttachmentMenu.value = false;
+  if (fileInput.value) {
+    fileInput.value.setAttribute('accept', type === 'image' ? 'image/*' : '*/*');
+    fileInput.value.click();
+  }
+};
+
+const onFileChange = async (e) => {
+  const file = e.target.files[0];
+  if (!file || !activeConv.value) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const { data } = await axios.post('http://localhost:3001/api/chat/upload', formData);
+    const tipo = file.type.startsWith('image/') ? 'imagen' : 'archivo';
+    
+    socket.emit('send_message', {
+      conversacion_id: activeConv.value.id,
+      remitente_id: myId.value,
+      contenido: data.url,
+      tipo: tipo
+    });
+  } catch (err) {
+    console.error("Error uploading file:", err);
+    showToast('Error al subir el archivo', 'error');
+  }
+  e.target.value = ''; // Reset input
+};
+
+const checkActiveJob = async (profesionalUsuarioId) => {
+  if (!profesionalUsuarioId || !myId.value) return;
+  try {
+    const { data } = await axios.get(`http://localhost:3003/api/trabajos/cliente/${myId.value}`);
+    // Ver si hay un trabajo activo con este profesional específico
+    hasActiveJob.value = data.some(j => j.profesional_id === profesionalUsuarioId && j.estado === 'EN_PROGRESO');
+  } catch (e) {
+    console.error("Error checking active job:", e);
+    hasActiveJob.value = false;
+  }
+};
+
+const shareLocation = () => {
+  if (!navigator.geolocation) {
+    showToast('Tu navegador no soporta geolocalización', 'error');
+    return;
+  }
+
+  isSharingLocation.value = true;
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+      const content = `📍 Mi ubicación: ${mapUrl}`;
+      
+      socket.emit('send_message', {
+        conversacion_id: activeConv.value.id,
+        remitente_id: myId.value,
+        contenido: content
+      });
+      
+      showToast('Ubicación compartida', 'success');
+      isSharingLocation.value = false;
+    },
+    (error) => {
+      console.error(error);
+      showToast('Error al obtener ubicación. Asegúrate de dar permisos.', 'error');
+      isSharingLocation.value = false;
+    },
+    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+  );
+};
+
 // --- TOAST SYSTEM ---
 const toast = ref({ show: false, msg: '', type: 'success' });
 let toastTimer = null;
@@ -31,32 +130,7 @@ const handleConfirm = (answer) => {
   if (confirmModal.value.onConfirm) confirmModal.value.onConfirm(answer);
 };
 
-const isHiring = ref(false);
 
-const contratarProfesional = async () => {
-    if (!activeConv.value) return;
-    const confirmed = await askConfirm(`¿Deseas contratar formalmente a ${activeConv.value.otro_nombre}? Esto creará un trabajo en progreso.`);
-    if (!confirmed) return;
-
-    isHiring.value = true;
-    try {
-        const res = await axios.post('http://localhost:3003/api/trabajos', {
-            cliente_id: myId.value,
-            profesional_id: activeConv.value.profesional_usuario_id,
-            solicitud_id: null
-        });
-
-        if (res.data.success) {
-            showToast('¡Profesional contratado! Puedes ver el progreso en tu panel.', 'success');
-            setTimeout(() => router.push('/client/dashboard'), 2000);
-        }
-    } catch(e) {
-        console.error(e);
-        showToast('Error al intentar contratar al profesional.', 'error');
-    } finally {
-        isHiring.value = false;
-    }
-};
 
 // Estado
 const conversations = ref([]);
@@ -143,9 +217,13 @@ const selectConversation = async (conv) => {
     isLoadingMsgs.value = false;
   }
 
+  // Verificar si hay trabajo activo para permitir compartir ubicación
+  checkActiveJob(conv.profesional_usuario_id);
+
   // Marcar como leídos
   axios.put(`http://localhost:3001/api/chat/leer/${conv.id}`, { lector_id: myId.value }).catch(() => {});
   conv.no_leidos = 0;
+  socket.emit('messages_read', { usuarioId: myId.value });
 
   // Unirse a sala socket
   if (socket) {
@@ -242,6 +320,24 @@ onMounted(async () => {
 <template>
   <div class="chat-shell">
 
+    <!-- ===== LIGHTBOX ===== -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="lightbox.show" class="lightbox-overlay" @click="lightbox.show = false">
+          <button class="lightbox-close" @click="lightbox.show = false">×</button>
+          <img :src="lightbox.url" class="lightbox-img" @click.stop />
+          <div class="lightbox-actions" @click.stop>
+            <button @click="downloadImage(lightbox.url)">
+              <i class="fa-solid fa-download"></i> Descargar
+            </button>
+            <a :href="lightbox.url" target="_blank">
+              <i class="fa-solid fa-expand"></i> Ver original
+            </a>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- ===== TOAST ===== -->
     <Teleport to="body">
       <Transition name="toast-slide">
@@ -261,7 +357,7 @@ onMounted(async () => {
           <p class="confirm-msg">{{ confirmModal.msg }}</p>
           <div class="confirm-actions">
             <button class="confirm-no" @click="handleConfirm(false)">Cancelar</button>
-            <button class="confirm-yes" @click="handleConfirm(true)">¡Sí, contratar!</button>
+            <button class="confirm-yes" @click="handleConfirm(true)">Confirmar</button>
           </div>
         </div>
       </div>
@@ -344,8 +440,9 @@ onMounted(async () => {
             </div>
           </div>
           <div class="header-status">
-            <button class="btn-hire" @click="contratarProfesional" :disabled="isHiring">
-                <i class="fa-solid fa-handshake"></i> Contratar Profesional
+            <button v-if="hasActiveJob" class="btn-location" @click="shareLocation" :disabled="isSharingLocation">
+              <i class="fa-solid fa-location-crosshairs"></i>
+              {{ isSharingLocation ? 'Obteniendo...' : 'Compartir Ubicación' }}
             </button>
             <template v-if="onlineUsers.includes(activeConv.profesional_usuario_id)">
               <span class="online-dot"></span>
@@ -387,7 +484,31 @@ onMounted(async () => {
 
               <div class="bubble-row">
                 <div class="bubble" :class="msg.remitente_id === myId ? 'bubble-mine' : 'bubble-theirs'">
-                  <p>{{ msg.contenido }}</p>
+                  <!-- RENDER SEGÚN TIPO -->
+                  <template v-if="msg.tipo === 'imagen'">
+                    <div class="image-bubble-wrap">
+                      <img :src="msg.contenido" class="msg-image" @click="openLightbox(msg.contenido)" />
+                      <button class="img-hover-dl" @click.stop="downloadImage(msg.contenido)">
+                        <i class="fa-solid fa-download"></i>
+                      </button>
+                    </div>
+                  </template>
+                  
+                  <template v-else-if="msg.tipo === 'archivo'">
+                    <a :href="msg.contenido" target="_blank" class="msg-file">
+                      <i class="fa-solid fa-file-arrow-down"></i>
+                      <span>Archivo Adjunto</span>
+                    </a>
+                  </template>
+
+                  <template v-else-if="msg.contenido.includes('https://www.google.com/maps')">
+                    <p>{{ msg.contenido.split('https://')[0] }}</p>
+                    <a :href="'https://' + msg.contenido.split('https://')[1]" target="_blank" class="location-link">
+                      <i class="fa-solid fa-map-location-dot"></i> Ver en Google Maps
+                    </a>
+                  </template>
+
+                  <p v-else>{{ msg.contenido }}</p>
                   <div class="bubble-meta">
                     <span class="bubble-time">{{ formatTime(msg.created_at) }}</span>
                     <span v-if="msg.remitente_id === myId" class="read-tick" :class="{ read: msg.leido }">
@@ -403,10 +524,35 @@ onMounted(async () => {
 
         <!-- INPUT ÁREA -->
         <div class="chat-input-area">
+          <div class="attachment-container">
+            <button class="btn-plus" @click="showAttachmentMenu = !showAttachmentMenu">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+            
+            <Transition name="menu-pop">
+              <div v-if="showAttachmentMenu" class="attachment-menu">
+                <button @click="triggerFileSelect('image')">
+                  <div class="menu-icon img-icon"><i class="fa-solid fa-image"></i></div>
+                  <span>Fotos</span>
+                </button>
+                <button @click="triggerFileSelect('file')">
+                  <div class="menu-icon file-icon"><i class="fa-solid fa-file-lines"></i></div>
+                  <span>Documento</span>
+                </button>
+                <button v-if="hasActiveJob" @click="shareLocation">
+                  <div class="menu-icon loc-icon"><i class="fa-solid fa-location-dot"></i></div>
+                  <span>Ubicación</span>
+                </button>
+              </div>
+            </Transition>
+          </div>
+
+          <input type="file" ref="fileInput" style="display:none" @change="onFileChange" />
+
           <textarea
             v-model="newMessage"
             @keydown="handleKeydown"
-            placeholder="Escribe un mensaje... (Enter para enviar)"
+            placeholder="Escribe un mensaje..."
             class="msg-input"
             rows="1"
           ></textarea>
@@ -546,11 +692,6 @@ onMounted(async () => {
 .unread-badge {
   min-width: 20px;
   height: 20px;
-  background: #3B82F6;
-  color: white;
-  border-radius: 20px;
-  font-size: 0.65rem;
-  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -637,31 +778,7 @@ onMounted(async () => {
 .offline-text { color: #64748B !important; }
 @keyframes pulse-online { 0%,100% { box-shadow: 0 0 0 2px #D1FAE5; } 50% { box-shadow: 0 0 0 4px rgba(34,197,94,0.2); } }
 
-.btn-hire {
-    background: #22C55E;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-right: 12px;
-    transition: all 0.2s;
-    box-shadow: 0 2px 6px rgba(34, 197, 94, 0.3);
-}
-.btn-hire:hover:not(:disabled) {
-    background: #16A34A;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(34, 197, 94, 0.4);
-}
-.btn-hire:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
+
 
 /* MESSAGES AREA */
 .messages-area {
@@ -699,6 +816,18 @@ onMounted(async () => {
   justify-content: center;
   box-shadow: 0 4px 16px rgba(0,0,0,0.06);
   border: 1px solid #E2E8F0;
+}
+.badge-unread {
+  background: #2563EB;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 .msgs-empty p { margin: 0; font-size: 1rem; font-weight: 700; color: #475569; }
 .msgs-empty small { font-size: 0.82rem; color: #94A3B8; }
@@ -846,5 +975,123 @@ onMounted(async () => {
 .confirm-yes { flex: 1; padding: 11px; border: none; border-radius: 8px; background: #22C55E; color: white; font-weight: 700; cursor: pointer; transition: 0.2s; }
 .confirm-yes:hover { background: #16A34A; }
 
+
+.btn-location {
+  background: #EFF6FF;
+  color: #3B82F6;
+  border: 1.5px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 12px;
+  transition: 0.2s;
+}
+.btn-location:hover:not(:disabled) {
+  background: #DBEAFE;
+  border-color: #3B82F6;
+  transform: translateY(-1px);
+}
+.btn-location:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.location-link {
+  display: block;
+  margin-top: 8px;
+  background: white;
+  color: #1E293B;
+  padding: 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: 0.2s;
+}
+.msg-mine .location-link { color: #0B4C6F; }
+.location-link:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+/* --- ATTACHMENT PANEL --- */
+.attachment-container { position: relative; }
+.btn-plus {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: #F1F5F9; color: #64748B; cursor: pointer; transition: 0.2s;
+  display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+}
+.btn-plus:hover { background: #E2E8F0; color: #1E293B; }
+
+.attachment-menu {
+  position: absolute; bottom: 60px; left: 0; background: white;
+  border-radius: 16px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 8px; min-width: 150px;
+  border: 1px solid #F1F5F9; z-index: 100;
+}
+.attachment-menu button {
+  display: flex; align-items: center; gap: 12px; padding: 10px;
+  border: none; background: none; width: 100%; cursor: pointer;
+  border-radius: 10px; transition: 0.2s;
+}
+.attachment-menu button:hover { background: #F8FAFC; }
+.attachment-menu span { font-size: 0.85rem; font-weight: 600; color: #475569; }
+
+.menu-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem;
+}
+.img-icon { background: #9333EA; }
+.file-icon { background: #2563EB; }
+.loc-icon { background: #16A34A; }
+
+.menu-pop-enter-active, .menu-pop-leave-active { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.menu-pop-enter-from, .menu-pop-leave-to { opacity: 0; transform: scale(0.5) translateY(20px); transform-origin: bottom left; }
+
+.msg-image { max-width: 100%; border-radius: 10px; cursor: pointer; margin-bottom: 5px; border: 1px solid rgba(0,0,0,0.05); }
+.msg-file {
+  display: flex; align-items: center; gap: 10px; padding: 12px;
+  background: rgba(255,255,255,0.15); border-radius: 10px;
+  text-decoration: none; color: inherit; font-weight: 700; font-size: 0.85rem;
+  border: 1px solid rgba(255,255,255,0.1); margin-bottom: 5px;
+}
+.bubble-theirs .msg-file { background: #F1F5F9; color: #1E293B; }
+
+/* --- LIGHTBOX --- */
+.lightbox-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+  z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px; backdrop-filter: blur(8px);
+}
+.lightbox-img { max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 8px; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+.lightbox-close {
+  position: absolute; top: 30px; right: 30px; background: none; border: none;
+  color: white; font-size: 2.5rem; cursor: pointer; opacity: 0.7; transition: 0.2s;
+}
+.lightbox-close:hover { opacity: 1; transform: scale(1.1); }
+.lightbox-actions {
+  margin-top: 24px; display: flex; gap: 16px;
+}
+.lightbox-actions button, .lightbox-actions a {
+  background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);
+  padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;
+}
+.lightbox-actions button:hover, .lightbox-actions a:hover { background: white; color: black; }
+
+.image-bubble-wrap { position: relative; cursor: pointer; }
+.img-hover-dl {
+  position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+  background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s;
+  cursor: pointer;
+}
+.image-bubble-wrap:hover .img-hover-dl { opacity: 1; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
 </style>

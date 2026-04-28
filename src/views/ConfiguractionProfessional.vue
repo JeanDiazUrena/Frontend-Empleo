@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 
 // ─── COMPOSABLES ──────────────────────────────────────────────
 import { usePassword } from '../composables/settings/usePassword';
@@ -9,8 +10,17 @@ import { useTwoFA } from '../composables/settings/useTwoFA';
 import { useSessions } from '../composables/settings/useSessions';
 import { useDangerZone } from '../composables/settings/useDangerZone';
 
-// ─── TABS ─────────────────────────────────────────────────────
-const activeTab = ref('password');
+// --- NUEVOS COMPONENTES ---
+import ConfiguracionPagosProfesional from '../components/ConfiguracionPagosProfesional.vue';
+
+const route = useRoute();
+const activeTab = ref(route.query.tab || 'password');
+
+onMounted(() => {
+  if (route.query.tab) {
+    activeTab.value = route.query.tab;
+  }
+});
 
 const tabs = [
   { id: 'password',  label: 'Contraseña',       icon: 'lock' },
@@ -188,75 +198,8 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
     <!-- ══════════════════════════════════════════════
          TAB: MÉTODOS DE PAGO
     ══════════════════════════════════════════════ -->
-    <div v-if="activeTab === 'payments'" class="cfg-panel">
-      <div class="panel-title-row">
-        <div>
-          <h2>Métodos de pago</h2>
-          <p>Gestiona las tarjetas vinculadas a tu cuenta.</p>
-        </div>
-        <button class="btn-primary sm" @click="showAddCard = !showAddCard">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
-          Agregar tarjeta
-        </button>
-      </div>
-
-      <!-- Lista de tarjetas -->
-      <div class="cards-grid">
-        <div v-for="card in cards" :key="card.id" :class="['payment-card', card.brand]">
-          <div class="card-top">
-            <div class="card-chip">
-              <svg viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="36" height="28" rx="4" fill="gold" fill-opacity="0.7"/>
-                <rect x="0" y="10" width="36" height="8" fill="gold" fill-opacity="0.4"/>
-                <rect x="10" y="0" width="8" height="28" fill="gold" fill-opacity="0.4"/>
-              </svg>
-            </div>
-            <span class="card-brand-label">{{ card.brand.toUpperCase() }}</span>
-          </div>
-          <div class="card-number">•••• •••• •••• {{ card.last4 }}</div>
-          <div class="card-bottom">
-            <div>
-              <span class="card-meta-label">Vence</span>
-              <span class="card-meta-val">{{ card.exp }}</span>
-            </div>
-            <button class="card-delete-btn" @click="removeCard(card.id)" title="Eliminar tarjeta">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4Z" clip-rule="evenodd"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Agregar tarjeta -->
-      <div v-if="showAddCard" class="add-card-form">
-        <h3>Nueva tarjeta</h3>
-        <div class="cfg-form">
-          <div class="field-group">
-            <label>Número de tarjeta</label>
-            <input type="text" v-model="newCard.number" placeholder="0000 0000 0000 0000" maxlength="19" />
-          </div>
-          <div class="field-group">
-            <label>Nombre en la tarjeta</label>
-            <input type="text" v-model="newCard.name" placeholder="Nombre Apellido" />
-          </div>
-          <div class="two-col">
-            <div class="field-group">
-              <label>Vencimiento</label>
-              <input type="text" v-model="newCard.exp" placeholder="MM/AA" maxlength="5" />
-            </div>
-            <div class="field-group">
-              <label>CVV</label>
-              <input type="text" v-model="newCard.cvv" placeholder="•••" maxlength="4" />
-            </div>
-          </div>
-          <div v-if="cardMsg" class="form-msg error">{{ cardMsg }}</div>
-          <div class="btn-row">
-            <button class="btn-outline" @click="showAddCard = false; cardMsg = ''">Cancelar</button>
-            <button class="btn-primary" @click="addCard" :disabled="isCardUpdating">
-              {{ isCardUpdating ? 'Guardando...' : 'Guardar tarjeta' }}
-            </button>
-          </div>
-        </div>
-      </div>
+    <div v-if="activeTab === 'payments'" class="cfg-panel p-0 bg-transparent border-0">
+      <ConfiguracionPagosProfesional />
     </div>
 
     <!-- ══════════════════════════════════════════════
