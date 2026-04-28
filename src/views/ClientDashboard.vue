@@ -11,9 +11,26 @@ const loading = ref(true);
 const activeRequests = ref([]); 
 const featuredProfessionals = ref([]); 
 const clientJobs = ref([]); 
+const pastJobs = ref([]);
+const showPastJobs = ref(false);
 
 // Control del Modal
 const showIncompleteProfileModal = ref(false);
+
+// --- TOAST SYSTEM ---
+const toast = ref({ show: false, msg: '', type: 'success' });
+let toastTimer = null;
+const showToast = (msg, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.value = { show: true, msg, type };
+  toastTimer = setTimeout(() => { toast.value.show = false; }, 4000);
+};
+
+// --- MODAL DETALLE TRABAJO ---
+const selectedJob = ref(null);
+const showJobModal = ref(false);
+const openJobDetail = (job) => { selectedJob.value = job; showJobModal.value = true; };
+const closeJobModal = () => { selectedJob.value = null; showJobModal.value = false; };
 
 // --- NAVEGACIÓN ---
 const goToExplore = () => router.push('/client/explore');
@@ -62,20 +79,28 @@ onMounted(async () => {
       try {
         const prosRes = await axios.get('http://localhost:3001/api/profesionales');
         if (prosRes.data && prosRes.data.length > 0) {
-          // Filtramos profesionales que no tengan nombre (evita crashes en el render)
-          const validPros = prosRes.data.filter(p => p.nombre);
+          // Filtramos profesionales que tengan los datos mínimos (el backend ya filtra, pero reforzamos)
+          const validPros = prosRes.data.filter(p => p.nombre && p.profesion);
           featuredProfessionals.value = validPros.slice(0, 4);
         }
       } catch (err) {
         console.log("No se pudieron cargar los profesionales destacados.");
       }
 
-      // 4. CARGAR TRABAJOS (Puerto 3003)
+      // 4. CARGAR TRABAJOS ACTIVOS (Puerto 3003)
       try {
           const trabajosRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${userId}`);
           clientJobs.value = trabajosRes.data;
       } catch (err) {
           console.log("El servicio de trabajos (3003) no está disponible o no hay trabajos.");
+      }
+
+      // 5. CARGAR HISTORIAL DE TRABAJOS COMPLETADOS (Puerto 3003)
+      try {
+          const histRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${userId}/historial`);
+          pastJobs.value = histRes.data;
+      } catch (err) {
+          console.log("No se pudo cargar el historial de trabajos.");
       }
 
     } catch (error) {
@@ -102,7 +127,7 @@ const confirmarTrabajo = async (trabajoId) => {
             router.push(`/client/review/${trabajoId}?ref=${res.data.profesional_id}`);
         }
     } catch(e) {
-        alert("Error al confirmar el trabajo.");
+        showToast('Error al confirmar el trabajo. Intenta de nuevo.', 'error');
         console.error(e);
     }
 };
@@ -110,6 +135,17 @@ const confirmarTrabajo = async (trabajoId) => {
 
 <template>
   <div class="client-content-wrapper">
+    
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <Teleport to="body">
+      <Transition name="toast-slide">
+        <div v-if="toast.show" :class="['app-toast', `app-toast--${toast.type}`]">
+          <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
+          <span>{{ toast.msg }}</span>
+          <button class="toast-close" @click="toast.show = false">×</button>
+        </div>
+      </Transition>
+    </Teleport>
     
     <div v-if="showIncompleteProfileModal" class="modal-overlay">
       <div class="modal-card animate-pop">
@@ -187,18 +223,119 @@ const confirmarTrabajo = async (trabajoId) => {
             <div class="card-left">
               <div class="status-indicator" :class="job.estado === 'FINALIZADO_PROFESIONAL' ? 'orange' : 'green'"></div>
               <div class="req-details">
-                <h4>Trabajo #{{ job.id }}</h4>
+                <h4>{{ job.titulo || 'Contratación Directa' }}</h4>
+                <p v-if="job.descripcion" class="job-desc-preview">{{ job.descripcion.slice(0, 80) }}{{ job.descripcion.length > 80 ? '...' : '' }}</p>
                 <span class="req-status">
-                  Estado: {{ job.estado }} • {{ new Date(job.fecha_creacion).toLocaleDateString() }}
+                  <span class="estado-badge" :class="{
+                    'badge-progreso': job.estado === 'EN_PROGRESO',
+                    'badge-finalizado': job.estado === 'FINALIZADO_PROFESIONAL'
+                  }">
+                    {{ job.estado === 'EN_PROGRESO' ? 'En progreso' : job.estado === 'FINALIZADO_PROFESIONAL' ? 'Listo para confirmar' : job.estado }}
+                  </span>
+                  • {{ new Date(job.fecha_creacion).toLocaleDateString() }}
                 </span>
               </div>
             </div>
             
-            <button v-if="job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'EN_PROGRESO'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="confirmarTrabajo(job.id)">
-              <i class="fa-solid fa-check"></i> Confirmar & Calificar
-            </button>
+            <div class="card-actions">
+              <button class="btn-view-details" @click="openJobDetail(job)">
+                <i class="fa-solid fa-circle-info"></i> Ver detalles
+              </button>
+              <button v-if="job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'EN_PROGRESO'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="confirmarTrabajo(job.id)">
+                <i class="fa-solid fa-check"></i> Confirmar & Calificar
+              </button>
+            </div>
           </div>
         </div>
+      </div>
+
+      <!-- ===== MODAL DETALLE TRABAJO ===== -->
+      <Teleport to="body">
+        <div v-if="showJobModal && selectedJob" class="modal-overlay" @click.self="closeJobModal">
+          <div class="job-modal animate-pop">
+            <div class="job-modal-header">
+              <div>
+                <span class="job-modal-tag" :class="{
+                  'badge-progreso': selectedJob.estado === 'EN_PROGRESO',
+                  'badge-finalizado': selectedJob.estado === 'FINALIZADO_PROFESIONAL'
+                }">
+                  {{ selectedJob.estado === 'EN_PROGRESO' ? '🟢 En progreso' : selectedJob.estado === 'FINALIZADO_PROFESIONAL' ? '🟠 Listo para confirmar' : selectedJob.estado }}
+                </span>
+                <h3>{{ selectedJob.titulo || 'Contratación Directa' }}</h3>
+              </div>
+              <button class="jm-close" @click="closeJobModal">×</button>
+            </div>
+
+            <div class="job-modal-body">
+              <div class="jm-meta-row">
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-clock"></i> Horario</span>
+                  <span class="jm-value">{{ selectedJob.horario || 'A coordinar' }}</span>
+                </div>
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-money-bill-wave"></i> Presupuesto</span>
+                  <span class="jm-value">{{ selectedJob.presupuesto || 'A coordinar' }}</span>
+                </div>
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-calendar"></i> Fecha inicio</span>
+                  <span class="jm-value">{{ new Date(selectedJob.fecha_creacion).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' }) }}</span>
+                </div>
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-id-badge"></i> ID del trabajo</span>
+                  <span class="jm-value jm-id">{{ selectedJob.id }}</span>
+                </div>
+              </div>
+
+              <div class="jm-desc-section" v-if="selectedJob.descripcion">
+                <span class="jm-label"><i class="fa-solid fa-align-left"></i> Descripción</span>
+                <p class="jm-desc">{{ selectedJob.descripcion }}</p>
+              </div>
+            </div>
+
+            <div class="job-modal-footer">
+              <button class="jm-btn-chat" @click="router.push('/client/chat'); closeJobModal()">
+                <i class="fa-solid fa-message"></i> Ir al Chat
+              </button>
+              <button
+                v-if="selectedJob.estado === 'FINALIZADO_PROFESIONAL' || selectedJob.estado === 'EN_PROGRESO'"
+                class="jm-btn-confirm"
+                @click="confirmarTrabajo(selectedJob.id); closeJobModal()"
+              >
+                <i class="fa-solid fa-check"></i> Confirmar & Calificar
+              </button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <!-- ===== TRABAJOS ANTERIORES (COLAPSABLE) ===== -->
+      <div class="past-jobs-section" v-if="pastJobs.length > 0">
+        <button class="past-jobs-toggle" @click="showPastJobs = !showPastJobs">
+          <div class="past-jobs-toggle-left">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>Trabajos Anteriores</span>
+            <span class="past-count">{{ pastJobs.length }}</span>
+          </div>
+          <i :class="showPastJobs ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" class="chevron-icon"></i>
+        </button>
+
+        <Transition name="slide-down">
+          <div v-if="showPastJobs" class="past-jobs-list">
+            <div v-for="job in pastJobs" :key="job.id" class="past-job-card">
+              <div class="past-job-left">
+                <div class="past-done-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="past-job-info">
+                  <h4>{{ job.titulo || 'Contratación Directa' }}</h4>
+                  <p v-if="job.descripcion" class="past-job-desc">{{ job.descripcion.slice(0, 60) }}{{ job.descripcion.length > 60 ? '...' : '' }}</p>
+                  <span class="past-job-date">Completado el {{ new Date(job.fecha_creacion).toLocaleDateString('es-DO', { day:'2-digit', month:'long', year:'numeric' }) }}</span>
+                </div>
+              </div>
+              <button class="btn-past-detail" @click="openJobDetail(job)">
+                <i class="fa-solid fa-circle-info"></i> Detalles
+              </button>
+            </div>
+          </div>
+        </Transition>
       </div>
 
       <h3 class="section-title">Explora servicios cercanos</h3>
@@ -217,7 +354,7 @@ const confirmarTrabajo = async (trabajoId) => {
       <div v-else class="services-grid">
         <div v-for="pro in featuredProfessionals" :key="pro.usuario_id" class="pro-card" @click="goToExplore">
           <div class="pro-avatar">
-            <img v-if="pro.avatar && typeof pro.avatar === 'string'" :src="pro.avatar.startsWith('http') ? pro.avatar : `http://localhost:3001${pro.avatar}`" alt="Avatar">
+            <img v-if="pro.avatar_url" :src="pro.avatar_url.startsWith('http') ? pro.avatar_url : `http://localhost:3001${pro.avatar_url}`" alt="Avatar">
             <span v-else>{{ (pro.nombre || 'P').charAt(0) }}</span>
           </div>
           <div class="pro-info">
@@ -366,8 +503,48 @@ const confirmarTrabajo = async (trabajoId) => {
 .ongoing-section { margin-bottom: 40px; }
 .section-title { font-size: 1.25rem; color: #333; margin-bottom: 15px; font-weight: 700; }
 .ongoing-list { display: flex; flex-direction: column; gap: 15px; }
-.ongoing-card { background: white; border: 1px solid #E0F2FE; border-left: 4px solid #F76B1C; border-radius: 8px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; }
+.ongoing-card { background: white; border: 1px solid #E0F2FE; border-left: 4px solid #F76B1C; border-radius: 8px; padding: 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; }
 .ongoing-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.card-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.job-desc-preview { margin: 2px 0 4px; font-size: 0.82rem; color: #64748B; line-height: 1.4; }
+.estado-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+.badge-progreso  { background: #ECFDF5; color: #059669; }
+.badge-finalizado { background: #FFF7ED; color: #D97706; }
+
+/* --- JOB DETAIL MODAL --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px);
+  z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.job-modal {
+  background: white; border-radius: 16px;
+  width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+}
+.job-modal-header {
+  padding: 22px 24px; border-bottom: 1px solid #F1F5F9;
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.job-modal-header h3 { margin: 6px 0 0; font-size: 1.2rem; font-weight: 800; color: #0F172A; }
+.job-modal-tag { font-size: 0.8rem; font-weight: 700; }
+.jm-close { background: none; border: none; font-size: 1.5rem; color: #94A3B8; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+.jm-close:hover { color: #0F172A; }
+.job-modal-body { padding: 24px; }
+.jm-meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.jm-meta-item { display: flex; flex-direction: column; gap: 4px; }
+.jm-label { font-size: 0.72rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 5px; }
+.jm-value { font-size: 0.95rem; font-weight: 600; color: #0F172A; }
+.jm-id { font-size: 0.72rem; color: #64748B; word-break: break-all; font-family: monospace; }
+.jm-desc-section { display: flex; flex-direction: column; gap: 8px; }
+.jm-desc { margin: 0; font-size: 0.95rem; line-height: 1.65; color: #334155; background: #F8FAFC; border-radius: 8px; padding: 14px; border: 1px solid #E2E8F0; white-space: pre-wrap; }
+.job-modal-footer { padding: 20px 24px; border-top: 1px solid #F1F5F9; display: flex; gap: 12px; }
+.jm-btn-chat, .jm-btn-confirm { flex: 1; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; }
+.jm-btn-chat { background: white; color: #475569; border: 1.5px solid #E2E8F0; }
+.jm-btn-chat:hover { border-color: #334155; color: #0F172A; }
+.jm-btn-confirm { background: #F76B1C; color: white; }
+.jm-btn-confirm:hover { background: #E05A10; transform: translateY(-2px); }
+
 
 .card-left { display: flex; align-items: center; gap: 15px; }
 .status-indicator { width: 12px; height: 12px; border-radius: 50%; }
@@ -545,6 +722,35 @@ const confirmarTrabajo = async (trabajoId) => {
 .pro-info p { margin: 0 0 10px 0; font-size: 0.9rem; color: #64748b; text-transform: capitalize; }
 .pro-rating { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600; color: #475569; font-size: 0.95rem; }
 
+/* --- TRABAJOS ANTERIORES --- */
+.past-jobs-section { margin-bottom: 32px; }
+.past-jobs-toggle {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; background: white;
+  border: 1.5px solid #E2E8F0; border-radius: 10px;
+  cursor: pointer; font-family: inherit; transition: 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+}
+.past-jobs-toggle:hover { border-color: #CBD5E1; background: #F8FAFC; }
+.past-jobs-toggle-left { display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 700; color: #334155; }
+.past-jobs-toggle-left i { color: #94A3B8; }
+.past-count { background: #F1F5F9; color: #64748B; font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: 20px; }
+.chevron-icon { color: #94A3B8; font-size: 0.85rem; transition: 0.2s; }
+.past-jobs-list { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.past-job-card {
+  background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
+  padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.past-job-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.past-done-icon { color: #22C55E; font-size: 1.4rem; flex-shrink: 0; }
+.past-job-info h4 { margin: 0 0 2px; font-size: 0.95rem; font-weight: 700; color: #1E293B; }
+.past-job-desc { margin: 0 0 2px; font-size: 0.8rem; color: #64748B; }
+.past-job-date { font-size: 0.75rem; color: #94A3B8; font-weight: 500; }
+.btn-past-detail { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1.5px solid #E2E8F0; border-radius: 8px; font-weight: 700; font-size: 0.82rem; color: #475569; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+.btn-past-detail:hover { border-color: #0B4C6F; color: #0B4C6F; background: #F0F9FF; }
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; max-height: 600px; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; max-height: 0; }
+
 /* RESPONSIVE */
 @media (max-width: 768px) {
   .welcome-banner { flex-direction: column; text-align: center; gap: 20px; padding: 24px 20px; }
@@ -563,4 +769,24 @@ const confirmarTrabajo = async (trabajoId) => {
   .welcome-banner h2 { font-size: 1.3rem; }
   .stat-row { flex-direction: column; text-align: center; padding: 20px; }
 }
+
+/* --- TOAST SYSTEM --- */
+.app-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  min-width: 320px; max-width: 90vw;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-radius: 12px;
+  font-weight: 600; font-size: 0.93rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  z-index: 99999;
+}
+.app-toast--success { background: #1E293B; color: white; }
+.app-toast--success i { color: #4ADE80; }
+.app-toast--error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.app-toast--error i { color: #DC2626; }
+.app-toast span { flex: 1; }
+.toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 1.2rem; padding: 0; margin-left: 4px; }
+.toast-close:hover { opacity: 1; }
+.toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
+.toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
 </style>

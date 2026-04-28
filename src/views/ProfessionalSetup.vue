@@ -13,6 +13,15 @@ const fileCover = ref(null);
 const previewAvatar = ref(null);
 const previewCover = ref(null);
 
+// --- TOAST SYSTEM ---
+const toast = ref({ show: false, msg: '', type: 'success' });
+let toastTimer = null;
+const showToast = (msg, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.value = { show: true, msg, type };
+  toastTimer = setTimeout(() => { toast.value.show = false; }, 4000);
+};
+
 const locationsDB = {
   "Santiago de los Caballeros": ["Villa Olga", "Los Jardines", "Gurabo", "El Embrujo", "Pekin", "Cienfuegos", "Centro Historico"],
   "Santo Domingo": ["Piantini", "Naco", "Gazcue", "Bella Vista", "Zona Colonial", "Arroyo Hondo", "Los Prados"],
@@ -149,7 +158,7 @@ const updateSectors = () => {
 };
 
 const validateFileSize = (file) => {
-  if (file.size > 50 * 1024 * 1024) { alert("Archivo muy grande."); return false; }
+  if (file.size > 50 * 1024 * 1024) { showToast("El archivo es demasiado grande (máximo 50MB).", "error"); return false; }
   return true;
 };
 
@@ -205,12 +214,14 @@ const saveProfile = async () => {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
 
-    alert("¡Perfil guardado con éxito!");
-    router.push('/professional/profile');
+    showToast("¡Perfil guardado con éxito!", "success");
+    setTimeout(() => {
+      router.push('/professional/profile');
+    }, 1000);
 
   } catch (error) {
     console.error("Error:", error);
-    alert("Error al guardar. Revisa la consola.");
+    showToast("Error al guardar el perfil. Revisa la conexión.", "error");
   } finally {
     isSaving.value = false;
   }
@@ -219,6 +230,17 @@ const saveProfile = async () => {
 
 <template>
   <div class="setup-container">
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <Teleport to="body">
+      <Transition name="toast-slide">
+        <div v-if="toast.show" :class="['app-toast', `app-toast--${toast.type}`]">
+          <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
+          <span>{{ toast.msg }}</span>
+          <button class="toast-close" @click="toast.show = false">×</button>
+        </div>
+      </Transition>
+    </Teleport>
+
     <header class="setup-header">
       <div class="header-content">
         <div class="brand-logo" @click="goHome">
@@ -634,4 +656,23 @@ const saveProfile = async () => {
   .form-card { padding: 20px; }
   .day-toggle { width: 120px; }
 }
+/* --- TOAST SYSTEM --- */
+.app-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  min-width: 320px; max-width: 90vw;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-radius: 12px;
+  font-weight: 600; font-size: 0.93rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  z-index: 99999;
+}
+.app-toast--success { background: #1E293B; color: white; }
+.app-toast--success i { color: #4ADE80; }
+.app-toast--error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.app-toast--error i { color: #DC2626; }
+.app-toast span { flex: 1; }
+.toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 1.2rem; padding: 0; margin-left: 4px; }
+.toast-close:hover { opacity: 1; }
+.toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
+.toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
 </style>

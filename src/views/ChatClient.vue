@@ -12,28 +12,47 @@ const { state } = useUserSession();
 const myId = computed(() => state.user?.id || localStorage.getItem('usuario_id'));
 const myName = computed(() => state.user?.name || localStorage.getItem('usuario_nombre') || 'Yo');
 
+// --- TOAST SYSTEM ---
+const toast = ref({ show: false, msg: '', type: 'success' });
+let toastTimer = null;
+const showToast = (msg, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.value = { show: true, msg, type };
+  toastTimer = setTimeout(() => { toast.value.show = false; }, 4000);
+};
+
+// --- CONFIRM MODAL ---
+const confirmModal = ref({ show: false, msg: '', onConfirm: null });
+const askConfirm = (msg) => new Promise((resolve) => {
+  confirmModal.value = { show: true, msg, onConfirm: resolve };
+});
+const handleConfirm = (answer) => {
+  confirmModal.value.show = false;
+  if (confirmModal.value.onConfirm) confirmModal.value.onConfirm(answer);
+};
+
 const isHiring = ref(false);
 
 const contratarProfesional = async () => {
     if (!activeConv.value) return;
-    const confirmHire = confirm(`¿Deseas contratar formalmente a ${activeConv.value.otro_nombre}? Esto creará un trabajo en progreso.`);
-    if (!confirmHire) return;
+    const confirmed = await askConfirm(`¿Deseas contratar formalmente a ${activeConv.value.otro_nombre}? Esto creará un trabajo en progreso.`);
+    if (!confirmed) return;
 
     isHiring.value = true;
     try {
         const res = await axios.post('http://localhost:3003/api/trabajos', {
             cliente_id: myId.value,
             profesional_id: activeConv.value.profesional_usuario_id,
-            solicitud_id: null // Opcionalmente podríamos tener un selector si viene de una solicitud específica
+            solicitud_id: null
         });
 
         if (res.data.success) {
-            alert('¡El profesional ha sido contratado! Puedes ver el progreso en tu panel.');
-            router.push('/client/dashboard');
+            showToast('¡Profesional contratado! Puedes ver el progreso en tu panel.', 'success');
+            setTimeout(() => router.push('/client/dashboard'), 2000);
         }
     } catch(e) {
         console.error(e);
-        alert('Error al intentar contratar al profesional.');
+        showToast('Error al intentar contratar al profesional.', 'error');
     } finally {
         isHiring.value = false;
     }
@@ -222,6 +241,31 @@ onMounted(async () => {
 
 <template>
   <div class="chat-shell">
+
+    <!-- ===== TOAST ===== -->
+    <Teleport to="body">
+      <Transition name="toast-slide">
+        <div v-if="toast.show" :class="['app-toast', `app-toast--${toast.type}`]">
+          <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
+          <span>{{ toast.msg }}</span>
+          <button class="toast-close" @click="toast.show = false">×</button>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ===== CONFIRM MODAL ===== -->
+    <Teleport to="body">
+      <div v-if="confirmModal.show" class="confirm-overlay">
+        <div class="confirm-card">
+          <div class="confirm-icon"><i class="fa-solid fa-circle-question"></i></div>
+          <p class="confirm-msg">{{ confirmModal.msg }}</p>
+          <div class="confirm-actions">
+            <button class="confirm-no" @click="handleConfirm(false)">Cancelar</button>
+            <button class="confirm-yes" @click="handleConfirm(true)">¡Sí, contratar!</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- PANEL IZQUIERDO: LISTA DE CONVERSACIONES -->
     <aside class="chat-sidebar">
@@ -763,6 +807,44 @@ onMounted(async () => {
   .chat-sidebar { width: 100%; display: none; }
   .chat-sidebar.visible { display: flex; position: absolute; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; }
 }
+
+/* --- TOAST --- */
+.app-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  min-width: 300px; max-width: 90vw;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-radius: 12px;
+  font-weight: 600; font-size: 0.9rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18); z-index: 99999;
+}
+.app-toast--success { background: #1E293B; color: white; }
+.app-toast--success i { color: #4ADE80; }
+.app-toast--error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.app-toast--error i { color: #DC2626; }
+.app-toast span { flex: 1; }
+.toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 1.2rem; }
+.toast-close:hover { opacity: 1; }
+.toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
+.toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
+
+/* --- CONFIRM MODAL --- */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+  backdrop-filter: blur(4px); z-index: 99998;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.confirm-card {
+  background: white; border-radius: 16px; padding: 36px 32px;
+  max-width: 380px; width: 100%; text-align: center;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+}
+.confirm-icon { font-size: 2.5rem; color: #F59E0B; margin-bottom: 16px; }
+.confirm-msg { font-size: 0.97rem; color: #334155; line-height: 1.6; margin: 0 0 24px; font-weight: 500; }
+.confirm-actions { display: flex; gap: 12px; }
+.confirm-no  { flex: 1; padding: 11px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: white; color: #64748B; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.confirm-no:hover { background: #F8FAFC; }
+.confirm-yes { flex: 1; padding: 11px; border: none; border-radius: 8px; background: #22C55E; color: white; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.confirm-yes:hover { background: #16A34A; }
 
 
 </style>

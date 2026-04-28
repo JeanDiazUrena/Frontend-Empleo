@@ -14,6 +14,55 @@ const isLoading = ref(true);
 const userAvatar = ref('');
 const userDisplayName = ref('');
 
+// --- TOAST SYSTEM ---
+const toast = ref({ show: false, msg: '', type: 'success' });
+let toastTimer = null;
+const showToast = (msg, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.value = { show: true, msg, type };
+  toastTimer = setTimeout(() => { toast.value.show = false; }, 4000);
+};
+
+// --- CONFIRM MODAL ---
+const confirmModal = ref({ show: false, msg: '', onConfirm: null });
+const askConfirm = (msg) => new Promise((resolve) => {
+  confirmModal.value = { show: true, msg, onConfirm: resolve };
+});
+const handleConfirm = (answer) => {
+  confirmModal.value.show = false;
+  if (confirmModal.value.onConfirm) confirmModal.value.onConfirm(answer);
+};
+
+// --- MODAL DETALLE ---
+const selectedRequest = ref(null);
+const showDetailModal = ref(false);
+const showPastJobs = ref(false);
+
+const openDetail = (req) => {
+  selectedRequest.value = req;
+  showDetailModal.value = true;
+};
+
+const openJobDetail = (job) => {
+  // Para profesional, usamos la misma lógica que openDetail pero adaptada si es necesario
+  // Por ahora lo reusamos para el modal de detalles
+  selectedRequest.value = {
+    ...job,
+    cliente_nombre: job.cliente_nombre || 'Cliente',
+    titulo: job.titulo,
+    descripcion: job.descripcion,
+    horario: job.horario,
+    presupuesto: job.presupuesto,
+    isWorkDetail: true // Flag to distinguish in modal
+  };
+  showDetailModal.value = true;
+};
+
+const closeDetail = () => {
+  selectedRequest.value = null;
+  showDetailModal.value = false;
+};
+
 const goToSetup = () => router.push('/professional/setup');
 const goToProfile = () => router.push('/professional/profile');
 const goToPost = () => router.push('/create-first-post');
@@ -32,25 +81,56 @@ const contactClient = async (clienteId) => {
 };
 
 const acceptJobRequest = async (req) => {
-  const confirmHire = confirm(`¿Deseas aceptar la solicitud de ${req.cliente_nombre}? Se creará un trabajo formal.`);
-  if (!confirmHire) return;
+  const confirmed = await askConfirm(`¿Deseas aceptar la solicitud de ${req.cliente_nombre}? Se creará un trabajo formal.`);
+  if (!confirmed) return;
 
   try {
     const userId = state.user?.id || localStorage.getItem('usuario_id');
+    
+    // Preparar el presupuesto y horario de la solicitud para el trabajo
+    const presupuestoStr = req.presupuesto_min || req.presupuesto_max 
+      ? `RD$ ${Number(req.presupuesto_min || 0).toLocaleString()} - RD$ ${Number(req.presupuesto_max || 0).toLocaleString()}`
+      : 'No especificado';
+    
+    const horarioStr = {
+      'manana': 'Mañana (8am – 12pm)',
+      'tarde': 'Tarde (12pm – 6pm)',
+      'noche': 'Noche (6pm – 9pm)',
+      'finde': 'Fines de semana',
+      'cualquier': 'Cualquier momento'
+    }[req.disponibilidad] || req.disponibilidad || 'No especificado';
+
     const res = await axios.post('http://localhost:3003/api/trabajos', {
       cliente_id: req.cliente_id,
       profesional_id: userId,
-      solicitud_id: req.id
+      solicitud_id: req.id,
+      titulo: req.titulo,
+      descripcion: req.descripcion,
+      horario: horarioStr,
+      presupuesto: presupuestoStr
     });
     
     if (res.data.success) {
-      alert("¡Trabajo aceptado! Ahora puedes verlo en tus trabajos activos.");
+      // AUTOMATIC CHAT CREATION WITH AUTO-MESSAGES
+      try {
+        await axios.post('http://localhost:3001/api/chat/conversacion', {
+          cliente_id: req.cliente_id,
+          profesional_usuario_id: userId,
+          solicitud_titulo: req.titulo,
+          solicitud_descripcion: req.descripcion
+        });
+      } catch (chatError) {
+        console.error("Error creating chat automatically:", chatError);
+      }
+
+      showToast('¡Trabajo aceptado! Se ha creado un chat con el cliente para coordinar.', 'success');
       jobRequests.value = jobRequests.value.filter(r => r.id !== req.id);
       professionalJobs.value.unshift(res.data.trabajo);
+      closeDetail(); // Close modal if open
     }
   } catch(e) {
     console.error(e);
-    alert("Error al intentar aceptar la solicitud.");
+    showToast('Error al intentar aceptar la solicitud. Intenta de nuevo.', 'error');
   }
 };
 
@@ -90,19 +170,20 @@ onMounted(async () => {
 });
 
 const finalizarTrabajo = async (trabajoId) => {
+    const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente deberá validarlo para liberar el pago.');
+    if (!confirmed) return;
     try {
         const userId = state.user?.id || localStorage.getItem('usuario_id');
         const res = await axios.put(`http://localhost:3003/api/trabajos/${trabajoId}/terminar`, {
             profesional_id: userId
         });
         if (res.data.success) {
-            alert("Has marcado el trabajo como terminado. El cliente debe confirmar para liberar el pago.");
-            // Update local state
+            showToast('¡Trabajo marcado como terminado! El cliente debe confirmar para liberar el pago.', 'success');
             const job = professionalJobs.value.find(j => j.id === trabajoId);
             if (job) job.estado = 'FINALIZADO_PROFESIONAL';
         }
     } catch(e) {
-        alert("Error al finalizar el trabajo.");
+        showToast('Error al finalizar el trabajo. Intenta de nuevo.', 'error');
         console.error(e);
     }
 };
@@ -110,6 +191,32 @@ const finalizarTrabajo = async (trabajoId) => {
 
 <template>
   <div class="dashboard-view">
+
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <Teleport to="body">
+      <Transition name="toast-slide">
+        <div v-if="toast.show" :class="['app-toast', `app-toast--${toast.type}`]">
+          <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
+          <span>{{ toast.msg }}</span>
+          <button class="toast-close" @click="toast.show = false">×</button>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ===== CONFIRM MODAL ===== -->
+    <Teleport to="body">
+      <div v-if="confirmModal.show" class="confirm-overlay">
+        <div class="confirm-card animate-pop">
+          <div class="confirm-icon"><i class="fa-solid fa-circle-question"></i></div>
+          <p class="confirm-msg">{{ confirmModal.msg }}</p>
+          <div class="confirm-actions">
+            <button class="confirm-no" @click="handleConfirm(false)">Cancelar</button>
+            <button class="confirm-yes" @click="handleConfirm(true)">Sí, confirmar</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
 
     <!-- CARGANDO -->
     <div v-if="isLoading" class="loading-state">
@@ -204,28 +311,65 @@ const finalizarTrabajo = async (trabajoId) => {
           </div>
         </div>
 
-        <!-- TRABAJOS EN CURSO (NUEVO EFECTO DOMINÓ) -->
-        <div class="section-card" style="margin-bottom: 24px;" v-if="professionalJobs.length > 0">
+        <!-- TRABAJOS EN CURSO -->
+        <div class="section-card" style="margin-bottom: 24px;" v-if="professionalJobs.filter(j => j.estado === 'EN_PROGRESO').length > 0">
           <div class="sc-header">
             <h3>Tus Trabajos Activos</h3>
-            <p>Trabajos en progreso. MÁRCALOS COMO TERMINADOS cuando finalices para que el cliente confirme.</p>
+            <p>Trabajos en progreso. MÁRCALOS COMO TERMINADOS cuando finalices.</p>
           </div>
 
           <div class="jobs-list">
-            <div v-for="job in professionalJobs" :key="job.id" class="job-card" style="border-left: 4px solid #1E293B;">
+            <div v-for="job in professionalJobs.filter(j => j.estado === 'EN_PROGRESO')" :key="job.id" class="job-card" style="border-left: 4px solid #1E293B;">
               <div class="job-header">
                 <div>
-                  <h4 style="margin:0 0 4px; font-size:1.1rem; color:#1E293B;">Trabajo #{{ job.id }}</h4>
+                  <h4 style="margin:0 0 4px; font-size:1.1rem; color:#1E293B;">{{ job.titulo || 'Contratación Directa' }}</h4>
+                  <p v-if="job.descripcion" style="margin: 0 0 8px; font-size: 0.9rem; color: #64748B;">{{ job.descripcion.slice(0, 100) }}{{ job.descripcion.length > 100 ? '...' : '' }}</p>
+                  <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+                    <span v-if="job.presupuesto" style="font-size: 0.8rem; color: #475569;"><i class="fa-solid fa-money-bill-wave"></i> {{ job.presupuesto }}</span>
+                    <span v-if="job.horario" style="font-size: 0.8rem; color: #475569;"><i class="fa-solid fa-clock"></i> {{ job.horario }}</span>
+                  </div>
                   <span style="font-size: 0.85rem; font-weight:600; color:#F76B1C;" v-if="job.estado === 'EN_PROGRESO'">EN PROGRESO</span>
                   <span style="font-size: 0.85rem; font-weight:600; color:#22C55E;" v-else-if="job.estado === 'FINALIZADO_PROFESIONAL'">ESPERANDO CLIENTE</span>
-                  <span style="font-size: 0.85rem; font-weight:600; color:#94A3B8;" v-else>{{ job.estado }}</span>
                 </div>
                 <span class="job-category">{{ new Date(job.fecha_creacion).toLocaleDateString() }}</span>
               </div>
               
-              <div class="job-footer" v-if="job.estado === 'EN_PROGRESO'">
-                <button class="btn-primary-action job-action-btn" style="background: #F76B1C;" @click="finalizarTrabajo(job.id)">
+              <div class="job-footer">
+                <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1; margin-right: 8px;" @click="openJobDetail(job)">
+                  <i class="fa-solid fa-circle-info"></i> Más información
+                </button>
+                <button v-if="job.estado === 'EN_PROGRESO'" class="btn-primary-action job-action-btn" style="background: #F76B1C; margin-top:0" @click="finalizarTrabajo(job.id)">
                   <i class="fa-solid fa-flag-checkered"></i> Marcar como terminado
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TRABAJOS ANTERIORES (Profesional) -->
+        <div class="past-jobs-section" v-if="professionalJobs.filter(j => j.estado === 'CONFIRMADO_CLIENTE' || j.estado === 'FINALIZADO_PROFESIONAL').length > 0">
+          <button class="past-jobs-toggle" @click="showPastJobs = !showPastJobs" style="border: 1px solid #E2E8F0; border-radius: 10px; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; cursor: pointer;">
+            <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #1E293B;">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+              <span>Trabajos Anteriores</span>
+              <span style="background: #F1F5F9; color: #64748B; font-size: 0.75rem; padding: 2px 8px; border-radius: 20px;">{{ professionalJobs.filter(j => j.estado === 'CONFIRMADO_CLIENTE' || j.estado === 'FINALIZADO_PROFESIONAL').length }}</span>
+            </div>
+            <i :class="showPastJobs ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>
+          </button>
+          
+          <div v-if="showPastJobs" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <div v-for="job in professionalJobs.filter(j => j.estado === 'CONFIRMADO_CLIENTE' || j.estado === 'FINALIZADO_PROFESIONAL')" :key="job.id" class="job-card" style="opacity: 0.8;">
+              <div class="job-header">
+                <div>
+                  <h4 style="margin:0 0 4px; font-size:1rem; color:#1E293B;">{{ job.titulo || 'Contratación Directa' }}</h4>
+                  <span style="font-size: 0.8rem; color:#22C55E; font-weight:700;" v-if="job.estado === 'CONFIRMADO_CLIENTE'">COMPLETADO</span>
+                  <span style="font-size: 0.8rem; color:#F59E0B; font-weight:700;" v-else>ESPERANDO CLIENTE</span>
+                </div>
+                <span class="job-category">{{ new Date(job.fecha_creacion).toLocaleDateString() }}</span>
+              </div>
+              <div class="job-footer">
+                <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1;" @click="openJobDetail(job)">
+                  <i class="fa-solid fa-circle-info"></i> Detalles
                 </button>
               </div>
             </div>
@@ -270,8 +414,8 @@ const finalizarTrabajo = async (trabajoId) => {
               </div>
 
               <div class="job-footer">
-                <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1; margin-right: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s;" @click="contactClient(req.cliente_id)">
-                  <i class="fa-solid fa-paper-plane"></i> Charla
+                <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1; margin-right: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s;" @click="openDetail(req)">
+                  <i class="fa-solid fa-circle-info"></i> Más información
                 </button>
                 <button class="btn-primary-action job-action-btn" @click="acceptJobRequest(req)">
                   <i class="fa-solid fa-check"></i> Tomar Trabajo
@@ -280,6 +424,95 @@ const finalizarTrabajo = async (trabajoId) => {
             </div>
           </div>
         </div>
+
+        <!-- ===== MODAL DETALLE DE SOLICITUD ===== -->
+        <Teleport to="body">
+          <div v-if="showDetailModal && selectedRequest" class="modal-overlay" @click.self="closeDetail">
+            <div class="modal-content animate-pop">
+              <div class="modal-header">
+                <h3>Detalles de la Solicitud</h3>
+                <button class="btn-close" @click="closeDetail">×</button>
+              </div>
+              
+              <div class="modal-body">
+                <div class="detail-client">
+                  <img v-if="selectedRequest.cliente_avatar" :src="selectedRequest.cliente_avatar.startsWith('http') ? selectedRequest.cliente_avatar : `http://localhost:3001${selectedRequest.cliente_avatar}`" class="modal-avatar" />
+                  <div v-else class="modal-avatar-initial">{{ selectedRequest.cliente_nombre?.charAt(0) || 'C' }}</div>
+                  <div>
+                    <strong>{{ selectedRequest.cliente_nombre || 'Cliente' }}</strong>
+                    <span>Publicado el {{ new Date(selectedRequest.fecha_creacion).toLocaleDateString() }}</span>
+                  </div>
+                </div>
+
+                <div class="detail-info">
+                  <label>Título:</label>
+                  <p class="detail-title">{{ selectedRequest.titulo }}</p>
+                  
+                  <div class="detail-meta-grid">
+                    <div class="detail-meta-item">
+                      <label><i class="fa-solid fa-tag"></i> Categoría</label>
+                      <p class="detail-tag">{{ selectedRequest.categoria }}</p>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedRequest.urgencia">
+                      <label><i class="fa-solid fa-bolt"></i> Urgencia</label>
+                      <p class="detail-tag" :class="{
+                        'tag-urgente': selectedRequest.urgencia === 'urgente',
+                        'tag-normal': selectedRequest.urgencia === 'normal',
+                        'tag-flexible': selectedRequest.urgencia === 'flexible'
+                      }">{{ selectedRequest.urgencia }}</p>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedRequest.disponibilidad || selectedRequest.horario || selectedRequest.isWorkDetail">
+                      <label><i class="fa-solid fa-clock"></i> Horario</label>
+                      <p class="detail-tag">{{ 
+                        selectedRequest.horario || 
+                        ({
+                          'manana': 'Mañana (8am – 12pm)',
+                          'tarde': 'Tarde (12pm – 6pm)',
+                          'noche': 'Noche (6pm – 9pm)',
+                          'finde': 'Fines de semana',
+                          'cualquier': 'Cualquier momento'
+                        }[selectedRequest.disponibilidad] || selectedRequest.disponibilidad) || 'A coordinar'
+                      }}</p>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedRequest.presupuesto_min || selectedRequest.presupuesto_max || selectedRequest.presupuesto || selectedRequest.isWorkDetail">
+                      <label><i class="fa-solid fa-money-bill-wave"></i> Presupuesto</label>
+                      <p class="detail-budget">
+                        <span v-if="selectedRequest.presupuesto">{{ selectedRequest.presupuesto }}</span>
+                        <span v-else-if="!selectedRequest.presupuesto_min && !selectedRequest.presupuesto_max">A coordinar</span>
+                        <template v-else>
+                          <span v-if="selectedRequest.presupuesto_min">RD$ {{ Number(selectedRequest.presupuesto_min).toLocaleString() }}</span>
+                          <span v-if="selectedRequest.presupuesto_min && selectedRequest.presupuesto_max"> – </span>
+                          <span v-if="selectedRequest.presupuesto_max">RD$ {{ Number(selectedRequest.presupuesto_max).toLocaleString() }}</span>
+                        </template>
+                      </p>
+                    </div>
+                    <div class="detail-meta-item" v-if="selectedRequest.ubicacion">
+                      <label><i class="fa-solid fa-location-dot"></i> Ubicación</label>
+                      <p class="detail-tag">{{ selectedRequest.ubicacion }}</p>
+                    </div>
+                  </div>
+
+                  <label>Descripción completa:</label>
+                  <p class="detail-description">{{ selectedRequest.descripcion }}</p>
+                </div>
+
+                <div v-if="selectedRequest.imagen_url" class="detail-image">
+                  <label>Imagen de referencia:</label>
+                  <img :src="selectedRequest.imagen_url" alt="Referencia" />
+                </div>
+              </div>
+
+              <div class="modal-footer" v-if="!selectedRequest.isWorkDetail">
+                <button class="btn-chat-alt" @click="contactClient(selectedRequest.cliente_id)">
+                  <i class="fa-solid fa-paper-plane"></i> Chatear primero
+                </button>
+                <button class="btn-accept-alt" @click="acceptJobRequest(selectedRequest)">
+                  <i class="fa-solid fa-check"></i> Aceptar y Empezar
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
 
       </template>
     </template>
@@ -294,6 +527,115 @@ const finalizarTrabajo = async (trabajoId) => {
 .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; gap: 16px; color: #94A3B8; }
 .spinner { width: 32px; height: 32px; border: 2.5px solid #E2E8F0; border-top-color: #334155; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- MODAL DETALLE SOLICITUD --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white; border-radius: 16px;
+  width: 100%; max-width: 550px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex; flex-direction: column;
+}
+
+.animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  padding: 20px 24px; border-bottom: 1px solid #F1F5F9;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h3 { margin: 0; font-size: 1.2rem; font-weight: 800; color: #0F172A; }
+.btn-close { background: none; border: none; font-size: 1.5rem; color: #94A3B8; cursor: pointer; transition: 0.2s; }
+.btn-close:hover { color: #0F172A; }
+
+.modal-body { padding: 24px; }
+
+.detail-client {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px; background: #F8FAFC; border-radius: 10px; margin-bottom: 24px;
+}
+.modal-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.modal-avatar-initial { width: 48px; height: 48px; border-radius: 50%; background: #334155; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.detail-client strong { display: block; font-size: 1rem; color: #0F172A; }
+.detail-client span { font-size: 0.8rem; color: #94A3B8; }
+
+.detail-info label { display: block; font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.detail-title { font-size: 1.25rem; font-weight: 800; color: #0F172A; margin: 0 0 16px; }
+.detail-tag { display: inline-block; background: #F1F5F9; color: #475569; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 20px; text-transform: capitalize; }
+.detail-description { font-size: 1rem; line-height: 1.6; color: #334155; margin: 0 0 24px; white-space: pre-wrap; }
+
+.detail-image img { width: 100%; border-radius: 12px; border: 1px solid #E2E8F0; margin-top: 8px; }
+
+.modal-footer {
+  padding: 20px 24px; border-top: 1px solid #F1F5F9;
+  display: flex; gap: 12px;
+}
+.btn-chat-alt, .btn-accept-alt {
+  flex: 1; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-chat-alt { background: white; color: #475569; border: 1.5px solid #E2E8F0; }
+.btn-chat-alt:hover { border-color: #334155; color: #0F172A; }
+.btn-accept-alt { background: #F76B1C; color: white; border: none; }
+.btn-accept-alt:hover { background: #E05A10; transform: translateY(-2px); }
+
+/* --- TOAST SYSTEM --- */
+.app-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  min-width: 320px; max-width: 90vw;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-radius: 12px;
+  font-weight: 600; font-size: 0.93rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  z-index: 99999;
+}
+.app-toast--success { background: #1E293B; color: white; }
+.app-toast--success i { color: #4ADE80; }
+.app-toast--error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.app-toast--error i { color: #DC2626; }
+.app-toast span { flex: 1; }
+.toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 1.2rem; padding: 0; margin-left: 4px; }
+.toast-close:hover { opacity: 1; }
+.toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
+.toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
+
+/* --- CONFIRM MODAL --- */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+  backdrop-filter: blur(4px); z-index: 99998;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.confirm-card {
+  background: white; border-radius: 16px; padding: 36px 32px;
+  max-width: 400px; width: 100%; text-align: center;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+}
+.confirm-icon { font-size: 2.5rem; color: #F59E0B; margin-bottom: 16px; }
+.confirm-msg { font-size: 1rem; color: #334155; line-height: 1.6; margin: 0 0 28px; font-weight: 500; }
+.confirm-actions { display: flex; gap: 12px; }
+.confirm-no  { flex: 1; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: white; color: #64748B; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+.confirm-no:hover { background: #F8FAFC; }
+.confirm-yes { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #1E293B; color: white; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+.confirm-yes:hover { background: #0F172A; transform: translateY(-1px); }
+
+/* --- MODAL META GRID --- */
+.detail-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.detail-meta-item label { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+.detail-budget { font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0; }
+.tag-urgente { background: #FEF2F2 !important; color: #DC2626 !important; }
+.tag-normal  { background: #FFFBEB !important; color: #D97706 !important; }
+.tag-flexible { background: #F0FDF4 !important; color: #16A34A !important; }
 
 /* ===== TARJETA DE BIENVENIDA ===== */
 .welcome-card {

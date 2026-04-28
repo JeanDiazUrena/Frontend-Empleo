@@ -18,6 +18,25 @@ const portfolioItems = ref([]);
 const reviews = ref([]);
 const isLoading = ref(true);
 
+// --- TOAST SYSTEM ---
+const toast = ref({ show: false, msg: '', type: 'success' });
+let toastTimer = null;
+const showToast = (msg, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.value = { show: true, msg, type };
+  toastTimer = setTimeout(() => { toast.value.show = false; }, 4000);
+};
+
+// --- CONFIRM MODAL ---
+const confirmModal = ref({ show: false, msg: '', onConfirm: null });
+const askConfirm = (msg) => new Promise((resolve) => {
+  confirmModal.value = { show: true, msg, onConfirm: resolve };
+});
+const handleConfirm = (answer) => {
+  confirmModal.value.show = false;
+  if (confirmModal.value.onConfirm) confirmModal.value.onConfirm(answer);
+};
+
 // --- HORARIO PARSEADO ---
 const parsedSchedule = computed(() => {
   if (!user.value.workingHours) return null;
@@ -242,13 +261,15 @@ const savePortfolioItem = async () => {
 };
 
 const deletePortfolioItem = async (id) => {
-  if (!confirm('¿Seguro que quieres eliminar este trabajo del portafolio?')) return;
+  const confirmed = await askConfirm('¿Seguro que quieres eliminar este trabajo del portafolio?');
+  if (!confirmed) return;
   isDeletingId.value = id;
   try {
     await axios.delete(`http://localhost:3001/api/portfolio/${id}`);
     portfolioItems.value = portfolioItems.value.filter(p => p.id !== id);
+    showToast('Trabajo eliminado del portafolio.', 'success');
   } catch (err) {
-    alert('Error al eliminar.');
+    showToast('Error al eliminar el trabajo.', 'error');
   } finally {
     isDeletingId.value = null;
   }
@@ -262,6 +283,30 @@ const categoryStyle = computed(() => {
 
 <template>
   <div class="profile-layout">
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <Teleport to="body">
+      <Transition name="toast-slide">
+        <div v-if="toast.show" :class="['app-toast', `app-toast--${toast.type}`]">
+          <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
+          <span>{{ toast.msg }}</span>
+          <button class="toast-close" @click="toast.show = false">×</button>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ===== CONFIRM MODAL ===== -->
+    <Teleport to="body">
+      <div v-if="confirmModal.show" class="confirm-overlay">
+        <div class="confirm-card animate-pop">
+          <div class="confirm-icon"><i class="fa-solid fa-circle-question"></i></div>
+          <p class="confirm-msg">{{ confirmModal.msg }}</p>
+          <div class="confirm-actions">
+            <button class="confirm-no" @click="handleConfirm(false)">Cancelar</button>
+            <button class="confirm-yes" @click="handleConfirm(true)">Sí, eliminar</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- LOADING SKELETON -->
     <div v-if="isLoading" class="loading-skeleton">
@@ -300,7 +345,7 @@ const categoryStyle = computed(() => {
         <div class="header-content">
           <div class="avatar-wrapper">
             <div class="avatar-circle">
-              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar">
+              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar" />
               <div v-else class="avatar-initials">
                 {{ user.name?.charAt(0).toUpperCase() || 'P' }}
               </div>
@@ -523,7 +568,7 @@ const categoryStyle = computed(() => {
         <div v-else class="portfolio-grid">
           <div v-for="item in portfolioItems" :key="item.id" class="portfolio-card">
             <div class="port-img-wrap">
-              <img :src="item.imagen_url" :alt="item.titulo" class="portfolio-img">
+              <img :src="item.imagen_url" :alt="item.titulo" class="portfolio-img" />
               <div class="port-actions-overlay">
                 <button class="port-action-btn edit" @click="openEditModal(item)" title="Editar">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" /><path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" /></svg>
@@ -619,7 +664,7 @@ const categoryStyle = computed(() => {
           <div v-for="resena in reviews" :key="resena.id" class="review-card" style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `http://localhost:3001${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar">
+                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `http://localhost:3001${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
                 <div v-else style="width: 44px; height: 44px; border-radius: 50%; background: #F1F5F9; color: #1E293B; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">{{ resena.cliente_nombre?.charAt(0) || 'C' }}</div>
                 <div>
                   <h4 style="margin: 0; color: #0F172A; font-size: 1rem;">{{ resena.cliente_nombre }}</h4>
@@ -872,5 +917,50 @@ const categoryStyle = computed(() => {
   .banner-area { height: 140px; }
   .avatar-circle { width: 100px; height: 100px; }
   .name-row h1 { font-size: 1.4rem; }
+}
+
+/* --- TOAST SYSTEM --- */
+.app-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  min-width: 320px; max-width: 90vw;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-radius: 12px;
+  font-weight: 600; font-size: 0.93rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  z-index: 99999;
+}
+.app-toast--success { background: #1E293B; color: white; }
+.app-toast--success i { color: #4ADE80; }
+.app-toast--error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.app-toast--error i { color: #DC2626; }
+.app-toast span { flex: 1; }
+.toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 1.2rem; padding: 0; margin-left: 4px; }
+.toast-close:hover { opacity: 1; }
+.toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
+.toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
+
+/* --- CONFIRM MODAL --- */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+  backdrop-filter: blur(4px); z-index: 99998;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.confirm-card {
+  background: white; border-radius: 16px; padding: 36px 32px;
+  max-width: 400px; width: 100%; text-align: center;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+}
+.confirm-icon { font-size: 2.5rem; color: #F59E0B; margin-bottom: 16px; }
+.confirm-msg { font-size: 1rem; color: #334155; line-height: 1.6; margin: 0 0 28px; font-weight: 500; }
+.confirm-actions { display: flex; gap: 12px; }
+.confirm-no  { flex: 1; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: white; color: #64748B; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+.confirm-no:hover { background: #F8FAFC; }
+.confirm-yes { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #1E293B; color: white; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+.confirm-yes:hover { background: #0F172A; transform: translateY(-1px); }
+
+.animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 </style>
