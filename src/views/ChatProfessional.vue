@@ -29,6 +29,18 @@ let socket = null;
 const showAttachmentMenu = ref(false);
 const fileInput = ref(null);
 const lightbox = ref({ show: false, url: '' });
+const showQuoteModal = ref(false);
+const isSendingQuote = ref(false);
+const isLoadingClientRequests = ref(false);
+const clientRequests = ref([]);
+const editingQuoteId = ref(null);
+const quoteForm = ref({
+  solicitud_id: '',
+  titulo: '',
+  descripcion: '',
+  monto_total: '',
+  metodo_pago: 'EFECTIVO'
+});
 
 const openLightbox = (url) => {
   lightbox.value = { show: true, url };
@@ -99,9 +111,133 @@ const enviarDatosBancarios = () => {
   });
 };
 
-const abrirModalCotizacion = () => {
+const loadClientRequests = async () => {
+  if (!activeConv.value?.cliente_id) return;
+  isLoadingClientRequests.value = true;
+  try {
+    const { data } = await axios.get(`http://localhost:3001/api/solicitudes/cliente/${activeConv.value.cliente_id}`);
+    clientRequests.value = (data || []).filter(req => ['pendiente', 'en_progreso'].includes(String(req.estado || '').toLowerCase()));
+  } catch (error) {
+    console.error('No se pudieron cargar solicitudes del cliente:', error);
+    clientRequests.value = [];
+  } finally {
+    isLoadingClientRequests.value = false;
+  }
+};
+
+const selectQuoteRequest = (requestId) => {
+  quoteForm.value.solicitud_id = requestId;
+  const req = clientRequests.value.find(item => String(item.id) === String(requestId));
+  if (!req) return;
+
+  quoteForm.value.titulo = req.titulo || quoteForm.value.titulo;
+  quoteForm.value.descripcion = req.descripcion || quoteForm.value.descripcion;
+  quoteForm.value.metodo_pago = req.metodo_pago || 'EFECTIVO';
+  quoteForm.value.monto_total = req.monto_acordado || req.presupuesto_max || req.presupuesto_min || quoteForm.value.monto_total;
+};
+
+const abrirModalCotizacion = async () => {
   showAttachmentMenu.value = false;
+  editingQuoteId.value = null;
+  quoteForm.value = {
+    solicitud_id: '',
+    titulo: 'Servicio solicitado',
+    descripcion: '',
+    monto_total: '',
+    metodo_pago: activeConv.value?.metodo_pago || 'EFECTIVO'
+  };
+  await loadClientRequests();
+  if (clientRequests.value.length === 1) {
+    selectQuoteRequest(clientRequests.value[0].id);
+  }
+  showQuoteModal.value = true;
   // Próximo paso: Abrir modal de cotización
+};
+
+const parseQuote = (content) => {
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    return null;
+  }
+};
+
+const formatMoney = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? `RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : 'RD$ 0.00';
+};
+
+const crearCotizacion = async () => {
+  if (!activeConv.value) return;
+
+  const monto = Number(quoteForm.value.monto_total);
+  if (!quoteForm.value.solicitud_id) {
+    alert('Selecciona la solicitud activa que corresponde a esta cotizacion.');
+    return;
+  }
+  if (!Number.isFinite(monto) || monto <= 0) {
+    alert('Ingresa un monto valido para la cotizacion.');
+    return;
+  }
+
+  isSendingQuote.value = true;
+  try {
+    const payload = {
+      conversacion_id: activeConv.value.id,
+      solicitud_id: quoteForm.value.solicitud_id || null,
+      cliente_id: activeConv.value.cliente_id,
+      profesional_id: myId.value,
+      titulo: quoteForm.value.titulo || 'Cotizacion de servicio',
+      descripcion: quoteForm.value.descripcion,
+      monto_total: monto,
+      metodo_pago: quoteForm.value.metodo_pago || activeConv.value.metodo_pago || 'EFECTIVO'
+    };
+    const { data } = editingQuoteId.value
+      ? await axios.put(`http://localhost:3003/api/cotizaciones/${editingQuoteId.value}`, payload)
+      : await axios.post('http://localhost:3003/api/cotizaciones', payload);
+
+    const cotizacion = data.cotizacion;
+    socket.emit('send_message', {
+      conversacion_id: activeConv.value.id,
+      remitente_id: myId.value,
+      tipo: 'cotizacion',
+      contenido: JSON.stringify({
+        id: cotizacion.id,
+        solicitud_id: cotizacion.solicitud_id,
+        titulo: cotizacion.titulo,
+        descripcion: cotizacion.descripcion,
+        monto_total: cotizacion.monto_total,
+        monto_comision: cotizacion.monto_comision,
+        metodo_pago: cotizacion.metodo_pago,
+        estado: cotizacion.estado,
+        editada: Boolean(editingQuoteId.value)
+      })
+    });
+
+    showQuoteModal.value = false;
+    editingQuoteId.value = null;
+  } catch (error) {
+    console.error('Error creando cotizacion:', error);
+    alert(error.response?.data?.error || 'No se pudo crear la cotizacion.');
+  } finally {
+    isSendingQuote.value = false;
+  }
+};
+
+const editarCotizacion = async (quote) => {
+  if (!quote || quote.estado !== 'PENDIENTE') return;
+  editingQuoteId.value = quote.id;
+  await loadClientRequests();
+  quoteForm.value = {
+    solicitud_id: quote.solicitud_id || '',
+    titulo: quote.titulo || 'Servicio solicitado',
+    descripcion: quote.descripcion || '',
+    monto_total: quote.monto_total || '',
+    metodo_pago: quote.metodo_pago || 'EFECTIVO'
+  };
+  showQuoteModal.value = true;
 };
 
 const compartirUbicacion = () => {
@@ -285,6 +421,60 @@ onMounted(async () => {
       </Transition>
     </Teleport>
 
+    <Teleport to="body">
+      <div v-if="showQuoteModal" class="quote-modal-overlay" @click.self="showQuoteModal = false">
+        <div class="quote-modal-card">
+          <div class="quote-modal-header">
+            <h3>Crear Cotización</h3>
+            <button @click="showQuoteModal = false"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="quote-modal-body">
+            <label>
+              <span>Solicitud del cliente</span>
+              <select v-model="quoteForm.solicitud_id" @change="selectQuoteRequest(quoteForm.solicitud_id)">
+                <option value="">Selecciona una solicitud activa</option>
+                <option v-for="req in clientRequests" :key="req.id" :value="req.id">
+                  {{ req.titulo }} - {{ req.metodo_pago || 'EFECTIVO' }}
+                </option>
+              </select>
+              <small v-if="isLoadingClientRequests">Cargando solicitudes...</small>
+              <small v-else-if="clientRequests.length === 0">Este cliente no tiene solicitudes activas.</small>
+            </label>
+
+            <label>
+              <span>Método de pago</span>
+              <input :value="quoteForm.metodo_pago || 'EFECTIVO'" type="text" readonly />
+            </label>
+
+            <label>
+              <span>Título</span>
+              <input v-model="quoteForm.titulo" type="text" placeholder="Ej. Reparación de inversor" />
+            </label>
+
+            <label>
+              <span>Monto acordado</span>
+              <input v-model="quoteForm.monto_total" type="number" min="1" step="0.01" placeholder="0.00" />
+            </label>
+
+            <label>
+              <span>Detalle</span>
+              <textarea v-model="quoteForm.descripcion" rows="4" placeholder="Describe qué incluye la cotización"></textarea>
+            </label>
+          </div>
+
+          <div class="quote-modal-footer">
+            <button class="quote-cancel" @click="showQuoteModal = false">Cancelar</button>
+            <button class="quote-submit" :disabled="isSendingQuote" @click="crearCotizacion">
+              <i v-if="isSendingQuote" class="fa-solid fa-spinner fa-spin"></i>
+              <i v-else class="fa-solid fa-paper-plane"></i>
+              {{ isSendingQuote ? 'Guardando...' : editingQuoteId ? 'Guardar cambios' : 'Enviar cotización' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- SIDEBAR -->
     <aside class="chat-sidebar">
       <div class="sidebar-header">
@@ -439,6 +629,26 @@ onMounted(async () => {
                           <p>{{ JSON.parse(msg.contenido).titular }}</p>
                         </div>
                       </div>
+                    </div>
+                  </template>
+
+                  <template v-else-if="msg.tipo === 'cotizacion'">
+                    <div v-if="parseQuote(msg.contenido)" class="quote-card">
+                      <div class="quote-card-header">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Cotización enviada</span>
+                      </div>
+                      <h4>{{ parseQuote(msg.contenido).titulo }}</h4>
+                      <p v-if="parseQuote(msg.contenido).descripcion">{{ parseQuote(msg.contenido).descripcion }}</p>
+                      <div class="quote-total">{{ formatMoney(parseQuote(msg.contenido).monto_total) }}</div>
+                      <small>Método: {{ parseQuote(msg.contenido).metodo_pago || 'EFECTIVO' }}</small>
+                      <button
+                        v-if="msg.remitente_id === myId && ['PENDIENTE', 'ACEPTADA'].includes(parseQuote(msg.contenido).estado)"
+                        class="quote-edit-btn"
+                        @click="editarCotizacion(parseQuote(msg.contenido))"
+                      >
+                        <i class="fa-solid fa-pen"></i> Editar cotización
+                      </button>
                     </div>
                   </template>
 
@@ -1056,5 +1266,53 @@ onMounted(async () => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.quote-modal-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px);
+  padding: 20px;
+}
+.quote-modal-card {
+  width: 100%; max-width: 440px; background: white; border-radius: 16px;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25); overflow: hidden;
+}
+.quote-modal-header, .quote-modal-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid #E2E8F0;
+}
+.quote-modal-header h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #0F172A; }
+.quote-modal-header button { border: none; background: #F1F5F9; color: #64748B; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; }
+.quote-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.quote-modal-body label { display: flex; flex-direction: column; gap: 7px; }
+.quote-modal-body span { font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; }
+.quote-modal-body input, .quote-modal-body textarea, .quote-modal-body select {
+  border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 11px 12px;
+  font: inherit; color: #0F172A; outline: none; resize: vertical;
+}
+.quote-modal-body input:focus, .quote-modal-body textarea:focus, .quote-modal-body select:focus { border-color: #F76B1C; box-shadow: 0 0 0 3px rgba(247, 107, 28, 0.12); }
+.quote-modal-body small { color: #64748B; font-size: 0.78rem; font-weight: 600; }
+.quote-modal-footer { border-top: 1px solid #E2E8F0; border-bottom: none; gap: 10px; }
+.quote-cancel, .quote-submit { flex: 1; border-radius: 10px; padding: 12px; font-weight: 800; cursor: pointer; border: none; }
+.quote-cancel { background: white; color: #64748B; border: 1.5px solid #E2E8F0; }
+.quote-submit { background: #F76B1C; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.quote-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+.quote-card {
+  width: 260px; background: white; color: #0F172A; border-radius: 14px;
+  border: 1px solid #BBF7D0; overflow: hidden; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.quote-card-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: #ECFDF5; color: #047857; font-size: 0.8rem; font-weight: 800;
+}
+.quote-card h4 { margin: 12px 12px 6px; font-size: 0.95rem; font-weight: 800; }
+.quote-card p { margin: 0 12px 10px; color: #475569; font-size: 0.82rem; }
+.quote-total { margin: 0 12px 8px; font-size: 1.45rem; font-weight: 900; color: #047857; }
+.quote-card small { display: block; margin: 0 12px 12px; color: #64748B; font-weight: 700; }
+.quote-edit-btn {
+  width: calc(100% - 24px); margin: 0 12px 12px; padding: 9px 10px;
+  border: 1.5px solid #BBF7D0; border-radius: 9px; background: #F0FDF4; color: #047857;
+  font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
 
 </style>

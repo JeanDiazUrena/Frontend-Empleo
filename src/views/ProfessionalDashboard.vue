@@ -104,6 +104,7 @@ const acceptJobRequest = async (req) => {
     const presupuestoStr = req.presupuesto_min || req.presupuesto_max 
       ? `RD$ ${Number(req.presupuesto_min || 0).toLocaleString()} - RD$ ${Number(req.presupuesto_max || 0).toLocaleString()}`
       : 'No especificado';
+    const montoAcordado = Number(req.monto_acordado || req.presupuesto_max || req.presupuesto_min || 0) || null;
     
     const horarioStr = {
       'manana': 'Mañana (8am – 12pm)',
@@ -121,6 +122,8 @@ const acceptJobRequest = async (req) => {
       descripcion: req.descripcion,
       horario: horarioStr,
       presupuesto: presupuestoStr,
+      monto_acordado: montoAcordado,
+      metodo_pago: req.metodo_pago || 'EFECTIVO',
       cliente_nombre: req.cliente_nombre,
       categoria: req.categoria
     });
@@ -422,7 +425,7 @@ const finalizarTrabajo = async (trabajoId) => {
           <button class="past-jobs-toggle" @click="showPastJobs = !showPastJobs" style="border: 1px solid #E2E8F0; border-radius: 10px; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; cursor: pointer;">
             <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #1E293B;">
               <i class="fa-solid fa-clock-rotate-left"></i>
-              <span>Trabajos Anteriores</span>
+              <span>Trabajos Pasados</span>
               <span style="background: #F1F5F9; color: #64748B; font-size: 0.75rem; padding: 2px 8px; border-radius: 20px;">{{ professionalJobs.filter(j => j.estado === 'CONFIRMADO_CLIENTE' || j.estado === 'FINALIZADO_PROFESIONAL').length }}</span>
             </div>
             <i :class="showPastJobs ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'"></i>

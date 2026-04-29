@@ -129,6 +129,38 @@ const openPaymentModal = (job) => {
     showPaymentModal.value = true;
 };
 
+const getJobAmount = (job) => {
+    if (!job) return 0;
+    const value = job.monto_acordado ?? job.monto_total ?? job.presupuesto_max ?? job.presupuesto;
+    if (typeof value === 'number') return value;
+
+    const matches = String(value || '').match(/\d+(?:[.,]\d+)*/g);
+    if (!matches) return 0;
+
+    const amounts = matches
+      .map((part) => Number(part.replace(/,/g, '')))
+      .filter((amount) => Number.isFinite(amount));
+
+    return amounts.length > 0 ? Math.max(...amounts) : 0;
+};
+
+const formatMoney = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0
+      ? `RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : 'A coordinar';
+};
+
+const formatPaymentMethod = (method) => {
+    const labels = {
+      EFECTIVO: 'Efectivo',
+      TRANSFERENCIA: 'Transferencia',
+      TARJETA_CREDITO: 'Tarjeta de credito',
+      TARJETA: 'Tarjeta'
+    };
+    return labels[String(method || '').toUpperCase()] || 'No especificado';
+};
+
 const handlePaymentSuccess = () => {
     showPaymentModal.value = false;
     if (jobToPay.value) {
@@ -279,7 +311,11 @@ const handlePaymentSuccess = () => {
                 </div>
                 <div class="jm-meta-item">
                   <span class="jm-label"><i class="fa-solid fa-money-bill-wave"></i> Presupuesto</span>
-                  <span class="jm-value">{{ selectedJob.presupuesto || 'A coordinar' }}</span>
+                  <span class="jm-value">{{ formatMoney(getJobAmount(selectedJob)) }}</span>
+                </div>
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-wallet"></i> Metodo de pago</span>
+                  <span class="jm-value">{{ formatPaymentMethod(selectedJob.metodo_pago) }}</span>
                 </div>
                 <div class="jm-meta-item">
                   <span class="jm-label"><i class="fa-solid fa-calendar"></i> Fecha inicio</span>
@@ -318,18 +354,18 @@ const handlePaymentSuccess = () => {
          v-if="showPaymentModal"
          :trabajo_id="jobToPay.id" 
          :profesional_id="jobToPay.profesional_id"
-         :monto_total="jobToPay.presupuesto ? jobToPay.presupuesto.replace(/[^0-9.]/g, '') : '0'" 
+         :monto_total="getJobAmount(jobToPay)" 
          :metodo_pago="jobToPay.metodo_pago || 'EFECTIVO'" 
          @close="showPaymentModal = false"
          @success="handlePaymentSuccess"
       />
 
-      <!-- ===== TRABAJOS ANTERIORES (COLAPSABLE) ===== -->
+      <!-- ===== TRABAJOS PASADO (COLAPSABLE) ===== -->
       <div class="past-jobs-section" v-if="pastJobs.length > 0">
         <button class="past-jobs-toggle" @click="showPastJobs = !showPastJobs">
           <div class="past-jobs-toggle-left">
             <i class="fa-solid fa-clock-rotate-left"></i>
-            <span>Trabajos Anteriores</span>
+            <span>Trabajos Pasado</span>
             <span class="past-count">{{ pastJobs.length }}</span>
           </div>
           <i :class="showPastJobs ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" class="chevron-icon"></i>
@@ -738,7 +774,7 @@ const handlePaymentSuccess = () => {
 .pro-info p { margin: 0 0 10px 0; font-size: 0.9rem; color: #64748b; text-transform: capitalize; }
 .pro-rating { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600; color: #475569; font-size: 0.95rem; }
 
-/* --- TRABAJOS ANTERIORES --- */
+/* --- TRABAJOS PASADO --- */
 .past-jobs-section { margin-bottom: 32px; }
 .past-jobs-toggle {
   width: 100%; display: flex; justify-content: space-between; align-items: center;

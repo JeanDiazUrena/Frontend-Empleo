@@ -17,6 +17,7 @@ const isSharingLocation = ref(false);
 const showAttachmentMenu = ref(false);
 const fileInput = ref(null);
 const lightbox = ref({ show: false, url: '' });
+const acceptingQuoteId = ref(null);
 
 const openLightbox = (url) => {
   lightbox.value = { show: true, url };
@@ -109,6 +110,53 @@ const shareLocation = () => {
     },
     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
   );
+};
+
+const parseQuote = (content) => {
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    return null;
+  }
+};
+
+const formatMoney = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? `RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : 'RD$ 0.00';
+};
+
+const acceptQuote = async (quote) => {
+  if (!quote?.id || acceptingQuoteId.value) return;
+
+  const confirmed = await askConfirm(`¿Aceptar esta cotización por ${formatMoney(quote.monto_total)}? Se creará el trabajo formal.`);
+  if (!confirmed) return;
+
+  acceptingQuoteId.value = quote.id;
+  try {
+    const { data } = await axios.put(`http://localhost:3003/api/cotizaciones/${quote.id}/aceptar`, {
+      cliente_id: myId.value
+    });
+
+    hasActiveJob.value = true;
+    showToast('Cotización aceptada. El trabajo fue creado.', 'success');
+
+    socket.emit('send_message', {
+      conversacion_id: activeConv.value.id,
+      remitente_id: myId.value,
+      contenido: `Acepté la cotización por ${formatMoney(quote.monto_total)}. Ya podemos iniciar el trabajo.`
+    });
+
+    if (data.trabajo?.id) {
+      setTimeout(() => router.push('/client/dashboard'), 900);
+    }
+  } catch (error) {
+    console.error('Error aceptando cotizacion:', error);
+    showToast(error.response?.data?.error || 'No se pudo aceptar la cotización', 'error');
+  } finally {
+    acceptingQuoteId.value = null;
+  }
 };
 
 // --- TOAST SYSTEM ---
@@ -499,6 +547,29 @@ onMounted(async () => {
                       <i class="fa-solid fa-file-arrow-down"></i>
                       <span>Archivo Adjunto</span>
                     </a>
+                  </template>
+
+                  <template v-else-if="msg.tipo === 'cotizacion'">
+                    <div v-if="parseQuote(msg.contenido)" class="quote-card">
+                      <div class="quote-card-header">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Cotización recibida</span>
+                      </div>
+                      <h4>{{ parseQuote(msg.contenido).titulo }}</h4>
+                      <p v-if="parseQuote(msg.contenido).descripcion">{{ parseQuote(msg.contenido).descripcion }}</p>
+                      <div class="quote-total">{{ formatMoney(parseQuote(msg.contenido).monto_total) }}</div>
+                      <small>Método: {{ parseQuote(msg.contenido).metodo_pago || 'EFECTIVO' }}</small>
+                      <button
+                        v-if="msg.remitente_id !== myId"
+                        class="quote-accept-btn"
+                        :disabled="acceptingQuoteId === parseQuote(msg.contenido).id"
+                        @click="acceptQuote(parseQuote(msg.contenido))"
+                      >
+                        <i v-if="acceptingQuoteId === parseQuote(msg.contenido).id" class="fa-solid fa-spinner fa-spin"></i>
+                        <i v-else class="fa-solid fa-check"></i>
+                        {{ acceptingQuoteId === parseQuote(msg.contenido).id ? 'Aceptando...' : 'Aceptar cotización' }}
+                      </button>
+                    </div>
                   </template>
 
                   <template v-else-if="msg.contenido.includes('https://www.google.com/maps')">
@@ -1093,5 +1164,24 @@ onMounted(async () => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.quote-card {
+  width: 270px; background: white; color: #0F172A; border-radius: 14px;
+  border: 1px solid #BFDBFE; overflow: hidden; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.quote-card-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: #EFF6FF; color: #1D4ED8; font-size: 0.8rem; font-weight: 800;
+}
+.quote-card h4 { margin: 12px 12px 6px; font-size: 0.95rem; font-weight: 800; }
+.quote-card p { margin: 0 12px 10px; color: #475569; font-size: 0.82rem; }
+.quote-total { margin: 0 12px 8px; font-size: 1.45rem; font-weight: 900; color: #1D4ED8; }
+.quote-card small { display: block; margin: 0 12px 12px; color: #64748B; font-weight: 700; }
+.quote-accept-btn {
+  width: calc(100% - 24px); margin: 0 12px 12px; padding: 10px;
+  border: none; border-radius: 9px; background: #22C55E; color: white;
+  font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.quote-accept-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
 </style>

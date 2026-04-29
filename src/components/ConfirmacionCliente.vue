@@ -17,6 +17,15 @@ const bankData = ref(null);
 const fileInput = ref(null);
 const selectedFile = ref(null);
 
+const normalizedMetodoPago = computed(() => String(props.metodo_pago || 'EFECTIVO').toUpperCase());
+const montoAPagar = computed(() => {
+  const amount = Number(props.monto_total);
+  return Number.isFinite(amount) ? amount : 0;
+});
+const montoAPagarLabel = computed(() =>
+  montoAPagar.value.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+);
+
 const showToast = (message, type = 'error') => {
   toast.value = { show: true, message, type };
   setTimeout(() => toast.value.show = false, 4000);
@@ -24,7 +33,7 @@ const showToast = (message, type = 'error') => {
 
 // Si es transferencia, cargamos la cuenta del profesional
 onMounted(async () => {
-  if (props.metodo_pago === 'TRANSFERENCIA') {
+  if (normalizedMetodoPago.value === 'TRANSFERENCIA') {
     try {
       const res = await axios.get(`http://localhost:3001/api/profesionales/${props.profesional_id}/financiero`);
       bankData.value = res.data;
@@ -46,7 +55,7 @@ const handleFileChange = (e) => {
 };
 
 const confirmarFinalizacion = async () => {
-  if (props.metodo_pago === 'TRANSFERENCIA' && !selectedFile.value) {
+  if (normalizedMetodoPago.value === 'TRANSFERENCIA' && !selectedFile.value) {
     showToast('Debes subir el comprobante de transferencia');
     return;
   }
@@ -73,7 +82,7 @@ const confirmarFinalizacion = async () => {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div class="payment-overlay">
     
     <!-- Toast local -->
     <div v-if="toast.show" 
@@ -82,30 +91,30 @@ const confirmarFinalizacion = async () => {
       {{ toast.message }}
     </div>
 
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-pop">
+    <div class="payment-card animate-pop">
       <!-- Header -->
-      <div class="bg-slate-50 border-b border-slate-100 p-5 flex justify-between items-center">
+      <div class="payment-header">
         <div>
-          <h3 class="font-bold text-lg text-slate-800">Liberar Pago</h3>
-          <p class="text-xs text-slate-500 font-medium tracking-wide uppercase mt-1">
-            Método: <span class="text-blue-600 font-bold">{{ metodo_pago }}</span>
+          <h3>Liberar Pago</h3>
+          <p>
+            Método: <span class="text-blue-600 font-bold">{{ normalizedMetodoPago }}</span>
           </p>
         </div>
-        <button @click="$emit('close')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-400 transition">
+        <button @click="$emit('close')" class="payment-close">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="p-6 space-y-6">
+      <div class="payment-body">
         
         <!-- Total Banner -->
-        <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 text-center">
-          <p class="text-sm text-blue-600 font-semibold mb-1">Monto a pagar al Profesional</p>
-          <div class="text-3xl font-extrabold text-slate-800">${{ Number(monto_total).toLocaleString('es-DO') }}</div>
+        <div class="payment-total">
+          <p>Monto a pagar al Profesional</p>
+          <div>RD$ {{ montoAPagarLabel }}</div>
         </div>
 
         <!-- CONDICIONAL: Si es transferencia -->
-        <div v-if="metodo_pago === 'TRANSFERENCIA'" class="space-y-4">
+        <div v-if="normalizedMetodoPago === 'TRANSFERENCIA'" class="space-y-4">
           <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Datos Bancarios del Profesional</h4>
             <div v-if="bankData" class="space-y-2">
@@ -136,16 +145,16 @@ const confirmarFinalizacion = async () => {
         </div>
 
         <!-- CONDICIONAL: Si es Tarjeta o Efectivo -->
-        <div v-else class="text-center text-slate-600 text-sm">
-          <p v-if="metodo_pago === 'TARJETA_CREDITO'">El cobro se realizará de forma automática a tu tarjeta registrada y el pago se transferirá al profesional.</p>
-          <p v-if="metodo_pago === 'EFECTIVO'">Asegúrate de haberle entregado el efectivo al profesional. Al confirmar, el sistema deducirá la comisión correspondiente de la cuenta del profesional.</p>
+        <div v-else class="payment-note">
+          <p v-if="normalizedMetodoPago === 'TARJETA_CREDITO'">El cobro se realizará de forma automática a tu tarjeta registrada y el pago se transferirá al profesional.</p>
+          <p v-if="normalizedMetodoPago === 'EFECTIVO'">Asegúrate de haberle entregado el efectivo al profesional. Al confirmar, el sistema deducirá la comisión correspondiente de la cuenta del profesional.</p>
         </div>
 
       </div>
 
       <!-- Footer / Action -->
-      <div class="p-5 border-t border-slate-100 bg-slate-50">
-        <button @click="confirmarFinalizacion" :disabled="isLoading || (metodo_pago === 'TRANSFERENCIA' && !selectedFile)" 
+      <div class="payment-footer">
+        <button @click="confirmarFinalizacion" :disabled="isLoading || (normalizedMetodoPago === 'TRANSFERENCIA' && !selectedFile)" 
                 class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20">
           <i v-if="isLoading" class="fa-solid fa-spinner fa-spin"></i>
           <i v-else class="fa-solid fa-check-double"></i>
@@ -158,6 +167,66 @@ const confirmarFinalizacion = async () => {
 </template>
 
 <style scoped>
+.payment-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.64);
+  backdrop-filter: blur(6px);
+}
+.payment-card {
+  width: 100%;
+  max-width: 460px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.32);
+}
+.payment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, #0B4C6F, #1D6FA8);
+  color: #fff;
+}
+.payment-header h3 { margin: 0; font-size: 1.15rem; font-weight: 900; }
+.payment-header p { margin: 4px 0 0; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; opacity: 0.9; }
+.payment-header span { color: #FED7AA; }
+.payment-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.14);
+  color: white;
+  cursor: pointer;
+}
+.payment-body { padding: 22px; display: flex; flex-direction: column; gap: 20px; }
+.payment-total {
+  text-align: center;
+  padding: 20px;
+  border: 1.5px solid #BFDBFE;
+  border-radius: 14px;
+  background: #EFF6FF;
+}
+.payment-total p { margin: 0 0 7px; color: #1D4ED8; font-size: 0.84rem; font-weight: 900; }
+.payment-total div { color: #0F172A; font-size: 2rem; font-weight: 950; letter-spacing: 0; }
+.payment-note {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  text-align: center;
+}
+.payment-footer { padding: 18px 22px; background: #F8FAFC; border-top: 1px solid #E2E8F0; }
 .animate-pop {
   animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
