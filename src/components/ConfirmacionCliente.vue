@@ -154,11 +154,19 @@ const confirmarFinalizacion = async () => {
 
       <!-- Footer / Action -->
       <div class="payment-footer">
-        <button @click="confirmarFinalizacion" :disabled="isLoading || (normalizedMetodoPago === 'TRANSFERENCIA' && !selectedFile)" 
-                class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20">
-          <i v-if="isLoading" class="fa-solid fa-spinner fa-spin"></i>
-          <i v-else class="fa-solid fa-check-double"></i>
-          {{ isLoading ? 'Procesando Pago y Comisiones...' : 'Confirmar Trabajo y Liberar Pago' }}
+        <button 
+          @click="confirmarFinalizacion" 
+          :disabled="isLoading || (normalizedMetodoPago === 'TRANSFERENCIA' && !selectedFile)" 
+          class="btn-confirm-payment"
+        >
+          <div v-if="isLoading" class="loading-container">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Procesando...</span>
+          </div>
+          <div v-else class="btn-content">
+            <i class="fa-solid fa-shield-check"></i>
+            <span>Confirmar Trabajo y Liberar Pago</span>
+          </div>
         </button>
       </div>
 
@@ -226,7 +234,54 @@ const confirmarFinalizacion = async () => {
   line-height: 1.55;
   text-align: center;
 }
-.payment-footer { padding: 18px 22px; background: #F8FAFC; border-top: 1px solid #E2E8F0; }
+.payment-footer { 
+  padding: 24px; 
+  background: #ffffff; 
+  border-top: 1px solid #f1f5f9;
+}
+
+.btn-confirm-payment {
+  width: 100%;
+  position: relative;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+  overflow: hidden;
+}
+
+.btn-confirm-payment:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 25px -5px rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+
+.btn-confirm-payment:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-confirm-payment:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-content, .loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-content i {
+  font-size: 1.1rem;
+}
 .animate-pop {
   animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

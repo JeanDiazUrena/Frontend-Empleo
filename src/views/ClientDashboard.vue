@@ -278,7 +278,7 @@ const handlePaymentSuccess = () => {
               <button class="btn-view-details" @click="openJobDetail(job)">
                 <i class="fa-solid fa-circle-info"></i> Ver detalles
               </button>
-              <button v-if="job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'EN_PROGRESO'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="openPaymentModal(job)">
+              <button v-if="job.estado === 'FINALIZADO_PROFESIONAL'" class="btn-primary-action" style="padding:8px 16px; font-size:0.9rem" @click="openPaymentModal(job)">
                 <i class="fa-solid fa-check"></i> Confirmar & Calificar
               </button>
             </div>
@@ -338,7 +338,7 @@ const handlePaymentSuccess = () => {
                 <i class="fa-solid fa-message"></i> Ir al Chat
               </button>
               <button
-                v-if="selectedJob.estado === 'FINALIZADO_PROFESIONAL' || selectedJob.estado === 'EN_PROGRESO'"
+                v-if="selectedJob.estado === 'FINALIZADO_PROFESIONAL'"
                 class="jm-btn-confirm"
                 @click="openPaymentModal(selectedJob); closeJobModal()"
               >
@@ -390,35 +390,6 @@ const handlePaymentSuccess = () => {
         </Transition>
       </div>
 
-      <h3 class="section-title">Explora servicios cercanos</h3>
-      
-      <div v-if="featuredProfessionals.length === 0" class="empty-state-container">
-        <div class="empty-icon-svg">
-           <i class="fa-solid fa-users" style="font-size: 3rem; color: #cbd5e1;"></i>
-        </div>
-        <h3>Encuentra al experto ideal</h3>
-        <p>Desde plomería hasta tecnología, todo en un solo lugar.</p>
-        <button @click="goToExplore" class="btn-outline">
-          <i class="fa-solid fa-magnifying-glass"></i> Explorar Directorio
-        </button>
-      </div>
-
-      <div v-else class="services-grid">
-        <div v-for="pro in featuredProfessionals" :key="pro.usuario_id" class="pro-card" @click="goToExplore">
-          <div class="pro-avatar">
-            <img v-if="pro.avatar_url" :src="pro.avatar_url.startsWith('http') ? pro.avatar_url : `http://localhost:3001${pro.avatar_url}`" alt="Avatar">
-            <span v-else>{{ (pro.nombre || 'P').charAt(0) }}</span>
-          </div>
-          <div class="pro-info">
-            <h4>{{ pro.nombre }}</h4>
-            <p>{{ pro.profesion || 'Profesional' }}</p>
-            <div class="pro-rating">
-              <i class="fa-solid fa-star" style="color: #FBBF24;"></i>
-              <span>{{ pro.rating || 'Nuevo' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </main>
 
