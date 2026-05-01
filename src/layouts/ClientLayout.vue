@@ -14,6 +14,38 @@ const menuRef = ref(null);
 const unreadCount = ref(0);
 let socket = null;
 
+// --- NOTIFICACIONES ---
+const notifications = ref([]);
+const unreadNotifCount = ref(0);
+const isNotifOpen = ref(false);
+const notifRef = ref(null);
+
+let notifInterval = null;
+
+const fetchNotifications = async () => {
+  const userId = localStorage.getItem('usuario_id');
+  if (!userId) return;
+  try {
+    const { data } = await axios.get(`http://localhost:3005/notificaciones/${userId}`);
+    notifications.value = data;
+    unreadNotifCount.value = data.filter(n => !n.is_read).length;
+  } catch (e) { console.error(e); }
+};
+
+const markAsRead = async (id) => {
+  try {
+    await axios.put(`http://localhost:3005/notificaciones/${id}/read`);
+    fetchNotifications();
+  } catch (e) { console.error(e); }
+};
+
+const toggleNotif = () => {
+  isNotifOpen.value = !isNotifOpen.value;
+  if (isNotifOpen.value) {
+    isMenuOpen.value = false;
+  }
+};
+
 const fetchUnreadCount = async () => {
   const userId = localStorage.getItem('usuario_id');
   if (!userId) return;
@@ -49,6 +81,9 @@ const handleClickOutside = (event) => {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     isMenuOpen.value = false;
   }
+  if (notifRef.value && !notifRef.value.contains(event.target)) {
+    isNotifOpen.value = false;
+  }
 };
 
 // --- AL CARGAR ---
@@ -59,6 +94,8 @@ onMounted(() => {
   const userId = localStorage.getItem('usuario_id');
   if (userId) {
     fetchUnreadCount();
+    fetchNotifications();
+    notifInterval = setInterval(fetchNotifications, 15000);
     
     socket = io('http://localhost:3001', { query: { userId } });
     socket.on('notification_new_message', (msg) => {
@@ -88,6 +125,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   if (socket) socket.disconnect();
+  if (notifInterval) clearInterval(notifInterval);
 });
 </script>
 
@@ -100,9 +138,37 @@ onUnmounted(() => {
         <span class="brand-text">ServiHub<span class="dot">.</span></span>
       </div>
 
-      <div class="dash-right" ref="menuRef">
+      <div class="dash-right">
         
-        <div class="user-trigger" @click="toggleMenu">
+        <div class="notif-trigger" ref="notifRef" @click="toggleNotif">
+          <svg xmlns="http://www.w3.org/2000/svg" class="bell-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span v-if="unreadNotifCount > 0" class="notif-badge-top">{{ unreadNotifCount }}</span>
+
+          <transition name="fade">
+            <div v-if="isNotifOpen" class="notif-menu" @click.stop>
+              <div class="notif-header">
+                <strong>Notificaciones</strong>
+              </div>
+              <div class="notif-body">
+                <div v-if="notifications.length === 0" class="no-notifs">
+                  No tienes notificaciones
+                </div>
+                <div v-for="notif in notifications" :key="notif.id" class="notif-item" :class="{ unread: !notif.is_read }" @click="markAsRead(notif.id)">
+                  <div class="notif-content">
+                    <strong>{{ notif.title }}</strong>
+                    <p>{{ notif.message }}</p>
+                    <small>{{ new Date(notif.created_at).toLocaleString() }}</small>
+                  </div>
+                  <div v-if="!notif.is_read" class="unread-dot"></div>
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+
+        <div class="user-trigger" ref="menuRef" @click="toggleMenu">
           <span class="user-name">{{ user.name }}</span>
           <div class="avatar-circle">
             {{ user.initials }}
@@ -260,6 +326,23 @@ onUnmounted(() => {
 /* ANIMACIÓN */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+
+/* NOTIFICACIONES */
+.notif-trigger { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; transition: background 0.2s; margin-right: 10px; }
+.notif-trigger:hover { background-color: #f3f4f6; }
+.bell-icon { width: 22px; height: 22px; color: #4b5563; }
+.notif-badge-top { position: absolute; top: -2px; right: -2px; background: #ef4444; color: white; font-size: 0.65rem; font-weight: bold; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid white; }
+.notif-menu { position: absolute; top: 50px; right: -10px; width: 320px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; overflow: hidden; z-index: 100; cursor: default; }
+.notif-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.notif-body { max-height: 300px; overflow-y: auto; }
+.no-notifs { padding: 20px; text-align: center; color: #94a3b8; font-size: 0.9rem; }
+.notif-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s; }
+.notif-item:hover { background: #f8fafc; }
+.notif-item.unread { background: #eff6ff; }
+.notif-content strong { display: block; font-size: 0.9rem; color: #1e293b; margin-bottom: 2px; }
+.notif-content p { margin: 0 0 4px 0; font-size: 0.8rem; color: #64748b; line-height: 1.3; }
+.notif-content small { font-size: 0.7rem; color: #94a3b8; }
+.unread-dot { width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; flex-shrink: 0; }
 
 /* SIDEBAR Y CONTENIDO */
 .dash-body { display: flex; margin-top: 70px; height: calc(100vh - 70px); width: 100%; overflow-x: hidden; }
