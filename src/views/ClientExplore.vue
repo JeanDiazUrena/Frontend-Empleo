@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -25,7 +25,23 @@ const CATEGORIES = [
   { label: 'Otros', value: 'otros' },
 ];
 
-const CITIES = ['', 'Santiago de los Caballeros', 'Santo Domingo', 'La Vega', 'Puerto Plata'];
+const locationsDB = {
+  "Santiago de los Caballeros": ["Villa Olga", "Los Jardines", "Gurabo", "El Embrujo", "Pekin", "Cienfuegos", "Centro Histórico"],
+  "Santo Domingo": ["Piantini", "Naco", "Gazcue", "Bella Vista", "Zona Colonial", "Arroyo Hondo", "Los Prados"],
+  "La Vega": ["Villa Palmarito", "Las Carolinas", "El Hatico", "Centro Ciudad"],
+  "Puerto Plata": ["Torre Alta", "Bayardo", "Playa Dorada", "San Felipe"]
+};
+
+const allLocations = computed(() => {
+  const list = [{ label: 'Toda la República', value: '', type: 'Nacional' }];
+  Object.keys(locationsDB).forEach(prov => {
+     list.push({ label: prov, value: prov, type: 'Provincia' });
+     locationsDB[prov].forEach(sec => {
+        list.push({ label: `${sec}, ${prov}`, value: sec, type: 'Sector' });
+     });
+  });
+  return list;
+});
 
 const categoryColors = {
   hogar:        { bg: '#FEF3C7', text: '#92400E' },
@@ -46,6 +62,55 @@ const getCatStyle = (cat) => {
   return categoryColors[key] || { bg: '#F1F5F9', text: '#475569' };
 };
 
+// Advanced Search State
+const catSearch = ref('');
+const locSearch = ref('');
+const showCatPopover = ref(false);
+const showLocPopover = ref(false);
+const searchBarRef = ref(null);
+const catInputRef = ref(null);
+const locInputRef = ref(null);
+
+const filteredCats = computed(() => {
+  if (!catSearch.value) return CATEGORIES.slice(1); // Exclude "Todas"
+  const q = catSearch.value.toLowerCase();
+  return CATEGORIES.slice(1).filter(c => c.label.toLowerCase().includes(q));
+});
+
+const filteredLocs = computed(() => {
+  if (!locSearch.value) return allLocations.value.slice(1); // Exclude "Toda la República"
+  const q = locSearch.value.toLowerCase();
+  return allLocations.value.slice(1).filter(l => l.label.toLowerCase().includes(q));
+});
+
+const selectCat = (c) => {
+  selectedCategory.value = c.value;
+  catSearch.value = c.label === 'Todas las Categorías' ? '' : c.label;
+  showCatPopover.value = false;
+};
+
+const selectLoc = (l) => {
+  selectedCity.value = l.value;
+  locSearch.value = l.label === 'Toda la República' ? '' : l.label;
+  showLocPopover.value = false;
+};
+
+// Sync empty inputs with selected values
+watch(catSearch, (val) => { if (!val) selectedCategory.value = ''; });
+watch(locSearch, (val) => { if (!val) selectedCity.value = ''; });
+
+const focusInput = (refName) => {
+  const el = refName === 'catInput' ? catInputRef.value : locInputRef.value;
+  if (el) el.focus();
+};
+
+const handleClickOutside = (e) => {
+  if (searchBarRef.value && !searchBarRef.value.contains(e.target)) {
+    showCatPopover.value = false;
+    showLocPopover.value = false;
+  }
+};
+
 const loadProfessionals = async () => {
   isLoading.value = true;
   hasSearched.value = true;
@@ -62,6 +127,8 @@ const loadProfessionals = async () => {
     professionals.value = [];
   } finally {
     isLoading.value = false;
+    showCatPopover.value = false;
+    showLocPopover.value = false;
   }
 };
 
@@ -69,6 +136,8 @@ const clearFilters = () => {
   searchQuery.value = '';
   selectedCategory.value = '';
   selectedCity.value = '';
+  catSearch.value = '';
+  locSearch.value = '';
   loadProfessionals();
 };
 
@@ -78,22 +147,21 @@ const openDetail = (pro) => {
   }
 };
 
-const contactPro = (pro) => {
-  router.push({ path: '/client/chat', query: { profesional_id: pro.usuario_id } });
-};
-
 const requestService = () => {
-  if (selectedPro.value && selectedPro.value.usuario_id) {
-    router.push({ path: '/client/request', query: { profesional_id: selectedPro.value.usuario_id } });
-  } else {
-    router.push('/client/request');
-  }
+  router.push('/client/request');
 };
 
 const skillsOf = (pro) =>
   pro.habilidades ? pro.habilidades.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-onMounted(loadProfessionals);
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+  loadProfessionals();
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <template>
@@ -101,33 +169,88 @@ onMounted(loadProfessionals);
 
     <!-- ===== HERO SEARCH ===== -->
     <div class="explore-hero">
+      <div class="hero-bg-wrapper">
+        <div class="hero-bg-circle c1"></div>
+        <div class="hero-bg-circle c2"></div>
+        <div class="hero-bg-circle c3"></div>
+      </div>
       <div class="hero-inner">
-        <div class="hero-label"><i class="fa-solid fa-magnifying-glass"></i> Directorio de Profesionales</div>
-        <h1>Encuentra al experto ideal <br class="hide-on-mobile"> para tu proyecto</h1>
-        <p>Más de {{ professionals.length }} profesionales listos para ayudarte</p>
+        <div class="hero-badge">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" /></svg>
+          Directorio de Profesionales
+        </div>
+        <h1>Encuentra al experto ideal<br class="hide-on-mobile"> para tu proyecto</h1>
+        <p class="hero-sub">Conecta con <strong>{{ professionals.length }}+ profesionales</strong> verificados listos para ayudarte</p>
 
-        <div class="search-bar-big">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="search-icon"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" /></svg>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Ej: Plomero, Electricista, Diseñador Web..."
-            @keyup.enter="loadProfessionals"
-          />
-          <button class="btn-search" @click="loadProfessionals">Buscar</button>
+        <!-- Search Card -->
+        <div class="search-card" ref="searchBarRef">
+          <div class="search-fields">
+
+            <div class="sf-group">
+              <div class="sf-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+              <div class="sf-input">
+                <label>¿Qué buscas?</label>
+                <input type="text" v-model="searchQuery" placeholder="Plomero, Electricista..." @keyup.enter="loadProfessionals" />
+              </div>
+            </div>
+
+            <div class="sf-sep"></div>
+
+            <div class="sf-group sf-clickable" :class="{ focused: showCatPopover }" @click="showCatPopover = true; showLocPopover = false; focusInput('catInput')">
+              <div class="sf-icon"><i class="fa-solid fa-layer-group"></i></div>
+              <div class="sf-input">
+                <label>Categoría</label>
+                <input ref="catInputRef" type="text" v-model="catSearch" placeholder="Cualquier categoría" />
+              </div>
+              <transition name="pop">
+                <div v-if="showCatPopover" class="sf-popover">
+                  <div class="sfp-header">Categorías</div>
+                  <div class="sfp-item" @click.stop="selectCat({label: 'Todas las Categorías', value: ''})">
+                    <span class="sfp-dot all"></span>Todas las Categorías
+                  </div>
+                  <div v-for="c in filteredCats" :key="c.value" class="sfp-item" @click.stop="selectCat(c)">
+                    <span class="sfp-dot"></span>{{ c.label }}
+                  </div>
+                  <div v-if="filteredCats.length === 0" class="sfp-empty">Sin resultados</div>
+                </div>
+              </transition>
+            </div>
+
+            <div class="sf-sep"></div>
+
+            <div class="sf-group sf-clickable" :class="{ focused: showLocPopover }" @click="showLocPopover = true; showCatPopover = false; focusInput('locInput')">
+              <div class="sf-icon"><i class="fa-solid fa-location-dot"></i></div>
+              <div class="sf-input">
+                <label>Ubicación</label>
+                <input ref="locInputRef" type="text" v-model="locSearch" placeholder="Toda la República" />
+              </div>
+              <transition name="pop">
+                <div v-if="showLocPopover" class="sf-popover sf-popover-right">
+                  <div class="sfp-header">Provincias y Sectores</div>
+                  <div class="sfp-item" @click.stop="selectLoc({label: 'Toda la República', value: ''})">
+                    <span class="sfp-dot all"></span>Toda la República
+                    <span class="sfp-badge">Nacional</span>
+                  </div>
+                  <div v-for="loc in filteredLocs" :key="loc.label" class="sfp-item" @click.stop="selectLoc(loc)">
+                    <span class="sfp-dot" :class="loc.type === 'Provincia' ? 'prov' : 'sec'"></span>{{ loc.label }}
+                    <span class="sfp-badge" :class="loc.type === 'Provincia' ? 'badge-prov' : 'badge-sec'">{{ loc.type }}</span>
+                  </div>
+                  <div v-if="filteredLocs.length === 0" class="sfp-empty">Sin resultados</div>
+                </div>
+              </transition>
+            </div>
+          </div>
+
+          <button class="sc-btn" @click.stop="loadProfessionals">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" /></svg>
+            Buscar
+          </button>
         </div>
 
-        <div class="filters-row">
-          <select v-model="selectedCategory" @change="loadProfessionals" class="filter-pill">
-            <option v-for="c in CATEGORIES" :key="c.value" :value="c.value">{{ c.label }}</option>
-          </select>
-          <select v-model="selectedCity" @change="loadProfessionals" class="filter-pill">
-            <option value="">Toda la República</option>
-            <option v-for="city in CITIES.slice(1)" :key="city" :value="city">{{ city }}</option>
-          </select>
-          <button v-if="searchQuery || selectedCategory || selectedCity" class="filter-clear" @click="clearFilters">
-            × Limpiar filtros
-          </button>
+        <div class="hero-tags" v-if="searchQuery || selectedCategory || selectedCity">
+          <span class="hero-tag" v-if="selectedCategory">{{ catSearch }} <button @click="selectedCategory='';catSearch='';loadProfessionals()">×</button></span>
+          <span class="hero-tag" v-if="selectedCity">{{ locSearch }} <button @click="selectedCity='';locSearch='';loadProfessionals()">×</button></span>
+          <button class="hero-clear" @click="clearFilters">Limpiar todo</button>
         </div>
       </div>
     </div>
@@ -251,43 +374,165 @@ onMounted(loadProfessionals);
 .explore-wrapper { width: 100%; font-family: 'Inter', sans-serif; }
 
 .explore-hero {
-  background: linear-gradient(135deg, #0B4C6F 0%, #083a55 60%, #0f5280 100%);
-  border-radius: 16px;
-  padding: 48px 32px;
-  margin-bottom: 28px;
+  background: linear-gradient(140deg, #071E38 0%, #0B4C6F 45%, #0d6ea0 100%);
+  border-radius: 20px;
+  padding: 64px 32px 56px;
+  margin-bottom: 32px;
   position: relative;
-  overflow: hidden;
+  z-index: 50; /* Ensure search popovers are above cards */
+  overflow: visible; /* Fix clipping of popovers */
 }
-.explore-hero::before {
-  content: '';
+.hero-bg-wrapper {
   position: absolute;
-  top: -80px; right: -80px;
-  width: 300px; height: 300px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 50%;
+  inset: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  pointer-events: none;
 }
+.hero-bg-circle {
+  position: absolute; border-radius: 50%; pointer-events: none;
+}
+.hero-bg-circle.c1 { width: 400px; height: 400px; background: rgba(255,255,255,0.04); top: -150px; right: -100px; }
+.hero-bg-circle.c2 { width: 200px; height: 200px; background: rgba(255,255,255,0.03); bottom: -80px; left: 10%; }
+.hero-bg-circle.c3 { width: 120px; height: 120px; background: rgba(247,107,28,0.15); top: 30px; left: -40px; }
+
 .hero-inner { position: relative; z-index: 1; text-align: center; }
-.hero-label { display: inline-block; background: rgba(255,255,255,0.15); color: white; font-size: 0.85rem; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; }
-.explore-hero h1 { font-size: 2.2rem; font-weight: 800; color: white; margin: 0 0 10px; line-height: 1.2; }
-.explore-hero p { color: rgba(255,255,255,0.75); font-size: 1rem; margin: 0 0 28px; }
 
-.search-bar-big {
-  display: flex; align-items: center;
-  background: white; border-radius: 50px;
-  padding: 6px 6px 6px 20px;
-  max-width: 680px; margin: 0 auto 20px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.12); backdrop-filter: blur(8px);
+  color: rgba(255,255,255,0.9); font-size: 0.82rem; font-weight: 700;
+  padding: 6px 16px; border-radius: 30px; margin-bottom: 20px;
+  border: 1px solid rgba(255,255,255,0.18); letter-spacing: 0.03em;
 }
-.search-icon { width: 18px; height: 18px; color: #6B7280; flex-shrink: 0; margin-right: 10px; }
-.search-bar-big input { border: none; flex: 1; font-size: 0.95rem; outline: none; background: transparent; color: #111; }
-.btn-search { background: #F76B1C; color: white; border: none; padding: 10px 26px; border-radius: 50px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
-.btn-search:hover { background: #e05a10; }
+.explore-hero h1 {
+  font-size: 2.6rem; font-weight: 900; color: white;
+  margin: 0 0 14px; line-height: 1.15;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.2);
+}
+.hero-sub {
+  color: rgba(255,255,255,0.7); font-size: 1.05rem;
+  margin: 0 0 36px; font-weight: 400;
+}
+.hero-sub strong { color: #FFD580; font-weight: 700; }
 
-.filters-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-.filter-pill { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 30px; font-size: 0.88rem; cursor: pointer; font-family: inherit; }
-.filter-pill option { color: #333; background: white; }
-.filter-clear { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 8px 16px; border-radius: 30px; font-size: 0.88rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
-.filter-clear:hover { background: rgba(255,255,255,0.3); }
+/* === SEARCH CARD === */
+.search-card {
+  display: flex; align-items: center;
+  background: white; border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  max-width: 860px; margin: 0 auto 20px;
+  padding: 6px 6px 6px 0;
+  overflow: visible;
+}
+.search-fields {
+  display: flex; flex: 1; align-items: center;
+}
+
+/* Each field group */
+.sf-group {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; flex: 1; position: relative;
+}
+.sf-group.sf-clickable { cursor: pointer; border-radius: 14px; transition: background 0.2s; }
+.sf-group.sf-clickable:hover { background: #F8FAFC; }
+.sf-group.sf-clickable.focused { background: #F0F9FF; }
+.sf-sep { width: 1px; height: 36px; background: #E2E8F0; flex-shrink: 0; }
+
+.sf-icon { font-size: 1.15rem; flex-shrink: 0; opacity: 0.75; }
+.sf-input { display: flex; flex-direction: column; min-width: 0; }
+.sf-input label {
+  font-size: 0.68rem; font-weight: 800; color: #94A3B8;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 3px; cursor: pointer;
+}
+.sf-input input {
+  border: none; background: transparent; outline: none;
+  font-size: 1.1rem; color: #0F172A; font-weight: 700;
+  width: 100%; padding: 2px 0; cursor: text;
+  letter-spacing: -0.01em;
+}
+.sf-input input::placeholder { color: #94A3B8; font-weight: 400; font-size: 0.95rem; }
+
+/* Search button */
+.sc-btn {
+  background: linear-gradient(135deg, #F76B1C, #e05510);
+  color: white; border: none; border-radius: 14px;
+  padding: 18px 28px; font-weight: 800; font-size: 0.95rem;
+  cursor: pointer; display: flex; align-items: center; gap: 8px;
+  transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(247,107,28,0.4);
+}
+.sc-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(247,107,28,0.5); }
+.sc-btn svg { width: 18px; height: 18px; }
+
+/* === FILTER POPOVERS === */
+.sf-popover {
+  position: absolute; top: calc(100% + 14px); left: 0;
+  width: 320px; background: white; border-radius: 20px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1);
+  border: 1px solid #E2E8F0;
+  max-height: 380px; overflow-y: auto; z-index: 300;
+  padding: 10px 0;
+  backdrop-filter: blur(10px);
+}
+.sf-popover-right { left: auto; right: 0; }
+.sfp-header {
+  padding: 12px 20px 6px;
+  font-size: 0.68rem; font-weight: 800;
+  color: #94A3B8; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.sfp-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px; cursor: pointer;
+  font-size: 0.9rem; font-weight: 600; color: #1E293B;
+  transition: background 0.15s;
+}
+.sfp-item:hover { background: #F8FAFC; }
+.sfp-dot { width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1; flex-shrink: 0; }
+.sfp-dot.all { background: #F76B1C; }
+.sfp-dot.prov { background: #3B82F6; }
+.sfp-dot.sec  { background: #10B981; }
+.sfp-badge {
+  margin-left: auto; font-size: 0.68rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px;
+  background: #F1F5F9; color: #64748B;
+}
+.badge-prov { background: #DBEAFE; color: #1D4ED8; }
+.badge-sec  { background: #D1FAE5; color: #065F46; }
+.sfp-empty { padding: 16px 20px; color: #94A3B8; font-size: 0.88rem; }
+
+/* Active filter tags */
+.hero-tags { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.hero-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.15); color: white;
+  font-size: 0.82rem; font-weight: 600; padding: 5px 14px;
+  border-radius: 30px; border: 1px solid rgba(255,255,255,0.25);
+}
+.hero-tag button { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
+.hero-tag button:hover { color: white; }
+.hero-clear {
+  background: transparent; border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.6); font-size: 0.8rem; font-weight: 600;
+  padding: 5px 14px; border-radius: 30px; cursor: pointer; transition: 0.2s;
+}
+.hero-clear:hover { background: rgba(255,255,255,0.1); color: white; }
+
+/* ANIMATIONS */
+.pop-enter-active, .pop-leave-active { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.pop-enter-from, .pop-leave-to { opacity: 0; transform: translateY(-8px) scale(0.97); }
+
+@media (max-width: 768px) {
+  .explore-hero { padding: 48px 20px 40px; }
+  .explore-hero h1 { font-size: 1.9rem; }
+  .search-card { flex-direction: column; padding: 12px; border-radius: 20px; gap: 4px; }
+  .search-fields { flex-direction: column; width: 100%; }
+  .sf-group { width: 100%; padding: 12px 16px; }
+  .sf-sep { width: 100%; height: 1px; }
+  .sc-btn { width: 100%; justify-content: center; padding: 16px; border-radius: 12px; }
+  .sf-popover { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; border-radius: 24px 24px 0 0; }
+}
 
 /* ===== RESULTS ===== */
 .results-section { padding-bottom: 20px; }

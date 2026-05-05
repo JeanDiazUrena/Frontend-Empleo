@@ -158,7 +158,10 @@ onUnmounted(() => {
 
 // NAVEGACIÓN
 const goTo = (path) => router.push(path);
-const isActive = (path) => route.path.includes(path);
+const isActive = (path) => {
+  if (path === 'profile') return route.name === 'ProfessionalProfile';
+  return route.path.includes(`/${path}`);
+};
 </script>
 
 <template>
@@ -327,7 +330,7 @@ const isActive = (path) => route.path.includes(path);
 
 /* NAVBAR */
 .dash-navbar {
-  height: 70px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  height: 70px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
 }
 .dash-brand { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .brand-icon { height: 32px; width: auto; }
@@ -365,7 +368,7 @@ const isActive = (path) => route.path.includes(path);
   border-radius: 12px; 
   box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
   border: 1px solid #e2e8f0; 
-  overflow: hidden; z-index: 100; 
+  overflow: hidden; z-index: 1100; 
 }
 .dropdown-menu ul { list-style: none; padding: 5px; margin: 0; }
 .dropdown-menu li { 
@@ -401,7 +404,7 @@ const isActive = (path) => route.path.includes(path);
 .notif-trigger:hover { background-color: #f3f4f6; }
 .bell-icon { width: 22px; height: 22px; color: #4b5563; }
 .notif-badge-top { position: absolute; top: -2px; right: -2px; background: #ef4444; color: white; font-size: 0.65rem; font-weight: bold; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid white; }
-.notif-menu { position: absolute; top: 50px; right: -10px; width: 320px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; overflow: hidden; z-index: 100; cursor: default; }
+.notif-menu { position: absolute; top: 60px; right: -10px; width: 320px; background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); border: 1px solid #e2e8f0; overflow: hidden; z-index: 1100; cursor: default; }
 .notif-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
 .notif-body { max-height: 300px; overflow-y: auto; }
 .no-notifs { padding: 20px; text-align: center; color: #94a3b8; font-size: 0.9rem; }

@@ -133,14 +133,6 @@ const goToExplore = () => router.push('/client/explore');
             </div>
 
             <div class="meta-chips">
-              <span class="meta-chip" v-if="user.location">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="chip-icon"><path fill-rule="evenodd" d="m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clip-rule="evenodd" /></svg>
-                {{ user.location }}
-              </span>
-              <span class="meta-chip chip-phone" v-if="user.phone">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="chip-icon"><path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.148a1.5 1.5 0 0 1 1.465 1.175l.716 3.223a1.5 1.5 0 0 1-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 0 0 6.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 0 1 1.767-1.052l3.223.716A1.5 1.5 0 0 1 18 15.352V16.5a1.5 1.5 0 0 1-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 0 1 2.43 8.326 13.019 13.019 0 0 1 2 5V3.5Z" clip-rule="evenodd" /></svg>
-                {{ user.phone }}
-              </span>
               <span class="meta-chip chip-join" v-if="user.joinDate">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="chip-icon"><path fill-rule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2Zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75Z" clip-rule="evenodd" /></svg>
                 Miembro desde {{ user.joinDate }}
@@ -311,7 +303,7 @@ const goToExplore = () => router.push('/client/explore');
 
 /* ===== HEADER CARD ===== */
 .profile-header-card { background: white; border-radius: 16px; border: 1px solid #E5E7EB; overflow: hidden; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.banner-area { height: 200px; background: linear-gradient(135deg, #0B4C6F 0%, #1a6fa0 40%, #16a34a 100%); background-size: cover; background-position: center; position: relative; }
+.banner-area { height: 200px; background: linear-gradient(135deg, #071E38 0%, #0B4C6F 100%); background-size: cover; background-position: center; position: relative; }
 .banner-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.1); }
 
 .header-content { padding: 0 28px 20px; display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
@@ -335,9 +327,9 @@ const goToExplore = () => router.push('/client/explore');
 .chip-join { background: #EFF6FF; color: #0B4C6F; }
 
 .stats-bar { display: flex; border-top: 1px solid #F3F4F6; padding: 16px 28px; gap: 40px; background: #FAFAFA; }
-.stat-item { display: flex; flex-direction: column; }
-.stat-item strong { font-size: 1.1rem; font-weight: 800; color: #111; }
-.stat-item span { font-size: 0.8rem; color: #6B7280; margin-top: 2px; }
+.stat-item { display: flex; flex-direction: column; align-items: center; }
+.stat-item strong { font-size: 1.5rem; font-weight: 800; color: #0B4C6F; }
+.stat-item span { font-size: 0.75rem; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 
 /* ===== TABS ===== */
 .tabs-nav { display: flex; background: white; border-radius: 12px; border: 1px solid #E5E7EB; overflow: hidden; margin-bottom: 20px; }
