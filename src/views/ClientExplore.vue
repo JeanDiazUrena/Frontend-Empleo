@@ -11,9 +11,6 @@ const selectedCity = ref('');
 const professionals = ref([]);
 const isLoading = ref(true);
 const hasSearched = ref(false);
-const selectedPro = ref(null); // Para modal de detalle
-const selectedProReviews = ref([]); // Reseñas del profesional seleccionado
-const isLoadingReviews = ref(false);
 
 const CATEGORIES = [
   { label: 'Todas las Categorías', value: '' },
@@ -75,29 +72,11 @@ const clearFilters = () => {
   loadProfessionals();
 };
 
-const openDetail = async (pro) => { 
-  selectedPro.value = pro; 
-  selectedProReviews.value = [];
-  isLoadingReviews.value = true;
-  try {
-    const { data } = await axios.get(`http://localhost:3003/api/resenas/profesional/${pro.usuario_id}`);
-    const fetched = data || [];
-    // Enriquecer con nombres de clientes
-    for (let r of fetched) {
-      try {
-        const cRes = await axios.get(`http://localhost:3001/api/clientes/${r.cliente_id}`);
-        r.cliente_nombre = cRes.data?.nombre || "Cliente";
-        r.cliente_avatar = cRes.data?.avatar || null;
-      } catch (e) { r.cliente_nombre = "Cliente"; }
-    }
-    selectedProReviews.value = fetched;
-  } catch (err) {
-    console.error("Error cargando reseñas:", err);
-  } finally {
-    isLoadingReviews.value = false;
+const openDetail = (pro) => { 
+  if (pro && pro.usuario_id) {
+    router.push(`/client/professional-profile/${pro.usuario_id}`);
   }
 };
-const closeDetail = () => { selectedPro.value = null; selectedProReviews.value = []; };
 
 const contactPro = (pro) => {
   router.push({ path: '/client/chat', query: { profesional_id: pro.usuario_id } });
@@ -264,134 +243,6 @@ onMounted(loadProfessionals);
         </div>
       </div>
     </div>
-
-    <!-- ===== MODAL DETALLE DEL PROFESIONAL ===== -->
-    <Teleport to="body">
-      <div v-if="selectedPro" class="modal-backdrop" @click.self="closeDetail">
-        <div class="pro-detail-modal">
-
-          <button class="modal-x" @click="closeDetail">×</button>
-
-          <!-- Header -->
-          <div
-            class="detail-banner"
-            :style="selectedPro.cover_url ? { backgroundImage: `url(${selectedPro.cover_url})` } : {}"
-          ></div>
-
-          <div class="detail-header-content">
-            <div class="detail-avatar">
-              <img v-if="selectedPro.avatar_url" :src="selectedPro.avatar_url" :alt="selectedPro.nombre" />
-              <div v-else class="detail-initials">{{ selectedPro.nombre?.charAt(0) || 'P' }}</div>
-            </div>
-            <div class="detail-name-block">
-              <h2>{{ selectedPro.nombre }}</h2>
-              <p class="detail-profession">{{ selectedPro.profesion }}</p>
-              <div class="detail-chips">
-                <span v-if="selectedPro.ciudad" class="dchip loc"><i class="fa-solid fa-location-dot e-icon-chip"></i> {{ selectedPro.ciudad }}, {{ selectedPro.sector }}</span>
-                <span v-if="selectedPro.anios_experiencia" class="dchip exp"><i class="fa-regular fa-clock e-icon-chip"></i> {{ selectedPro.anios_experiencia }} años</span>
-                <span
-                  v-if="selectedPro.categoria_nombre"
-                  class="dchip"
-                  :style="{ background: getCatStyle(selectedPro.categoria_nombre).bg, color: getCatStyle(selectedPro.categoria_nombre).text }"
-                >
-                  {{ selectedPro.categoria_nombre }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Cuerpo -->
-          <div class="detail-body">
-
-            <div v-if="selectedPro.biografia" class="detail-section">
-              <div class="dsection-label">Sobre mí</div>
-              <p class="detail-bio">{{ selectedPro.biografia }}</p>
-            </div>
-
-            <div v-if="selectedPro.habilidades" class="detail-section">
-              <div class="dsection-label">Habilidades</div>
-              <div class="skills-cloud">
-                <span v-for="s in skillsOf(selectedPro)" :key="s" class="skill-bubble">{{ s }}</span>
-              </div>
-            </div>
-
-            <div class="detail-section">
-              <div class="dsection-label">Contacto</div>
-              <div class="contact-grid-modal">
-                <div v-if="selectedPro.telefono" class="citem">
-                  <span class="citem-icon phone"><i class="fa-solid fa-phone"></i></span>
-                  <span>{{ selectedPro.telefono }}</span>
-                </div>
-                <div v-if="selectedPro.email_publico" class="citem">
-                  <span class="citem-icon email"><i class="fa-solid fa-envelope"></i></span>
-                  <span>{{ selectedPro.email_publico }}</span>
-                </div>
-                <div v-if="selectedPro.sitio_web" class="citem">
-                  <span class="citem-icon web"><i class="fa-solid fa-globe"></i></span>
-                  <a :href="selectedPro.sitio_web" target="_blank" class="clink">{{ selectedPro.sitio_web }}</a>
-                </div>
-              </div>
-            </div>
-
-            <!-- Portafolio preview si existe -->
-            <div v-if="selectedPro.foto_reciente" class="detail-section">
-              <div class="dsection-label">Trabajo Reciente</div>
-              <img :src="selectedPro.foto_reciente" class="portfolio-preview-img" alt="Trabajo reciente" />
-            </div>
-
-            <!-- RESEÑAS -->
-            <div class="detail-section">
-              <div class="dsection-label d-flex-between">
-                Reseñas de Clientes
-                <span v-if="selectedProReviews.length > 0" class="review-count">
-                  {{ selectedProReviews.length }} opinión{{ selectedProReviews.length !== 1 ? 'es' : '' }}
-                </span>
-              </div>
- 
-              <div v-if="isLoadingReviews" class="reviews-loading">
-                <i class="fa-solid fa-spinner fa-spin"></i> Cargando reseñas...
-              </div>
- 
-              <div v-else-if="selectedProReviews.length === 0" class="reviews-empty">
-                <i class="fa-regular fa-star empty-star-icon"></i>
-                <p>Aún no tiene reseñas. ¡Sé el primero en contratarlo!</p>
-              </div>
- 
-              <div v-else class="modal-reviews-list">
-                <div v-for="r in selectedProReviews" :key="r.id" class="modal-review-card">
-                  <div class="review-card-header">
-                    <div class="review-client">
-                      <img v-if="r.cliente_avatar" :src="r.cliente_avatar.startsWith('http') ? r.cliente_avatar : `http://localhost:3001${r.cliente_avatar}`" class="review-avatar">
-                      <span class="review-client-name">{{ r.cliente_nombre }}</span>
-                    </div>
-                    <div class="review-stars">
-                      <i v-for="i in 5" :key="i" :class="i <= r.calificacion ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
-                    </div>
-                  </div>
-                  <p class="review-text">{{ r.comentario }}</p>
-                  <div class="review-date-wrap">
-                    <span class="review-date">{{ new Date(r.fecha_creacion).toLocaleDateString() }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Acciones -->
-          <div class="detail-footer">
-            <button class="btn-request" @click="requestService">
-              <div class="btn-icon-wrap"><i class="fa-solid fa-clipboard-list"></i></div> Solicitar Servicio
-            </button>
-            <button class="btn-chat" @click="contactPro(selectedPro)">
-              <div class="btn-icon-wrap"><i class="fa-regular fa-paper-plane"></i></div> Enviar Mensaje
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </Teleport>
-
   </div>
 </template>
 

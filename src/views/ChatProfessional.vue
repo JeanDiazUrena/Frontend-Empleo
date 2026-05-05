@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { io } from 'socket.io-client';
@@ -44,6 +44,11 @@ const quoteForm = ref({
 
 const openLightbox = (url) => {
   lightbox.value = { show: true, url };
+};
+
+const openClientProfile = (clienteId) => {
+  if (!clienteId) return;
+  router.push(`/professional/client-profile/${clienteId}`);
 };
 
 const downloadImage = async (url) => {
@@ -339,6 +344,19 @@ const scrollToBottom = () => {
   });
 };
 
+watch(messages, () => {
+  scrollToBottom();
+}, { deep: true });
+
+const copyToClipboardText = (text) => {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Mensaje copiado');
+  }).catch(err => {
+    console.error('Error al copiar: ', err);
+  });
+};
+
 const formatTime = (ts) => {
   if (!ts) return '';
   return new Date(ts).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
@@ -475,6 +493,7 @@ onMounted(async () => {
       </div>
     </Teleport>
 
+
     <!-- SIDEBAR -->
     <aside class="chat-sidebar">
       <div class="sidebar-header">
@@ -539,7 +558,7 @@ onMounted(async () => {
       <template v-else>
         <!-- HEADER -->
         <div class="chat-header">
-          <div class="chat-header-left">
+          <div class="chat-header-left" @click="openClientProfile(activeConv.cliente_id)" style="cursor: pointer;" title="Ver perfil">
             <div class="header-avatar" :class="activeConv.otro_avatar ? '' : 'initials-av'">
               <img v-if="activeConv.otro_avatar" :src="activeConv.otro_avatar" :alt="activeConv.otro_nombre" />
               <span v-else>{{ getInitials(activeConv.otro_nombre) }}</span>
@@ -662,7 +681,15 @@ onMounted(async () => {
                   <p v-else>{{ msg.contenido }}</p>
                   <div class="bubble-meta">
                     <span class="bubble-time">{{ formatTime(msg.created_at) }}</span>
-                    <span v-if="msg.remitente_id === myId" class="read-tick" :class="{ read: msg.leido }"><i class="fa-solid fa-check-double"></i></span>
+                    <span v-if="msg.remitente_id === myId" class="read-tick" :class="{ read: msg.leido }">
+                      <i class="fa-solid fa-check-double"></i>
+                    </span>
+                    <button v-if="!msg.tipo || msg.tipo === 'texto' || !['imagen','archivo','cotizacion','bank_info'].includes(msg.tipo)" 
+                            class="msg-copy-btn" 
+                            @click="copyToClipboardText(msg.contenido)" 
+                            title="Copiar mensaje">
+                      <i class="fa-regular fa-copy"></i>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1104,6 +1131,19 @@ onMounted(async () => {
 }
 .msg-mine .location-link { color: #c95210; }
 .location-link:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+.msg-copy-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+.msg-copy-btn:hover { opacity: 1; transform: scale(1.1); }
+.bubble-meta { display: flex; align-items: center; gap: 6px; }
 /* --- ATTACHMENT PANEL --- */
 .attachment-container { position: relative; }
 .btn-plus {

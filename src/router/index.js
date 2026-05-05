@@ -19,12 +19,14 @@ import ChatClient from '../views/ChatClient.vue';
 import ClientExplore from '../views/ClientExplore.vue';
 import ServiceRequest from '../views/ServiceRequest.vue';
 import ClientReview from '../views/ClientReview.vue';
+import PublicProfessionalProfile from '../views/PublicProfessionalProfile.vue';
 
 // VISTAS PROFESIONAL
 import ProfessionalDashboard from '../views/ProfessionalDashboard.vue';
 import ChatProfessional from '../views/ChatProfessional.vue';
 import ProfessionalProfile from '../views/ProfessionalProfile.vue';
-import Configuraction from '../views/ConfiguractionProfessional.vue';
+import ConfiguracionProfessional from '../views/ConfiguractionProfessional.vue';
+import PublicClientProfile from '../views/PublicClientProfile.vue';
 import ConfiguracionCliente from '../views/ConfiguractioncClient.vue';
 
 
@@ -55,6 +57,7 @@ const routes = [
       { path: 'request/edit/:id', name: 'EditRequest', component: ServiceRequest },
       { path: 'review/:id', name: 'ClientReview', component: ClientReview },
       { path: 'settings', name: 'ClientSettings', component: ConfiguracionCliente },
+      { path: 'professional-profile/:id', name: 'PublicProfessionalProfile', component: PublicProfessionalProfile },
     ]
   },
 
@@ -66,7 +69,8 @@ const routes = [
       { path: 'dashboard', name: 'ProfessionalDashboard', component: ProfessionalDashboard },
       { path: 'chat', name: 'ProfessionalChat', component: ChatProfessional },
       { path: 'profile', name: 'ProfessionalProfile', component: ProfessionalProfile },
-      { path: 'settings', name: 'ProfessionalSettings', component: Configuraction },
+      { path: 'settings', name: 'ProfessionalSettings', component: ConfiguracionProfessional },
+      { path: 'client-profile/:id', name: 'PublicClientProfile', component: PublicClientProfile },
     ]
   },
 

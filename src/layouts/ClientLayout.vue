@@ -213,11 +213,6 @@ onUnmounted(() => {
       
       <aside class="dash-sidebar">
         
-        <div class="action-area">
-           <button class="btn-create" @click="goTo('/client/request')">
-             + Pedir Servicio
-           </button>
-        </div>
 
         <ul class="menu-list">
           <li :class="{ active: isActive('dashboard') }" @click="goTo('/client/dashboard')">

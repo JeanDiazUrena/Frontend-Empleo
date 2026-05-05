@@ -191,6 +191,11 @@ const searchQuery = ref('');
 const messagesEnd = ref(null);
 let socket = null;
 
+const openProfile = (profesionalId) => {
+  if (!profesionalId) return;
+  router.push(`/client/professional-profile/${profesionalId}`);
+};
+
 // Filtrar conversaciones
 const filteredConvs = computed(() => {
   if (!searchQuery.value) return conversations.value;
@@ -307,6 +312,19 @@ const scrollToBottom = () => {
   });
 };
 
+watch(messages, () => {
+  scrollToBottom();
+}, { deep: true });
+
+const copyToClipboard = (text) => {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Mensaje copiado', 'success');
+  }).catch(err => {
+    console.error('Error al copiar: ', err);
+  });
+};
+
 const formatTime = (ts) => {
   if (!ts) return '';
   return new Date(ts).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
@@ -411,6 +429,8 @@ onMounted(async () => {
       </div>
     </Teleport>
 
+   
+
     <!-- PANEL IZQUIERDO: LISTA DE CONVERSACIONES -->
     <aside class="chat-sidebar">
       <div class="sidebar-header">
@@ -477,7 +497,7 @@ onMounted(async () => {
       <template v-else>
         <!-- HEADER DEL CHAT -->
         <div class="chat-header">
-          <div class="chat-header-left">
+          <div class="chat-header-left" @click="openProfile(activeConv.profesional_usuario_id)" style="cursor: pointer;" title="Ver perfil">
             <div class="header-avatar" :class="activeConv.otro_avatar ? '' : 'initials-av'">
               <img v-if="activeConv.otro_avatar" :src="activeConv.otro_avatar" :alt="activeConv.otro_nombre" />
               <span v-else>{{ getInitials(activeConv.otro_nombre) }}</span>
@@ -585,6 +605,12 @@ onMounted(async () => {
                     <span v-if="msg.remitente_id === myId" class="read-tick" :class="{ read: msg.leido }">
                       <i class="fa-solid fa-check-double"></i>
                     </span>
+                    <button v-if="!msg.tipo || msg.tipo === 'texto' || !['imagen','archivo','cotizacion'].includes(msg.tipo)" 
+                            class="msg-copy-btn" 
+                            @click="copyToClipboard(msg.contenido)" 
+                            title="Copiar mensaje">
+                      <i class="fa-regular fa-copy"></i>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1088,6 +1114,19 @@ onMounted(async () => {
 }
 .msg-mine .location-link { color: #0B4C6F; }
 .location-link:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+.msg-copy-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+.msg-copy-btn:hover { opacity: 1; transform: scale(1.1); }
+.bubble-meta { display: flex; align-items: center; gap: 6px; }
 /* --- ATTACHMENT PANEL --- */
 .attachment-container { position: relative; }
 .btn-plus {
@@ -1183,5 +1222,44 @@ onMounted(async () => {
   font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .quote-accept-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* --- PROFILE MODAL --- */
+.profile-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px;
+  backdrop-filter: blur(4px);
+}
+.profile-modal-card {
+  background: white; width: 100%; max-width: 420px; border-radius: 20px;
+  overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); position: relative;
+}
+.pm-close {
+  position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.2);
+  color: white; border: none; width: 30px; height: 30px; border-radius: 50%;
+  font-size: 1.2rem; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center;
+}
+.pm-close:hover { background: rgba(0,0,0,0.4); }
+.pm-loading { padding: 40px; text-align: center; color: #64748B; font-weight: 600; }
+.pm-banner { height: 120px; background: linear-gradient(135deg, #0B4C6F, #1a8fcc); background-size: cover; background-position: center; }
+.pm-header { padding: 0 24px 16px; text-align: center; margin-top: -40px; border-bottom: 1px solid #F1F5F9; }
+.pm-avatar {
+  width: 80px; height: 80px; border-radius: 50%; border: 4px solid white;
+  margin: 0 auto 10px; background: #E0F2FE; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; font-size: 2rem; font-weight: 800; color: #0B4C6F; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.pm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pm-header h3 { margin: 0 0 4px; font-size: 1.3rem; font-weight: 800; color: #1E293B; }
+.pm-profession { margin: 0 0 10px; color: #3B82F6; font-weight: 600; font-size: 0.9rem; }
+.pm-meta { display: flex; justify-content: center; gap: 12px; color: #64748B; font-size: 0.8rem; font-weight: 600; }
+.pm-body { padding: 20px 24px; }
+.pm-section { margin-bottom: 16px; }
+.pm-section h4 { margin: 0 0 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94A3B8; }
+.pm-section p { margin: 0; font-size: 0.9rem; color: #334155; line-height: 1.5; }
+.pm-footer { margin-top: 24px; }
+.pm-btn-primary {
+  width: 100%; background: #0B4C6F; color: white; border: none;
+  padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s;
+}
+.pm-btn-primary:hover { background: #083a55; }
 
 </style>
