@@ -18,9 +18,13 @@ const fileInput = ref(null);
 const selectedFile = ref(null);
 
 const normalizedMetodoPago = computed(() => String(props.metodo_pago || 'EFECTIVO').toUpperCase());
+const manualMonto = ref('');
 const montoAPagar = computed(() => {
-  const amount = Number(props.monto_total);
-  return Number.isFinite(amount) ? amount : 0;
+  const propAmount = Number(props.monto_total);
+  if (propAmount > 0) return propAmount;
+  
+  const manual = Number(manualMonto.value);
+  return Number.isFinite(manual) ? manual : 0;
 });
 const montoAPagarLabel = computed(() =>
   montoAPagar.value.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -60,12 +64,19 @@ const confirmarFinalizacion = async () => {
     return;
   }
 
+  if (montoAPagar.value <= 0) {
+    showToast('No se puede liberar un pago de RD$ 0.00. Contacta al soporte o al profesional para acordar el precio.');
+    return;
+  }
+
   isLoading.value = true;
   try {
     // Si fuera real, subiríamos la foto a un endpoint de subida aquí y obtendríamos la URL del comprobante.
     
     // Ejecutamos el endpoint que construimos en el backend
-    const res = await axios.post(`http://localhost:3003/api/trabajos/${props.trabajo_id}/finalizar`);
+    const res = await axios.post(`http://localhost:3003/api/trabajos/${props.trabajo_id}/finalizar`, {
+      monto_final: montoAPagar.value
+    });
     
     if (res.data.success) {
       showToast('Trabajo finalizado y pago procesado con éxito', 'success');
@@ -84,10 +95,11 @@ const confirmarFinalizacion = async () => {
 <template>
   <div class="payment-overlay">
     
-    <!-- Toast local -->
+    <!-- Toast local (Mejorado para evitar confusión) -->
     <div v-if="toast.show" 
-         :class="['fixed top-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg font-semibold text-sm z-[60] flex items-center gap-2 transition-all', toast.type === 'success' ? 'bg-slate-800 text-emerald-400' : 'bg-red-50 text-red-600 border border-red-200']">
-      <i :class="toast.type === 'success' ? 'fa-solid fa-check-circle' : 'fa-solid fa-triangle-exclamation'"></i>
+         :class="['fixed top-5 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl font-bold text-sm z-[100] flex items-center gap-3 transition-all animate-pop', 
+                  toast.type === 'success' ? 'bg-slate-900 text-emerald-400 border border-slate-700' : 'bg-red-600 text-white shadow-red-200']">
+      <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
       {{ toast.message }}
     </div>
 
@@ -110,7 +122,18 @@ const confirmarFinalizacion = async () => {
         <!-- Total Banner -->
         <div class="payment-total">
           <p>Monto a pagar al Profesional</p>
-          <div>RD$ {{ montoAPagarLabel }}</div>
+          <div v-if="Number(props.monto_total) > 0">RD$ {{ montoAPagarLabel }}</div>
+          <div v-else class="manual-amount-box">
+            <span class="currency-prefix">RD$</span>
+            <input 
+              v-model="manualMonto" 
+              type="number" 
+              placeholder="0.00" 
+              class="manual-input"
+              min="1"
+            />
+          </div>
+          <p v-if="Number(props.monto_total) <= 0" class="input-hint">El trabajo no tenía un monto definido. Por favor ingresa el monto total acordado.</p>
         </div>
 
         <!-- CONDICIONAL: Si es transferencia -->
@@ -221,6 +244,40 @@ const confirmarFinalizacion = async () => {
   border: 1.5px solid #BFDBFE;
   border-radius: 14px;
   background: #EFF6FF;
+}
+.manual-amount-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 5px 0;
+}
+.currency-prefix {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #0F172A;
+}
+.manual-input {
+  background: white;
+  border: 2px solid #BFDBFE;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 1.8rem;
+  font-weight: 950;
+  color: #0F172A;
+  width: 180px;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.manual-input:focus {
+  border-color: #1D4ED8;
+}
+.input-hint {
+  font-size: 0.75rem;
+  color: #64748B;
+  margin-top: 8px !important;
+  font-weight: 600;
 }
 .payment-total p { margin: 0 0 7px; color: #1D4ED8; font-size: 0.84rem; font-weight: 900; }
 .payment-total div { color: #0F172A; font-size: 2rem; font-weight: 950; letter-spacing: 0; }

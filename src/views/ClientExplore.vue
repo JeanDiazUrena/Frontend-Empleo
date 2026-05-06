@@ -11,6 +11,9 @@ const selectedCity = ref('');
 const professionals = ref([]);
 const isLoading = ref(true);
 const hasSearched = ref(false);
+const sortedProfessionals = computed(() => {
+  return [...professionals.value].sort((a, b) => (b.promedio_estrellas || 0) - (a.promedio_estrellas || 0));
+});
 
 const CATEGORIES = [
   { label: 'Todas las Categorías', value: '' },
@@ -149,6 +152,10 @@ const openDetail = (pro) => {
 
 const requestService = () => {
   router.push('/client/request');
+};
+
+const requestProfessionalService = (pro) => {
+  router.push(`/client/request?pro=${pro.usuario_id}`);
 };
 
 const skillsOf = (pro) =>
@@ -297,7 +304,7 @@ onUnmounted(() => {
       <!-- GRID DE TARJETAS -->
       <div v-else class="pros-grid">
         <div
-          v-for="pro in professionals"
+          v-for="pro in sortedProfessionals"
           :key="pro.id"
           class="pro-card"
           @click="openDetail(pro)"
@@ -344,6 +351,12 @@ onUnmounted(() => {
                 <i class="fa-regular fa-clock e-icon"></i> {{ pro.anios_experiencia }} años exp.
               </span>
             </div>
+<div class="pro-card-rating" v-if="pro.promedio_estrellas">
+  <span class="rating-stars">
+    <i v-for="i in 5" :key="i" class="fa-solid" :class="i <= Math.round(pro.promedio_estrellas) ? 'fa-star' : 'fa-star-half-alt'"></i>
+  </span>
+  <span class="rating-count">({{ pro.cantidad_resenas || 0 }})</span>
+</div>
 
             <!-- Skills preview -->
             <div v-if="pro.habilidades" class="skills-preview">
@@ -361,6 +374,9 @@ onUnmounted(() => {
           <div class="pro-card-footer">
             <button class="btn-ver-perfil" @click.stop="openDetail(pro)">
               Ver perfil completo →
+            </button>
+            <button class="btn-request-service" @click.stop="requestProfessionalService(pro)">
+              Solicitar servicio
             </button>
           </div>
         </div>
@@ -610,6 +626,12 @@ onUnmounted(() => {
 .pro-card-footer { padding: 12px 16px; border-top: 1px solid #F3F4F6; }
 .btn-ver-perfil { width: 100%; background: none; border: 1.5px solid #0B4C6F; color: #0B4C6F; padding: 8px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s; }
 .btn-ver-perfil:hover { background: #0B4C6F; color: white; }
+
+.btn-request-service { width: 100%; background: none; border: 1.5px solid #0B4C6F; color: #0B4C6F; padding: 8px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s; margin-top: 8px; }
+.btn-request-service:hover { background: #0B4C6F; color: white; }
+
+.rating-stars i { color: #FBBF24; margin-right: 2px; }
+.rating-count { font-size: 0.75rem; color: #6B7280; margin-left: 4px; }
 
 /* ===== MODAL DETALLE ===== */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }

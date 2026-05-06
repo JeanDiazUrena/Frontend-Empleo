@@ -19,10 +19,13 @@ const fetchWorkDetails = async () => {
   if (!trabajoId || !profesionalId) return;
 
   try {
-    // 1. Obtener info del trabajo (para el título)
     const resTrabajo = await axios.get(`http://localhost:3003/api/trabajos/${trabajoId}`);
     if (resTrabajo.data) {
-      trabajoInfo.value.titulo = resTrabajo.data.titulo;
+      trabajoInfo.value = {
+        ...trabajoInfo.value,
+        titulo: resTrabajo.data.titulo,
+        solicitud_id: resTrabajo.data.solicitud_id || resTrabajo.data.id
+      };
     }
 
     // 2. Obtener info del profesional (para el nombre)
@@ -170,7 +173,15 @@ const submitReview = async () => {
       </div>
       <h2>¡Gracias por tu reseña!</h2>
       <p>Has ayudado a construir una comunidad más confiable. El pago ha sido completado y liberado al profesional.</p>
-      <div class="redirect-hint">Redirigiendo a tu panel...</div>
+      <div class="success-actions">
+        <button class="btn-view-receipt" @click="router.push(`/client/receipt/${trabajoInfo.solicitud_id}`)">
+          <i class="fa-solid fa-file-invoice"></i> Ver Recibo de Pago
+        </button>
+        <button class="btn-go-dashboard" @click="router.push('/client/dashboard')">
+          Ir al Panel de Control
+        </button>
+      </div>
+      <div class="redirect-hint">Redirigiendo automáticamente en unos segundos...</div>
     </div>
   </div>
 </template>
@@ -456,7 +467,56 @@ const submitReview = async () => {
   font-size: 0.85rem;
   color: #94A3B8;
   font-weight: 600;
+  margin-top: 24px;
   animation: pulse-txt 1.5s infinite;
+}
+
+.success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.btn-view-receipt {
+  background: #0B4C6F;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(11, 76, 111, 0.2);
+}
+
+.btn-view-receipt:hover {
+  background: #083a55;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(11, 76, 111, 0.3);
+}
+
+.btn-go-dashboard {
+  background: white;
+  border: 1.5px solid #E2E8F0;
+  color: #475569;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-go-dashboard:hover {
+  background: #F8FAFC;
+  color: #0F172A;
+  border-color: #CBD5E1;
 }
 
 @keyframes pulse-txt {

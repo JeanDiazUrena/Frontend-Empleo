@@ -1,66 +1,66 @@
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { accountApi } from '../../services/accountSettingsService';
 
 export function useEmail() {
-  const currentEmail = ref('usuario@example.com');
+  const currentEmail = ref('Cargando...');
   const newEmail = ref('');
-  const emailCode = ref('');
-  const codeSent = ref(false);
   const emailMsg = ref('');
   const emailSuccess = ref(false);
-  const isSending = ref(false);
-  const isConfirming = ref(false);
+  const isUpdating = ref(false);
+
+  const fetchEmail = async () => {
+    try {
+      const data = await accountApi.getMe();
+      currentEmail.value = data.email;
+    } catch (err) {
+      console.error(err);
+      currentEmail.value = 'Error al cargar';
+    }
+  };
+
+  onMounted(() => {
+    fetchEmail();
+  });
 
   const isValidEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
   };
 
-  async function sendCode() {
+  async function updateEmail() {
     emailMsg.value = '';
     if (!newEmail.value || !isValidEmail(newEmail.value)) {
       emailMsg.value = 'Ingresa un correo electrónico válido.'; 
       emailSuccess.value = false; 
       return;
     }
-    
-    isSending.value = true;
-    try {
-      const res = await accountApi.requestEmailChangeCode(newEmail.value);
-      codeSent.value = true;
-      emailMsg.value = res.message;
-      emailSuccess.value = true;
-    } catch (err) {
-      emailMsg.value = err.message || 'Error al enviar código.';
-      emailSuccess.value = false;
-    } finally {
-      isSending.value = false;
-    }
-  }
 
-  async function confirmEmail() {
-    if (emailCode.value.length < 6) {
-      emailMsg.value = 'Ingresa el código completo de 6 dígitos.'; 
-      emailSuccess.value = false; 
+    if (newEmail.value === currentEmail.value) {
+      emailMsg.value = 'El nuevo correo debe ser diferente al actual.';
+      emailSuccess.value = false;
       return;
     }
-
-    isConfirming.value = true;
+    
+    isUpdating.value = true;
     try {
-      const res = await accountApi.verifyEmailCode(emailCode.value, newEmail.value);
-      currentEmail.value = res.email;
-      newEmail.value = ''; 
-      emailCode.value = ''; 
-      codeSent.value = false;
-      emailMsg.value = res.message; 
+      const res = await accountApi.changeEmail(newEmail.value);
+      emailMsg.value = res.message;
       emailSuccess.value = true;
+      currentEmail.value = newEmail.value;
+      newEmail.value = '';
     } catch (err) {
-      emailMsg.value = err.message || 'Código incorrecto.';
+      emailMsg.value = err.message || 'Error al actualizar email.';
       emailSuccess.value = false;
     } finally {
-      isConfirming.value = false;
+      isUpdating.value = false;
     }
   }
 
-  return { currentEmail, newEmail, emailCode, codeSent, emailMsg, emailSuccess, isSending, isConfirming, sendCode, confirmEmail };
+  // Mantenemos estas funciones por compatibilidad con la UI si es necesario, 
+  // pero las redirigimos a updateEmail o las dejamos vacías.
+  async function sendCode() {
+    await updateEmail();
+  }
+
+  return { currentEmail, newEmail, emailMsg, emailSuccess, isUpdating, sendCode, updateEmail };
 }

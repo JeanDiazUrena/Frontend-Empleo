@@ -1,27 +1,57 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3002/api/settings';
+const AUTH_URL = 'http://localhost:3000/api/users';
+const PERFILES_URL = 'http://localhost:3001/api/solicitudes';
+const PAYMENTS_URL = 'http://localhost:3002/api/settings'; // Mantener para pagos si es necesario
 
-// Se asume que en el caso real enviamos el userId o un token en las cabeceras
 const getAuthHeaders = () => {
-  const userId = localStorage.getItem('usuario_id') || 1;
   return {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token') || ''}`
-    },
-    userId // Para simulación rápida, en producción usar token
+    }
   };
 };
 
 export const accountApi = {
+  // --- USER DATA ---
+  async getMe() {
+    try {
+      const auth = getAuthHeaders();
+      const res = await axios.get(`${AUTH_URL}/me`, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al obtener datos");
+    }
+  },
+
+  // --- EMAIL ---
+  async changeEmail(newEmail) {
+    try {
+      const auth = getAuthHeaders();
+      const res = await axios.post(`${AUTH_URL}/change-email`, { newEmail }, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al actualizar email");
+    }
+  },
+
+  // --- RECEIPTS ---
+  async getReceipt(solicitudId) {
+    try {
+      const res = await axios.get(`${PERFILES_URL}/recibo/${solicitudId}`);
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al obtener el recibo");
+    }
+  },
+
   // --- PASSWORD ---
   async updatePassword({ current, next }) {
     try {
       const auth = getAuthHeaders();
-      const res = await axios.post(`${API_URL}/password`, { 
-        userId: auth.userId, 
-        current, 
-        next 
+      const res = await axios.post(`${AUTH_URL}/change-password`, { 
+        oldPassword: current, 
+        newPassword: next 
       }, { headers: auth.headers });
       return res.data;
     } catch (err) {
@@ -29,101 +59,14 @@ export const accountApi = {
     }
   },
 
-  // --- EMAIL ---
-  async requestEmailChangeCode(newEmail) {
-    try {
-      const res = await axios.post(`${API_URL}/email/code`, { newEmail });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error al enviar código");
-    }
-  },
-
-  async verifyEmailCode(code, newEmail) {
-    try {
-      const auth = getAuthHeaders();
-      const res = await axios.post(`${API_URL}/email/verify`, {
-        userId: auth.userId,
-        code,
-        newEmail
-      });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error verificando código");
-    }
-  },
-
-  // --- PAYMENTS ---
-  async getCards() {
-    try {
-      const auth = getAuthHeaders();
-      const res = await axios.get(`${API_URL}/payments`, {
-        params: { userId: auth.userId },
-        headers: auth.headers
-      });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error obteniendo tarjetas");
-    }
-  },
-
-  async addCard(cardData) {
-    try {
-      const auth = getAuthHeaders();
-      const payload = { ...cardData, userId: auth.userId };
-      const res = await axios.post(`${API_URL}/payments`, payload, { headers: auth.headers });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error agregando tarjeta");
-    }
-  },
-
-  async removeCard(id) {
-    try {
-      const res = await axios.delete(`${API_URL}/payments/${id}`);
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error eliminando tarjeta");
-    }
-  },
-
-  // --- 2FA ---
-  async getTwofaStatus() {
-    try {
-      const auth = getAuthHeaders();
-      const res = await axios.get(`${API_URL}/twofa`, {
-        params: { userId: auth.userId },
-        headers: auth.headers
-      });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error obteniendo estado 2FA");
-    }
-  },
-
-  async toggleTwofa(enabled, method) {
-    try {
-      const auth = getAuthHeaders();
-      const res = await axios.post(`${API_URL}/twofa`, {
-        userId: auth.userId,
-        enabled,
-        method
-      }, { headers: auth.headers });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error actualizando 2FA");
-    }
-  },
-
   // --- SESSIONS ---
   async getSessions() {
     try {
       const auth = getAuthHeaders();
-      const res = await axios.get(`${API_URL}/sessions`, {
-        params: { userId: auth.userId },
+      const res = await axios.get(`${AUTH_URL}/sessions`, {
         headers: auth.headers
       });
-      return res.data;
+      return res.data; // Retorna el array directamente según mi server.js
     } catch (err) {
       throw new Error(err.response?.data?.message || "Error obteniendo sesiones");
     }
@@ -131,23 +74,11 @@ export const accountApi = {
 
   async closeSession(id) {
     try {
-      const res = await axios.delete(`${API_URL}/sessions/${id}`);
+      const auth = getAuthHeaders();
+      const res = await axios.delete(`${AUTH_URL}/sessions/${id}`, { headers: auth.headers });
       return res.data;
     } catch (err) {
       throw new Error(err.response?.data?.message || "Error cerrando sesión");
-    }
-  },
-
-  async closeOtherSessions() {
-    try {
-      const auth = getAuthHeaders();
-      const res = await axios.delete(`${API_URL}/sessions`, {
-        data: { userId: auth.userId },
-        headers: auth.headers
-      });
-      return res.data;
-    } catch (err) {
-      throw new Error(err.response?.data?.message || "Error cerrando sesiones");
     }
   },
 
@@ -155,7 +86,8 @@ export const accountApi = {
   async deactivateAccount() {
     try {
       const auth = getAuthHeaders();
-      const res = await axios.post(`${API_URL}/deactivate`, { userId: auth.userId }, { headers: auth.headers });
+      const userId = localStorage.getItem('usuario_id');
+      const res = await axios.put(`${AUTH_URL}/deactivate`, { userId }, { headers: auth.headers });
       return res.data;
     } catch (err) {
       throw new Error(err.response?.data?.message || "Error desactivando cuenta");
@@ -165,13 +97,26 @@ export const accountApi = {
   async deleteAccount() {
     try {
       const auth = getAuthHeaders();
-      const res = await axios.delete(`${API_URL}/account`, {
-        data: { userId: auth.userId },
+      const userId = localStorage.getItem('usuario_id');
+      const res = await axios.delete(`${AUTH_URL}/${userId}`, {
         headers: auth.headers
       });
       return res.data;
     } catch (err) {
       throw new Error(err.response?.data?.message || "Error eliminando cuenta");
     }
-  }
+  },
+
+  // --- PAYMENTS (MOCK / OTHER SERVICE) ---
+  async getCards() {
+    // Si tienes un servicio de pagos, llámalo aquí. Por ahora mockeamos si no existe.
+    return [
+      { id: 1, type: 'visa', last4: '4242', exp: '12/25', name: 'JUAN PEREZ' }
+    ];
+  },
+  
+  async addCard(cardData) { return { success: true }; },
+  async removeCard(id) { return { success: true }; },
+  async getTwofaStatus() { return { enabled: false }; },
+  async toggleTwofa(enabled, method) { return { enabled }; }
 };

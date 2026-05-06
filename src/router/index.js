@@ -58,6 +58,7 @@ const routes = [
       { path: 'review/:id', name: 'ClientReview', component: ClientReview },
       { path: 'settings', name: 'ClientSettings', component: ConfiguracionCliente },
       { path: 'professional-profile/:id', name: 'PublicProfessionalProfile', component: PublicProfessionalProfile },
+      { path: 'receipt/:id', name: 'ServiceReceipt', component: () => import('../views/ServiceReceipt.vue') },
     ]
   },
 
@@ -88,7 +89,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory('/Frontend-Empleo/'),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
     return { top: 0 };

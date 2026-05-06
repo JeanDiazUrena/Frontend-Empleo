@@ -131,15 +131,20 @@ const openPaymentModal = (job) => {
 
 const getJobAmount = (job) => {
     if (!job) return 0;
-    const value = job.monto_acordado ?? job.monto_total ?? job.presupuesto_max ?? job.presupuesto;
-    if (typeof value === 'number') return value;
+    
+    // Prioridad: Monto Acordado > Monto Total > Presupuesto Max > Presupuesto (como string)
+    const value = job.monto_acordado || job.monto_total || job.presupuesto_max || job.presupuesto;
+    
+    if (typeof value === 'number' && value > 0) return value;
+    if (!value) return 0;
 
-    const matches = String(value || '').match(/\d+(?:[.,]\d+)*/g);
+    // Si es un string (ej: "RD$ 1,500 - RD$ 3,000"), intentamos extraer el número más alto
+    const matches = String(value).match(/\d+(?:[.,]\d+)*/g);
     if (!matches) return 0;
 
     const amounts = matches
       .map((part) => Number(part.replace(/,/g, '')))
-      .filter((amount) => Number.isFinite(amount));
+      .filter((amount) => Number.isFinite(amount) && amount > 0);
 
     return amounts.length > 0 ? Math.max(...amounts) : 0;
 };
@@ -382,9 +387,14 @@ const handlePaymentSuccess = () => {
                   <span class="past-job-date">Completado el {{ new Date(job.fecha_creacion).toLocaleDateString('es-DO', { day:'2-digit', month:'long', year:'numeric' }) }}</span>
                 </div>
               </div>
-              <button class="btn-past-detail" @click="openJobDetail(job)">
-                <i class="fa-solid fa-circle-info"></i> Detalles
-              </button>
+              <div class="card-actions">
+                <button class="btn-receipt" @click="router.push(`/client/receipt/${job.solicitud_id || job.id}`)">
+                  <i class="fa-solid fa-file-invoice"></i> Recibo
+                </button>
+                <button class="btn-past-detail" @click="openJobDetail(job)">
+                  <i class="fa-solid fa-circle-info"></i> Detalles
+                </button>
+              </div>
             </div>
           </div>
         </Transition>
@@ -769,6 +779,14 @@ const handlePaymentSuccess = () => {
 .past-job-info h4 { margin: 0 0 2px; font-size: 0.95rem; font-weight: 700; color: #1E293B; }
 .past-job-desc { margin: 0 0 2px; font-size: 0.8rem; color: #64748B; }
 .past-job-date { font-size: 0.75rem; color: #94A3B8; font-weight: 500; }
+.btn-receipt {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+  background: #F0F9FF; border: 1.5px solid #0B4C6F; border-radius: 8px;
+  font-weight: 700; font-size: 0.82rem; color: #0B4C6F; cursor: pointer; transition: 0.2s;
+}
+.btn-receipt:hover {
+  background: #0B4C6F; color: white; transform: translateY(-2px);
+}
 .btn-past-detail { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1.5px solid #E2E8F0; border-radius: 8px; font-weight: 700; font-size: 0.82rem; color: #475569; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
 .btn-past-detail:hover { border-color: #0B4C6F; color: #0B4C6F; background: #F0F9FF; }
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; max-height: 600px; }
@@ -803,10 +821,10 @@ const handlePaymentSuccess = () => {
   box-shadow: 0 10px 40px rgba(0,0,0,0.18);
   z-index: 99999;
 }
-.app-toast--success { background: #1E293B; color: white; }
-.app-toast--success i { color: #4ADE80; }
-.app-toast--error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
-.app-toast--error i { color: #DC2626; }
+.app-toast--success { background: #0F172A; color: white; border: 1px solid #1E293B; }
+.app-toast--success i { color: #10B981; }
+.app-toast--error { background: #DC2626; color: white; border: none; box-shadow: 0 10px 30px rgba(220, 38, 38, 0.3); }
+.app-toast--error i { color: white; }
 .app-toast span { flex: 1; }
 .toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 1.2rem; padding: 0; margin-left: 4px; }
 .toast-close:hover { opacity: 1; }

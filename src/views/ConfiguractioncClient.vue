@@ -23,7 +23,7 @@ const tabs = [
 
 // ─── ESTADO E INSTANCIAS DE COMPOSABLES ───────────────────────
 const { pwd, showPwd, pwdMsg, pwdSuccess, isUpdating: isPwdUpdating, strength, strengthLabel, strengthColor, updatePassword } = usePassword();
-const { currentEmail, newEmail, emailCode, codeSent, emailMsg, emailSuccess, isSending: isEmailSending, isConfirming: isEmailConfirming, sendCode, confirmEmail } = useEmail();
+const { currentEmail, newEmail, emailMsg, emailSuccess, isUpdating: isEmailUpdating, sendCode } = useEmail();
 const { cards, showAddCard, newCard, cardMsg, isUpdating: isCardUpdating, removeCard, addCard } = usePayments();
 const { twofa, isUpdating: isTwoFAUpdating, toggleTwoFA } = useTwoFA();
 const { sessions, isUpdating: isSessionsUpdating, closeSession, closeOtherSessions } = useSessions();
@@ -164,22 +164,14 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
 
         <div class="field-group">
           <label>Nuevo correo</label>
-          <div class="input-row">
-            <input type="email" v-model="newEmail" placeholder="nuevo@correo.com" :disabled="codeSent" />
-            <button class="btn-outline" @click="sendCode" :disabled="codeSent">Enviar código</button>
+          <div class="field-group">
+            <input type="email" v-model="newEmail" placeholder="nuevo@correo.com" />
           </div>
+          <button class="btn-primary" @click="sendCode" :disabled="isEmailUpdating" style="margin-top: 10px; width: fit-content;">
+            {{ isEmailUpdating ? 'Actualizando...' : 'Actualizar correo' }}
+          </button>
         </div>
 
-        <div v-if="codeSent" class="field-group">
-          <label>Código de verificación</label>
-          <div class="input-row">
-            <input type="text" v-model="emailCode" placeholder="123456" maxlength="6" class="code-input" />
-            <button class="btn-primary" @click="confirmEmail" :disabled="isEmailConfirming">
-              {{ isEmailConfirming ? 'Confirmando...' : 'Confirmar cambio' }}
-            </button>
-          </div>
-          <span class="hint-text">Revisa tu bandeja de entrada y la carpeta de spam.</span>
-        </div>
 
         <div v-if="emailMsg" :class="['form-msg', emailSuccess ? 'success' : 'error']">{{ emailMsg }}</div>
       </div>

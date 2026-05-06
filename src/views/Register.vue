@@ -24,6 +24,17 @@ onMounted(() => {
 
 function handleStep1Submit() {
   if (!name.value || !email.value || !password.value) return;
+  
+  if (password.value.length < 8) {
+    errorMessage.value = "La contraseña debe tener al menos 8 caracteres.";
+    return;
+  }
+  
+  if (password.value !== confirmPassword.value) {
+    errorMessage.value = "Las contraseñas no coinciden.";
+    return;
+  }
+
   step.value = 2;
 }
 
@@ -60,12 +71,13 @@ async function handleRegistration() {
     // --- LA SOLUCIÓN AQUÍ ---
     // Usamos el cerebro para guardar la sesión.
     // Esto actualiza AUTOMÁTICAMENTE el PublicLayout y el Home.
-    if (response.data.id) {
+    if (response.data.user && response.data.user.id) {
+       const user = response.data.user;
        const newUser = {
-         id: response.data.id,
-         nombre: name.value,
-         email: email.value,
-         rol: selectedRole.value
+         id: user.id,
+         nombre: user.nombre,
+         email: user.email,
+         rol: user.rol
        };
        // El backend a veces devuelve token en registro, si no, pasamos null
        const token = response.data.token || 'temp-token'; 
