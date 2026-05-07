@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { reactive, ref, onMounted, computed } from 'vue'; 
 import { useRouter } from 'vue-router';
 import axios from "axios";
@@ -91,7 +93,7 @@ onMounted(async () => {
   if (!userId) { router.push("/login"); return; }
 
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/profesionales/${userId}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
     
     if (data) {
       isEditingMode.value = true;
@@ -210,7 +212,7 @@ const saveProfile = async () => {
     if (fileAvatar.value) formData.append('avatar', fileAvatar.value);
     if (fileCover.value) formData.append('cover', fileCover.value);
 
-    await axios.post("http://localhost:3001/api/perfiles", formData, {
+    await axios.post(`${API_URLS.PERFILES}/api/perfiles`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
 

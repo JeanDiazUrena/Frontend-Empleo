@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
@@ -47,7 +49,7 @@ const imagePreview = ref(null);
 onMounted(async () => {
   if (isEditing.value) {
     try {
-      const response = await axios.get(`http://localhost:3001/api/portfolio/single/${postId}`);
+      const response = await axios.get(`${API_URLS.PERFILES}/api/portfolio/single/${postId}`);
       const data = response.data;
       
       form.description = data.descripcion;
@@ -115,13 +117,13 @@ const handlePublish = async () => {
     
     if (isEditing.value) {
       // MODO EDICION (PUT)
-      await axios.put(`http://localhost:3001/api/portfolio/${postId}`, formData, {
+      await axios.put(`${API_URLS.PERFILES}/api/portfolio/${postId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       showToast("Publicación actualizada correctamente.", "success");
     } else {
       // MODO CREACION (POST)
-      await axios.post('http://localhost:3001/api/portfolio', formData, {
+      await axios.post(`${API_URLS.PERFILES}/api/portfolio`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       showToast("Publicación creada exitosamente.", "success");
@@ -145,7 +147,7 @@ const handleDelete = async () => {
 
   try {
     isDeleting.value = true;
-    await axios.delete(`http://localhost:3001/api/portfolio/${postId}`);
+    await axios.delete(`${API_URLS.PERFILES}/api/portfolio/${postId}`);
     showToast("Publicación eliminada correctamente.", "success");
     setTimeout(() => {
       router.push('/professional/profile');

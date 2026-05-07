@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
@@ -87,7 +89,7 @@ const formatCVV = (e) => {
 
 const loadBankData = async () => {
   try {
-    const res = await axios.get(`http://localhost:3001/api/profesionales/${props.profesional_id}/financiero`);
+    const res = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${props.profesional_id}/financiero`);
     bankData.value = res.data;
   } catch (error) {
     console.error("No se pudo obtener la cuenta del profesional", error);
@@ -118,7 +120,7 @@ const showToast = (message, type = 'error') => {
 const loadCards = async () => {
   if (!state.user?.id) return;
   try {
-    const res = await axios.get(`http://localhost:3002/api/settings/payments/${state.user.id}`);
+    const res = await axios.get(`${API_URLS.PAGOS}/api/settings/payments/${state.user.id}`);
     if (res.data.success) {
       cards.value = res.data.data;
       if (cards.value.length > 0) {
@@ -138,7 +140,7 @@ const agregarTarjeta = async () => {
   
   isAddingCard.value = true;
   try {
-    const res = await axios.post('http://localhost:3002/api/settings/payments', {
+    const res = await axios.post(`${API_URLS.PAGOS}/api/settings/payments`, {
       usuario_id: state.user.id,
       brand: newCardBrand.value,
       holder_name: newCardHolder.value,
@@ -169,7 +171,7 @@ onMounted(async () => {
 
   // 1. Fetch the job directly to get monto_acordado
   try {
-    const jobRes = await axios.get(`http://localhost:3003/api/trabajos/${props.trabajo_id}`);
+    const jobRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/${props.trabajo_id}`);
     if (jobRes.data && Number(jobRes.data.monto_acordado) > 0) {
       resolvedMonto.value = Number(jobRes.data.monto_acordado);
       // Also sync the payment method if not set
@@ -181,7 +183,7 @@ onMounted(async () => {
 
   // 2. Check for accepted cotizacion (takes priority over job amount)
   try {
-    const cotRes = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${props.trabajo_id}`);
+    const cotRes = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${props.trabajo_id}`);
     if (cotRes.data && Number(cotRes.data.monto_total) > 0) {
       resolvedMonto.value = Number(cotRes.data.monto_total);
       // Also sync payment method from cotizacion
@@ -236,7 +238,7 @@ const confirmarFinalizacion = async () => {
     // Si fuera real, subiríamos la foto a un endpoint de subida aquí y obtendríamos la URL del comprobante.
     
     // Ejecutamos el endpoint que construimos en el backend
-    const res = await axios.post(`http://localhost:3003/api/trabajos/${props.trabajo_id}/finalizar`, {
+    const res = await axios.post(`${API_URLS.TRABAJOS}/api/trabajos/${props.trabajo_id}/finalizar`, {
       monto_final: montoAPagar.value,
       metodo_pago_real: normalizedMetodoPago.value,
       tarjeta_id: selectedCardId.value // Enviamos el ID de la tarjeta seleccionada

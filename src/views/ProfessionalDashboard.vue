@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -54,7 +56,7 @@ const loadCotizacionesForJobs = async (jobs) => {
   const activeJobs = jobs.filter(j => j.estado === 'EN_PROGRESO');
   for (const job of activeJobs) {
     try {
-      const { data } = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${job.id}`);
+      const { data } = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${job.id}`);
       if (data) jobCotizaciones.value[String(job.id)] = data;
     } catch(e) { /* no cotizacion yet */ }
   }
@@ -89,7 +91,7 @@ const enviarCotizacion = async () => {
     let savedCot;
     if (existing) {
       // EDIT existing
-      const { data } = await axios.put(`http://localhost:3003/api/cotizaciones/${existing.id}`, {
+      const { data } = await axios.put(`${API_URLS.TRABAJOS}/api/cotizaciones/${existing.id}`, {
         profesional_id: userId,
         solicitud_id: existing.solicitud_id || null,
         titulo: quoteForm.value.titulo || 'Cotización de servicio',
@@ -101,7 +103,7 @@ const enviarCotizacion = async () => {
       showToast('¡Cotización actualizada! El cliente podrá ver el nuevo precio.', 'success');
     } else {
       // CREATE new
-      const { data } = await axios.post('http://localhost:3003/api/cotizaciones', {
+      const { data } = await axios.post(`${API_URLS.TRABAJOS}/api/cotizaciones`, {
         trabajo_id: job.id,
         solicitud_id: job.solicitud_id || null,
         cliente_id: job.cliente_id,
@@ -170,7 +172,7 @@ const goToPayments = () => router.push('/professional/settings?tab=payments');
 const contactClient = async (clienteId) => {
   try {
     const userId = state.user?.id || localStorage.getItem('usuario_id');
-    await axios.post('http://localhost:3001/api/chat/conversacion', {
+    await axios.post(`${API_URLS.PERFILES}/api/chat/conversacion`, {
       cliente_id: clienteId,
       profesional_usuario_id: userId
     });
@@ -193,7 +195,7 @@ const acceptJobRequest = async (req) => {
     const userId = state.user?.id || localStorage.getItem('usuario_id');
     
     // Postulamos al profesional. Esto cambia el estado a 'POR_CONFIRMAR'
-    const res = await axios.put(`http://localhost:3001/api/solicitudes/${req.id}/postular`, {
+    const res = await axios.put(`${API_URLS.PERFILES}/api/solicitudes/${req.id}/postular`, {
       profesional_id: userId
     });
     
@@ -205,7 +207,7 @@ const acceptJobRequest = async (req) => {
 
       // Crear chat automático con mensaje de postulación
       try {
-        await axios.post('http://localhost:3001/api/chat/conversacion', {
+        await axios.post(`${API_URLS.PERFILES}/api/chat/conversacion`, {
           cliente_id: req.cliente_id,
           profesional_usuario_id: userId,
           solicitud_titulo: req.titulo,
@@ -230,7 +232,7 @@ onMounted(async () => {
   userAvatar.value = localStorage.getItem('usuario_avatar') || '';
 
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/profesionales/${userId}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
     profileStatus.value = !!data;
     // Si el perfil tiene avatar, actualizarlo
     if (data?.avatar_url) {
@@ -240,7 +242,7 @@ onMounted(async () => {
     if (data?.nombre) userDisplayName.value = data.nombre;
 
       try {
-        const solRes = await axios.get(`http://localhost:3001/api/solicitudes?profesional_id=${userId}`);
+        const solRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes?profesional_id=${userId}`);
         jobRequests.value = solRes.data.map(s => ({
           ...s,
           cliente_nombre: s.cliente_nombre || 'Cliente',
@@ -250,7 +252,7 @@ onMounted(async () => {
 
       // Check financial status
       try {
-        const finRes = await axios.get(`http://localhost:3001/api/profesionales/${userId}/financiero`);
+        const finRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}/financiero`);
         if (!finRes.data.stripe_card_token) {
            hasPaymentMethod.value = false;
         }
@@ -260,7 +262,7 @@ onMounted(async () => {
       }
 
       try {
-        const trabRes = await axios.get(`http://localhost:3003/api/trabajos/profesional/${userId}`);
+        const trabRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`);
         professionalJobs.value = trabRes.data.map(j => ({
           ...j,
           cliente_nombre: j.cliente_nombre || 'Cliente',
@@ -292,7 +294,7 @@ const finalizarTrabajo = async (trabajoId) => {
     }
     try {
         const userId = state.user?.id || localStorage.getItem('usuario_id');
-        const res = await axios.put(`http://localhost:3003/api/trabajos/${trabajoId}/terminar`, {
+        const res = await axios.put(`${API_URLS.TRABAJOS}/api/trabajos/${trabajoId}/terminar`, {
             profesional_id: userId
         });
         if (res.data.success) {
@@ -633,7 +635,7 @@ const finalizarTrabajo = async (trabajoId) => {
             <div v-for="req in jobRequests" :key="req.id" class="job-card">
               <div class="job-header">
                 <div class="client-info">
-                  <img v-if="req.cliente_avatar" :src="req.cliente_avatar.startsWith('http') ? req.cliente_avatar : `http://localhost:3001${req.cliente_avatar}`" class="client-avatar" alt="Avatar"/>
+                  <img v-if="req.cliente_avatar" :src="req.cliente_avatar.startsWith('http') ? req.cliente_avatar : `${API_URLS.PERFILES}${req.cliente_avatar}`" class="client-avatar" alt="Avatar"/>
                   <div v-else class="client-avatar-initial">{{ req.cliente_nombre ? req.cliente_nombre.charAt(0) : 'C' }}</div>
                   <div class="client-details">
                     <h4>{{ req.cliente_nombre || 'Cliente' }}</h4>
@@ -672,7 +674,7 @@ const finalizarTrabajo = async (trabajoId) => {
               
               <div class="modal-body">
                 <div class="detail-client">
-                  <img v-if="selectedRequest.cliente_avatar" :src="selectedRequest.cliente_avatar.startsWith('http') ? selectedRequest.cliente_avatar : `http://localhost:3001${selectedRequest.cliente_avatar}`" class="modal-avatar" />
+                  <img v-if="selectedRequest.cliente_avatar" :src="selectedRequest.cliente_avatar.startsWith('http') ? selectedRequest.cliente_avatar : `${API_URLS.PERFILES}${selectedRequest.cliente_avatar}`" class="modal-avatar" />
                   <div v-else class="modal-avatar-initial">{{ selectedRequest.cliente_nombre?.charAt(0) || 'C' }}</div>
                   <div>
                     <strong>{{ selectedRequest.cliente_nombre || 'Cliente' }}</strong>

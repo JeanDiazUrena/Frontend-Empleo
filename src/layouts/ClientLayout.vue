@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { io } from 'socket.io-client';
@@ -28,7 +30,7 @@ const fetchNotifications = async () => {
   const userId = localStorage.getItem('usuario_id');
   if (!userId) return;
   try {
-    const { data } = await axios.get(`http://localhost:3005/notificaciones/${userId}`);
+    const { data } = await axios.get(`${API_URLS.NOTIFICACIONES}/notificaciones/${userId}`);
     notifications.value = data;
     unreadNotifCount.value = data.filter(n => !n.is_read).length;
   } catch (e) { console.error(e); }
@@ -36,7 +38,7 @@ const fetchNotifications = async () => {
 
 const markAsRead = async (id) => {
   try {
-    await axios.put(`http://localhost:3005/notificaciones/${id}/read`);
+    await axios.put(`${API_URLS.NOTIFICACIONES}/notificaciones/${id}/read`);
     fetchNotifications();
   } catch (e) { console.error(e); }
 };
@@ -52,7 +54,7 @@ const fetchUnreadCount = async () => {
   const userId = localStorage.getItem('usuario_id');
   if (!userId) return;
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/chat/unread-count/${userId}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/unread-count/${userId}`);
     unreadCount.value = data.count || 0;
   } catch (e) { console.error(e); }
 };
@@ -115,7 +117,7 @@ onMounted(() => {
     fetchNotifications();
     notifInterval = setInterval(fetchNotifications, 15000);
     
-    socket = io('http://localhost:3001', { query: { userId } });
+    socket = io(`${API_URLS.PERFILES}`, { query: { userId } });
     socket.on('notification_new_message', (msg) => {
       if (msg.remitente_id !== userId) {
         unreadCount.value++;

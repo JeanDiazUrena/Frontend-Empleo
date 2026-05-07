@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
@@ -48,7 +50,7 @@ const handleBankAccInput = (e) => {
 
 const loadData = async () => {
   try {
-    const res = await axios.get(`http://localhost:3001/api/profesionales/${state.user.id}/financiero`);
+    const res = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${state.user.id}/financiero`);
     if (res.data) {
       form.value.bankAccount = res.data.cuenta_bancaria || '';
       form.value.bankName = res.data.banco || '';
@@ -102,7 +104,7 @@ const saveFinancialData = async () => {
     const simulatedToken = 'tok_' + Math.random().toString(36).substr(2, 9) + form.value.cardNumber.slice(-4);
 
     // Enviar a tu backend para guardar
-    await axios.put(`http://localhost:3001/api/profesionales/${state.user.id}/financiero`, {
+    await axios.put(`${API_URLS.PERFILES}/api/profesionales/${state.user.id}/financiero`, {
       stripe_card_token: simulatedToken,
       cuenta_bancaria: form.value.bankAccount,
       banco: form.value.bankName

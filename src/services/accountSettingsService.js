@@ -1,8 +1,9 @@
+import { API_URLS, SOCKET_URL } from '../config.js';
 import axios from 'axios';
 
-const AUTH_URL = 'http://localhost:3000/api/users';
-const PERFILES_URL = 'http://localhost:3001/api/solicitudes';
-const PAYMENTS_URL = 'http://localhost:3002/api/settings'; // Mantener para pagos si es necesario
+const AUTH_URL = `${API_URLS.AUTH}/api/users`;
+const PERFILES_URL = `${API_URLS.PERFILES}/api/solicitudes`;
+const PAYMENTS_URL = `${API_URLS.PAGOS}/api/settings`; // Mantener para pagos si es necesario
 
 const getAuthHeaders = () => {
   return {
@@ -38,7 +39,7 @@ export const accountApi = {
   // --- RECEIPTS ---
   async getReceipt(trabajoId) {
     try {
-      const res = await axios.get(`http://localhost:3003/api/trabajos/${trabajoId}/recibo`);
+      const res = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/${trabajoId}/recibo`);
       return res.data;
     } catch (err) {
       throw new Error(err.response?.data?.message || "Error al obtener el recibo");

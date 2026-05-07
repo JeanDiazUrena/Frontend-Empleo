@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
@@ -47,7 +49,7 @@ const loadCards = async () => {
   if (!userId) return;
   isLoadingCards.value = true;
   try {
-    const res = await axios.get(`http://localhost:3002/api/settings/payments/${userId}`);
+    const res = await axios.get(`${API_URLS.PAGOS}/api/settings/payments/${userId}`);
     if (res.data.success) {
       cards.value = res.data.data;
       if (cards.value.length > 0 && !form.value.tarjeta_id) {
@@ -69,7 +71,7 @@ const agregarTarjeta = async () => {
   }
   
   try {
-    const res = await axios.post('http://localhost:3002/api/settings/payments', {
+    const res = await axios.post(`${API_URLS.PAGOS}/api/settings/payments`, {
       usuario_id: userId,
       brand: newCardBrand.value,
       card_number: newCardNumber.value.replace(/\s/g, ''),
@@ -104,7 +106,7 @@ watch(() => form.value.metodo_pago, (newVal) => {
 onMountedVue(async () => {
   if (isEditing.value) {
     try {
-      const { data } = await axios.get(`http://localhost:3001/api/solicitudes/${route.params.id}`);
+      const { data } = await axios.get(`${API_URLS.PERFILES}/api/solicitudes/${route.params.id}`);
       if (data) {
         form.value = {
           title: data.titulo,
@@ -244,7 +246,7 @@ const handleSubmit = async () => {
 
   try {
     if (isEditing.value) {
-      await axios.put(`http://localhost:3001/api/solicitudes/${route.params.id}`, {
+      await axios.put(`${API_URLS.PERFILES}/api/solicitudes/${route.params.id}`, {
         titulo: form.value.title,
         categoria: form.value.category,
         descripcion: form.value.description,
@@ -270,7 +272,7 @@ const handleSubmit = async () => {
         fd.append('profesional_id', route.query.profesional_id);
       }
 
-      await axios.post('http://localhost:3001/api/solicitudes', fd, {
+      await axios.post(`${API_URLS.PERFILES}/api/solicitudes`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       submitted.value = true;

@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
@@ -25,7 +27,7 @@ async function handleLogin() {
 
   try {
     // 1. CONEXIÓN AL BACKEND
-    const response = await axios.post('http://localhost:3000/api/login', {
+    const response = await axios.post(`${API_URLS.AUTH}/api/login`, {
       email: email.value,
       password: password.value
     });
@@ -41,7 +43,7 @@ async function handleLogin() {
     // Si es cliente, vamos a buscar su teléfono y dirección al otro servidor
     if (basicUser.rol === 'cliente') {
       try {
-        const profileResponse = await axios.get(`http://localhost:3001/api/clientes/${basicUser.id}`);
+        const profileResponse = await axios.get(`${API_URLS.PERFILES}/api/clientes/${basicUser.id}`);
         const profileData = profileResponse.data;
 
         if (profileData) {
@@ -92,7 +94,7 @@ async function handleGoogleCallback(response) {
   isLoading.value = true;
   
   try {
-    const res = await axios.post('http://localhost:3000/api/google', {
+    const res = await axios.post(`${API_URLS.AUTH}/api/google`, {
       credential: response.credential
     });
 
@@ -101,7 +103,7 @@ async function handleGoogleCallback(response) {
 
     if (basicUser.rol === 'cliente') {
       try {
-        const profileResponse = await axios.get(`http://localhost:3001/api/clientes/${basicUser.id}`);
+        const profileResponse = await axios.get(`${API_URLS.PERFILES}/api/clientes/${basicUser.id}`);
         const profileData = profileResponse.data;
         if (profileData) {
           fullUserData.telefono = profileData.telefono;

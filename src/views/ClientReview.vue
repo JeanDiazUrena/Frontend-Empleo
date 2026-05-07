@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
@@ -19,7 +21,7 @@ const fetchWorkDetails = async () => {
   if (!trabajoId || !profesionalId) return;
 
   try {
-    const resTrabajo = await axios.get(`http://localhost:3003/api/trabajos/${trabajoId}`);
+    const resTrabajo = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/${trabajoId}`);
     if (resTrabajo.data) {
       trabajoInfo.value = {
         ...trabajoInfo.value,
@@ -29,7 +31,7 @@ const fetchWorkDetails = async () => {
     }
 
     // 2. Obtener info del profesional (para el nombre)
-    const resProf = await axios.get(`http://localhost:3001/api/profesionales/${profesionalId}`);
+    const resProf = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${profesionalId}`);
     if (resProf.data) {
       trabajoInfo.value.profesional_nombre = resProf.data.nombre;
     }
@@ -70,7 +72,7 @@ const submitReview = async () => {
   const profesionalId = route.query.ref; // Pasado por la URL
 
   try {
-    const res = await axios.post(`http://localhost:3003/api/trabajos/${trabajoId}/resena`, {
+    const res = await axios.post(`${API_URLS.TRABAJOS}/api/trabajos/${trabajoId}/resena`, {
       cliente_id: state.user.id,
       profesional_id: profesionalId,
       calificacion: form.value.calificacion,

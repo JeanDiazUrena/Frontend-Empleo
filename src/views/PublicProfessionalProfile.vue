@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
@@ -103,7 +105,7 @@ onMounted(async () => {
   user.value.name = "Profesional";
 
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/profesionales/${userId}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
     
     if (data) {
       user.value = {
@@ -129,11 +131,11 @@ onMounted(async () => {
       
       // LOAD REVIEWS
       try {
-        const reviewRes = await axios.get(`http://localhost:3003/api/resenas/profesional/${userId}`);
+        const reviewRes = await axios.get(`${API_URLS.TRABAJOS}/api/resenas/profesional/${userId}`);
         const fetchedReviews = reviewRes.data;
         for (let r of fetchedReviews) {
           try {
-            const cRes = await axios.get(`http://localhost:3001/api/clientes/${r.cliente_id}`);
+            const cRes = await axios.get(`${API_URLS.PERFILES}/api/clientes/${r.cliente_id}`);
             r.cliente_nombre = cRes.data?.nombre || "Cliente";
             r.cliente_avatar = cRes.data?.avatar || null;
           } catch(e) { r.cliente_nombre = "Cliente"; }
@@ -481,7 +483,7 @@ const categoryStyle = computed(() => {
           <div v-for="resena in reviews" :key="resena.id" class="review-card" style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `http://localhost:3001${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
+                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `${API_URLS.PERFILES}${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
                 <div v-else style="width: 44px; height: 44px; border-radius: 50%; background: #F1F5F9; color: #1E293B; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">{{ resena.cliente_nombre?.charAt(0) || 'C' }}</div>
                 <div>
                   <h4 style="margin: 0; color: #0F172A; font-size: 1rem;">{{ resena.cliente_nombre }}</h4>

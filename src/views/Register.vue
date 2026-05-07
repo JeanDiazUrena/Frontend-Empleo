@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from "axios";
@@ -54,13 +56,13 @@ async function handleRegistration() {
     
     // Si viene de Google
     if (googleCredential.value) {
-      response = await axios.post("http://localhost:3000/api/google", {
+      response = await axios.post(`${API_URLS.AUTH}/api/google`, {
         credential: googleCredential.value,
         rol: selectedRole.value
       });
     } else {
       // Registro normal
-      response = await axios.post("http://localhost:3000/api/register", {
+      response = await axios.post(`${API_URLS.AUTH}/api/register`, {
         nombre: name.value,
         email: email.value,
         password: password.value,

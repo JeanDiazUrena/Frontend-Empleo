@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -46,7 +48,7 @@ const closeWarning = () => showIncompleteProfileModal.value = false;
 const cancelarSolicitud = async (id) => {
   if (!confirm('¿Seguro que deseas cancelar esta solicitud?')) return;
   try {
-    await axios.delete(`http://localhost:3001/api/solicitudes/${id}`);
+    await axios.delete(`${API_URLS.PERFILES}/api/solicitudes/${id}`);
     activeRequests.value = activeRequests.value.filter(r => r.id !== id);
     showToast('Solicitud cancelada con éxito', 'success');
   } catch (err) {
@@ -58,7 +60,7 @@ const isConfirmingPro = ref(null);
 const confirmarProfesional = async (req) => {
   isConfirmingPro.value = req.id;
   try {
-    const res = await axios.post('http://localhost:3003/api/trabajos', {
+    const res = await axios.post(`${API_URLS.TRABAJOS}/api/trabajos`, {
       cliente_id: req.cliente_id,
       profesional_id: req.profesional_usuario_id, // Usar el usuario_id para que el profesional lo vea en su dashboard
       solicitud_id: req.id,
@@ -76,7 +78,7 @@ const confirmarProfesional = async (req) => {
       showToast('¡Trabajo formalizado con éxito!', 'success');
       activeRequests.value = activeRequests.value.filter(r => r.id !== req.id);
       // Recargar trabajos
-      const trabajosRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${state.user.id}`);
+      const trabajosRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${state.user.id}`);
       clientJobs.value = trabajosRes.data;
     }
   } catch (error) {
@@ -96,7 +98,7 @@ onMounted(async () => {
     try {
       // 1. SINCRONIZAR PERFIL (Puerto 3001)
       // Pedimos los datos más recientes a la base de datos
-      const { data } = await axios.get(`http://localhost:3001/api/clientes/${userId}`);
+      const { data } = await axios.get(`${API_URLS.PERFILES}/api/clientes/${userId}`);
       
       if (data) {
         // Actualizamos el cerebro con la información fresca
@@ -119,7 +121,7 @@ onMounted(async () => {
 
       // 2. CARGAR SOLICITUDES (Puerto 3001)
       try {
-        const requestsRes = await axios.get(`http://localhost:3001/api/solicitudes/cliente/${userId}`);
+        const requestsRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes/cliente/${userId}`);
         activeRequests.value = requestsRes.data;
       } catch (reqError) {
         console.log("El usuario no tiene solicitudes o el servicio 3001 no responde.");
@@ -127,7 +129,7 @@ onMounted(async () => {
 
       // 3. CARGAR PROFESIONALES DESTACADOS (Puerto 3001)
       try {
-        const prosRes = await axios.get('http://localhost:3001/api/profesionales');
+        const prosRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales`);
         if (prosRes.data && prosRes.data.length > 0) {
           // Filtramos profesionales que tengan los datos mínimos (el backend ya filtra, pero reforzamos)
           const validPros = prosRes.data.filter(p => p.nombre && p.profesion);
@@ -139,7 +141,7 @@ onMounted(async () => {
 
       // 4. CARGAR TRABAJOS ACTIVOS (Puerto 3003)
       try {
-          const trabajosRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${userId}`);
+          const trabajosRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}`);
           clientJobs.value = trabajosRes.data;
       } catch (err) {
           console.log("El servicio de trabajos (3003) no está disponible o no hay trabajos.");
@@ -147,7 +149,7 @@ onMounted(async () => {
 
       // 5. CARGAR HISTORIAL DE TRABAJOS COMPLETADOS (Puerto 3003)
       try {
-          const histRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${userId}/historial`);
+          const histRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}/historial`);
           pastJobs.value = histRes.data;
       } catch (err) {
           console.log("No se pudo cargar el historial de trabajos.");
@@ -159,7 +161,7 @@ onMounted(async () => {
           const activeJobs = clientJobs.value.filter(j => j.estado === 'EN_PROGRESO' || j.estado === 'FINALIZADO_PROFESIONAL');
           for (const job of activeJobs) {
               try {
-                  const cotRes = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${job.id}`);
+                  const cotRes = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${job.id}`);
                   jobCotizaciones.value[String(job.id)] = cotRes.data || null;
               } catch(e) {
                   jobCotizaciones.value[String(job.id)] = null;
@@ -191,12 +193,12 @@ const jobToPay = ref(null);
 const openPaymentModal = async (job) => {
     // Reload the job from backend to get the latest monto_acordado
     try {
-        const res = await axios.get(`http://localhost:3003/api/trabajos/${job.id}`);
+        const res = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/${job.id}`);
         if (res.data && Number(res.data.monto_acordado) > 0) {
             job.monto_acordado = res.data.monto_acordado;
         }
         // Also check if there's an accepted cotizacion for this job
-        const cotRes = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${job.id}`);
+        const cotRes = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${job.id}`);
         if (cotRes.data && cotRes.data.estado === 'ACEPTADA' && Number(cotRes.data.monto_total) > 0) {
             job.monto_acordado = cotRes.data.monto_total;
         }
@@ -262,7 +264,7 @@ const aceptarCotizacion = async (cotizacion) => {
     isAcceptingQuote.value = cotizacion.id;
     try {
         const userId = state.user.id;
-        const res = await axios.put(`http://localhost:3003/api/cotizaciones/${cotizacion.id}/aceptar`, {
+        const res = await axios.put(`${API_URLS.TRABAJOS}/api/cotizaciones/${cotizacion.id}/aceptar`, {
             cliente_id: userId
         });
         if (res.data.success) {

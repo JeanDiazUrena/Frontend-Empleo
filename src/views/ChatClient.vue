@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
@@ -53,7 +55,7 @@ const onFileChange = async (e) => {
   formData.append('file', file);
 
   try {
-    const { data } = await axios.post('http://localhost:3001/api/chat/upload', formData);
+    const { data } = await axios.post(`${API_URLS.PERFILES}/api/chat/upload`, formData);
     const tipo = file.type.startsWith('image/') ? 'imagen' : 'archivo';
     
     socket.emit('send_message', {
@@ -72,7 +74,7 @@ const onFileChange = async (e) => {
 const checkActiveJob = async (profesionalUsuarioId) => {
   if (!profesionalUsuarioId || !myId.value) return;
   try {
-    const { data } = await axios.get(`http://localhost:3003/api/trabajos/cliente/${myId.value}`);
+    const { data } = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${myId.value}`);
     // Ver si hay un trabajo activo con este profesional específico
     hasActiveJob.value = data.some(j => j.profesional_id === profesionalUsuarioId && j.estado === 'EN_PROGRESO');
   } catch (e) {
@@ -135,7 +137,7 @@ const acceptQuote = async (quote) => {
 
   acceptingQuoteId.value = quote.id;
   try {
-    const { data } = await axios.put(`http://localhost:3003/api/cotizaciones/${quote.id}/aceptar`, {
+    const { data } = await axios.put(`${API_URLS.TRABAJOS}/api/cotizaciones/${quote.id}/aceptar`, {
       cliente_id: myId.value
     });
 
@@ -212,7 +214,7 @@ const onlineUsers = ref([]);
 
 // Conectar socket
 const connectSocket = () => {
-  socket = io('http://localhost:3001', { query: { userId: myId.value } });
+  socket = io(`${API_URLS.PERFILES}`, { query: { userId: myId.value } });
 };
 
 // Desconectar
@@ -224,7 +226,7 @@ onUnmounted(() => {
 const loadConversations = async () => {
   isLoadingConvs.value = true;
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/chat/conversaciones/cliente/${myId.value}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/conversaciones/cliente/${myId.value}`);
     conversations.value = data || [];
   } catch (e) {
     console.error(e);
@@ -237,7 +239,7 @@ const loadConversations = async () => {
 const openOrCreateConversation = async (profesionalUsuarioId) => {
   if (!profesionalUsuarioId) return;
   try {
-    const { data } = await axios.post('http://localhost:3001/api/chat/conversacion', {
+    const { data } = await axios.post(`${API_URLS.PERFILES}/api/chat/conversacion`, {
       cliente_id: myId.value,
       profesional_usuario_id: profesionalUsuarioId
     });
@@ -261,7 +263,7 @@ const selectConversation = async (conv) => {
   isLoadingMsgs.value = true;
 
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/chat/mensajes/${conv.id}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/mensajes/${conv.id}`);
     messages.value = data || [];
     scrollToBottom();
   } catch (e) {
@@ -274,7 +276,7 @@ const selectConversation = async (conv) => {
   checkActiveJob(conv.profesional_usuario_id);
 
   // Marcar como leídos
-  axios.put(`http://localhost:3001/api/chat/leer/${conv.id}`, { lector_id: myId.value }).catch(() => {});
+  axios.put(`${API_URLS.PERFILES}/api/chat/leer/${conv.id}`, { lector_id: myId.value }).catch(() => {});
   conv.no_leidos = 0;
   socket.emit('messages_read', { usuarioId: myId.value });
 
@@ -359,7 +361,7 @@ onMounted(async () => {
       scrollToBottom();
       // Marcar leídos si no los envié yo
       if (msg.remitente_id !== myId.value) {
-        axios.put(`http://localhost:3001/api/chat/leer/${msg.conversacion_id}`, { lector_id: myId.value }).catch(() => {});
+        axios.put(`${API_URLS.PERFILES}/api/chat/leer/${msg.conversacion_id}`, { lector_id: myId.value }).catch(() => {});
       }
     } else {
       // Actualizar contador de no leídos de la conv correspondiente

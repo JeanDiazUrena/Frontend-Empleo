@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -69,7 +71,7 @@ const onFileChange = async (e) => {
   formData.append('file', file);
 
   try {
-    const { data } = await axios.post('http://localhost:3001/api/chat/upload', formData);
+    const { data } = await axios.post(`${API_URLS.PERFILES}/api/chat/upload`, formData);
     const tipo = file.type.startsWith('image/') ? 'imagen' : 'archivo';
     
     socket.emit('send_message', {
@@ -140,7 +142,7 @@ const unreadTotal = computed(() => {
 const onlineUsers = ref([]);
 
 const connectSocket = () => {
-  socket = io('http://localhost:3001', { query: { userId: myId.value } });
+  socket = io(`${API_URLS.PERFILES}`, { query: { userId: myId.value } });
 };
 
 onUnmounted(() => {
@@ -150,7 +152,7 @@ onUnmounted(() => {
 const loadConversations = async () => {
   isLoadingConvs.value = true;
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/chat/conversaciones/profesional/${myId.value}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/conversaciones/profesional/${myId.value}`);
     conversations.value = data || [];
   } catch (e) {
     console.error(e);
@@ -167,7 +169,7 @@ const selectConversation = async (conv) => {
   isLoadingMsgs.value = true;
 
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/chat/mensajes/${conv.id}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/mensajes/${conv.id}`);
     messages.value = data || [];
     scrollToBottom();
   } catch (e) {
@@ -176,7 +178,7 @@ const selectConversation = async (conv) => {
     isLoadingMsgs.value = false;
   }
 
-  axios.put(`http://localhost:3001/api/chat/leer/${conv.id}`, { lector_id: myId.value }).catch(() => {});
+  axios.put(`${API_URLS.PERFILES}/api/chat/leer/${conv.id}`, { lector_id: myId.value }).catch(() => {});
   conv.no_leidos = 0;
   if (socket) {
     socket.emit('messages_read', { usuarioId: myId.value });
@@ -243,7 +245,7 @@ onMounted(async () => {
 
   // Cargar datos bancarios reales del profesional
   try {
-    const { data: finData } = await axios.get(`http://localhost:3001/api/profesionales/${myId.value}/financiero`);
+    const { data: finData } = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${myId.value}/financiero`);
     if (finData) {
       profBankInfo.value = {
         banco: finData.banco || 'No especificado',
@@ -265,7 +267,7 @@ onMounted(async () => {
       messages.value.push(msg);
       scrollToBottom();
       if (msg.remitente_id !== myId.value) {
-        axios.put(`http://localhost:3001/api/chat/leer/${msg.conversacion_id}`, { lector_id: myId.value }).catch(() => {});
+        axios.put(`${API_URLS.PERFILES}/api/chat/leer/${msg.conversacion_id}`, { lector_id: myId.value }).catch(() => {});
       }
     } else {
       const conv = conversations.value.find(c => c.id === msg.conversacion_id);

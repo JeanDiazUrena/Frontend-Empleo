@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -123,7 +125,7 @@ const loadProfessionals = async () => {
     if (selectedCategory.value) params.categoria = selectedCategory.value;
     if (selectedCity.value) params.ciudad = selectedCity.value;
 
-    const { data } = await axios.get('http://localhost:3001/api/profesionales', { params });
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales`, { params });
     professionals.value = data || [];
   } catch (error) {
     console.error('Error cargando profesionales:', error);

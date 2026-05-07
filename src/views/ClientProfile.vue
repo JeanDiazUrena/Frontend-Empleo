@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL } from '../config.js';
+
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -71,7 +73,7 @@ onMounted(async () => {
   };
 
   try {
-    const { data } = await axios.get(`http://localhost:3001/api/clientes/${userId}`);
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/clientes/${userId}`);
     if (data) {
       user.value = {
         name: data.nombre || user.value.name,
@@ -89,17 +91,17 @@ onMounted(async () => {
 
       // Precargar solicitudes
       try {
-        const reqRes = await axios.get(`http://localhost:3001/api/solicitudes/cliente/${userId}`);
+        const reqRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes/cliente/${userId}`);
         serviceHistory.value = reqRes.data || [];
       } catch {}
 
       // LOAD REVIEWS GIVEN BY CLIENT
       try {
-        const reviewRes = await axios.get(`http://localhost:3003/api/resenas/cliente/${userId}`);
+        const reviewRes = await axios.get(`${API_URLS.TRABAJOS}/api/resenas/cliente/${userId}`);
         const fetchedReviews = reviewRes.data;
         for (let r of fetchedReviews) {
           try {
-            const pRes = await axios.get(`http://localhost:3001/api/profesionales/${r.profesional_id}`);
+            const pRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${r.profesional_id}`);
             r.profesional_nombre = pRes.data?.nombre || "Profesional";
             r.profesional_avatar = pRes.data?.avatar_url || null;
             r.profesion = pRes.data?.profesion || "";
@@ -180,7 +182,7 @@ const saveChanges = async () => {
     if (avatarFile.value) formData.append('avatar', avatarFile.value);
     if (bannerFile.value) formData.append('banner', bannerFile.value);
 
-    const response = await axios.post('http://localhost:3001/api/clientes', formData, {
+    const response = await axios.post(`${API_URLS.PERFILES}/api/clientes`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
 
