@@ -5,7 +5,7 @@ import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
-import { GoogleLogin } from 'vue3-google-login';
+import { GoogleLogin, googleSdkLoaded } from 'vue3-google-login';
 
 const router = useRouter();
 const { login } = useUserSession();
@@ -87,6 +87,16 @@ async function handleLogin() {
     isLoading.value = false;
   }
 }
+
+const loginWithGoogle = () => {
+  googleSdkLoaded((google) => {
+    google.accounts.id.initialize({
+      client_id: "508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com",
+      callback: handleGoogleCallback
+    });
+    google.accounts.id.prompt();
+  });
+};
 
 async function handleGoogleCallback(response) {
   if (!response.credential) return;
@@ -172,12 +182,10 @@ async function handleGoogleCallback(response) {
           <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
 
           <form @submit.prevent="handleLogin">
-            <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper">
-              <button type="button" class="btn-google">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-                Continuar con Google
-              </button>
-            </GoogleLogin>
+            <button type="button" class="btn-google" @click="loginWithGoogle">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+              Continuar con Google
+            </button>
 
             <div class="separator"><span>o ingresa con tu email</span></div>
 

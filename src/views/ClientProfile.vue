@@ -425,7 +425,7 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
                 <h5>{{ req.title || req.titulo || 'Solicitud #' + req.id }}</h5>
                 <div class="history-meta">
                   <span class="hist-date">
-                    {{ new Date(req.fecha_creacion || Date.now()).toLocaleDateString('es-DO', { day:'2-digit', month:'short', year:'numeric' }) }}
+                    {{ new Date(req.created_at || req.fecha_creacion || Date.now()).toLocaleDateString('es-DO', { day:'2-digit', month:'short', year:'numeric' }) }}
                   </span>
                   <span
                     class="hist-status-badge"
@@ -465,7 +465,7 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
                 <div style="display: flex; color: #F59E0B; font-size: 1rem; gap: 2px; justify-content: flex-end; margin-bottom: 4px;">
                   <i v-for="i in 5" :key="i" :class="i <= resena.calificacion ? 'fa-solid fa-star' : 'fa-regular fa-star'"></i>
                 </div>
-                <span style="font-size: 0.75rem; color: #9CA3AF;">{{ new Date(resena.fecha_creacion).toLocaleDateString() }}</span>
+                <span style="font-size: 0.75rem; color: #9CA3AF;">{{ new Date(resena.created_at || resena.fecha_creacion).toLocaleDateString() }}</span>
               </div>
             </div>
             <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; border-left: 4px solid #0B4C6F;">

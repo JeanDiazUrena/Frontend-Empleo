@@ -1,11 +1,9 @@
 <script setup>
-import { API_URLS, SOCKET_URL } from '../config.js';
-
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, RouterLink } from 'vue-router';
 import axios from "axios";
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR
-import { GoogleLogin } from 'vue3-google-login';
+import { GoogleLogin, googleSdkLoaded } from 'vue3-google-login';
 
 const { login, logout } = useUserSession(); // 2. USAR
 const router = useRouter();
@@ -18,6 +16,7 @@ const confirmPassword = ref('');
 const selectedRole = ref(null);
 const errorMessage = ref('');
 const googleCredential = ref('');
+const isLoading = ref(false);
 
 onMounted(() => {
   console.log("Limpiando datos anteriores...");
@@ -40,29 +39,73 @@ function handleStep1Submit() {
   step.value = 2;
 }
 
-const handleGoogleCallback = (response) => {
+const loginWithGoogle = () => {
+  googleSdkLoaded((google) => {
+    google.accounts.id.initialize({
+      client_id: "508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com",
+      callback: handleGoogleCallback
+    });
+    google.accounts.id.prompt(); // Mostrar el One Tap o Popup
+  });
+};
+
+const handleGoogleCallback = async (response) => {
+  console.log("Google response received:", response);
   if (response.credential) {
     googleCredential.value = response.credential;
-    step.value = 2; // Saltar al paso 2!
+    
+    // Intentar login automático si ya existe
+    try {
+      errorMessage.value = '';
+      const res = await axios.post("http://localhost:3000/api/google", {
+        credential: response.credential
+        // No mandamos rol para ver si ya existe
+      });
+
+      if (res.data.user) {
+        console.log("User already exists, logging in...");
+        const { user, token } = res.data;
+        login(user, token || 'temp-token');
+        
+        if (user.rol === 'profesional') {
+          router.push('/professional/dashboard');
+        } else {
+          router.push('/client/dashboard');
+        }
+        return;
+      }
+    } catch (err) {
+      console.log("User does not exist or error:", err.response?.data);
+      // Si el error es 404 (No registrado), pasamos al paso 2
+      if (err.response && err.response.status === 404) {
+        step.value = 2; 
+      } else {
+        errorMessage.value = err.response?.data?.error || err.response?.data?.message || "Error al conectar con Google.";
+      }
+    }
   }
 };
 
 async function handleRegistration() {
+  console.log("Finalizing registration with role:", selectedRole.value);
   errorMessage.value = '';
   if (!selectedRole.value) { errorMessage.value = "Selecciona un rol."; return; }
 
+  isLoading.value = true;
   try {
     let response;
     
     // Si viene de Google
     if (googleCredential.value) {
-      response = await axios.post(`${API_URLS.AUTH}/api/google`, {
+      console.log("Registering with Google...");
+      response = await axios.post("http://localhost:3000/api/google", {
         credential: googleCredential.value,
         rol: selectedRole.value
       });
     } else {
       // Registro normal
-      response = await axios.post(`${API_URLS.AUTH}/api/register`, {
+      console.log("Registering with Email...");
+      response = await axios.post("http://localhost:3000/api/register", {
         nombre: name.value,
         email: email.value,
         password: password.value,
@@ -70,36 +113,38 @@ async function handleRegistration() {
       });
     }
 
-    // --- LA SOLUCIÓN AQUÍ ---
-    // Usamos el cerebro para guardar la sesión.
-    // Esto actualiza AUTOMÁTICAMENTE el PublicLayout y el Home.
+    console.log("Response from server:", response.data);
+
     if (response.data.user && response.data.user.id) {
        const user = response.data.user;
+       console.log("Saving user to session:", user);
        const newUser = {
          id: user.id,
          nombre: user.nombre,
          email: user.email,
          rol: user.rol
        };
-       // El backend a veces devuelve token en registro, si no, pasamos null
        const token = response.data.token || 'temp-token'; 
        
-       login(newUser, token); // ¡MAGIA! Todo se sincroniza.
+       login(newUser, token);
     }
 
+    console.log("Redirecting to dashboard...");
     if (selectedRole.value === 'profesional') {
-      router.push('/professional/dashboard'); // O setup
+      router.push('/professional/dashboard');
     } else {
       router.push('/client/dashboard');
     }
 
   } catch (error) {
-    console.log("ERROR:", error);
-    if (error.response && error.response.data && error.response.data.message) {
-      errorMessage.value = error.response.data.message;
+    console.error("ERROR IN handleRegistration:", error);
+    if (error.response && error.response.data && (error.response.data.message || error.response.data.error)) {
+      errorMessage.value = error.response.data.error || error.response.data.message;
     } else {
-      errorMessage.value = "Error en el registro.";
+      errorMessage.value = "Error en el registro. " + (error.message || "");
     }
+  } finally {
+    isLoading.value = false;
   }
 }
 </script>
@@ -110,10 +155,12 @@ async function handleRegistration() {
       <div class="brand-overlay">
         <div class="brand-content">
           
-          <div class="brand-header">
-            <img src="/fotos/logo-servihub.png" alt="Logo ServiHub" class="brand-logo-img">
-            <span class="brand-url">Servihub.com</span>
-          </div>
+          <RouterLink to="/" class="brand-header-link">
+            <div class="brand-header">
+              <img src="/fotos/logo-servihub.png" alt="Logo ServiHub" class="brand-logo-img">
+              <span class="brand-url">Servihub.com</span>
+            </div>
+          </RouterLink>
           
           <h1>Únete a la mayor red de servicios.</h1>
           <p>Conecta con profesionales de confianza o encuentra nuevos clientes hoy mismo.</p>
@@ -160,12 +207,10 @@ async function handleRegistration() {
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
           
-          <GoogleLogin :callback="handleGoogleCallback">
-            <button type="button" class="google-btn">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-              Continuar con Google
-            </button>
-          </GoogleLogin>
+          <button type="button" class="google-btn" @click="loginWithGoogle">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+            Continuar con Google
+          </button>
 
           <div class="divider"><span>o regístrate con tu email</span></div>
 
@@ -190,7 +235,9 @@ async function handleRegistration() {
             </div>
           </div>
 
-          <button type="submit" class="primary-btn">Continuar</button>
+          <button type="submit" class="primary-btn" :disabled="isLoading">
+            {{ isLoading ? 'Procesando...' : 'Continuar' }}
+          </button>
 
           <p class="footer-text">
             ¿Ya tienes cuenta? <RouterLink to="/login" class="link">Inicia sesión</RouterLink>
@@ -236,8 +283,10 @@ async function handleRegistration() {
 
           </div>
 
-          <button @click="handleRegistration" class="primary-btn">Finalizar Registro</button>
-          <button @click="step = 1" class="text-btn">Volver atrás</button>
+          <button @click="handleRegistration" class="primary-btn" :disabled="isLoading">
+            {{ isLoading ? 'Registrando...' : 'Finalizar Registro' }}
+          </button>
+          <button @click="step = 1" class="text-btn" :disabled="isLoading">Volver atrás</button>
         </div>
 
       </div>
@@ -276,8 +325,8 @@ async function handleRegistration() {
 
 .brand-content { max-width: 480px; }
 
-/* HEADER DE MARCA */
-.brand-header { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; }
+.brand-header-link { text-decoration: none; display: block; width: fit-content; }
+.brand-header { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; cursor: pointer; }
 .brand-logo-img { height: 50px; background: transparent; }
 .brand-url { font-size: 2rem; font-weight: 800; color: white; letter-spacing: -0.5px; }
 
