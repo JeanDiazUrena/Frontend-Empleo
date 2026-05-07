@@ -15,6 +15,9 @@ const featuredProfessionals = ref([]);
 const clientJobs = ref([]); 
 const pastJobs = ref([]);
 const showPastJobs = ref(false);
+// Map of trabajo_id -> cotizacion (null = loaded but none, undefined = not loaded)
+const jobCotizaciones = ref({});
+const isAcceptingQuote = ref(null);
 
 // Control del Modal
 const showIncompleteProfileModal = ref(false);
@@ -38,6 +41,51 @@ const closeJobModal = () => { selectedJob.value = null; showJobModal.value = fal
 const goToExplore = () => router.push('/client/explore');
 const goToProfile = () => router.push('/client/profile');
 const closeWarning = () => showIncompleteProfileModal.value = false;
+
+// --- ACCIONES SOLICITUDES ---
+const cancelarSolicitud = async (id) => {
+  if (!confirm('¿Seguro que deseas cancelar esta solicitud?')) return;
+  try {
+    await axios.delete(`http://localhost:3001/api/solicitudes/${id}`);
+    activeRequests.value = activeRequests.value.filter(r => r.id !== id);
+    showToast('Solicitud cancelada con éxito', 'success');
+  } catch (err) {
+    showToast('No se pudo cancelar la solicitud', 'error');
+  }
+};
+
+const isConfirmingPro = ref(null);
+const confirmarProfesional = async (req) => {
+  isConfirmingPro.value = req.id;
+  try {
+    const res = await axios.post('http://localhost:3003/api/trabajos', {
+      cliente_id: req.cliente_id,
+      profesional_id: req.profesional_usuario_id, // Usar el usuario_id para que el profesional lo vea en su dashboard
+      solicitud_id: req.id,
+      titulo: req.titulo,
+      descripcion: req.descripcion,
+      horario: req.disponibilidad || 'No especificado',
+      presupuesto: req.presupuesto_max || req.presupuesto_min || 'No especificado',
+      monto_acordado: req.monto_acordado || req.presupuesto_max || req.presupuesto_min || 0,
+      metodo_pago: req.metodo_pago || 'EFECTIVO',
+      cliente_nombre: state.user.name,
+      categoria: req.categoria
+    });
+    
+    if (res.data.success) {
+      showToast('¡Trabajo formalizado con éxito!', 'success');
+      activeRequests.value = activeRequests.value.filter(r => r.id !== req.id);
+      // Recargar trabajos
+      const trabajosRes = await axios.get(`http://localhost:3003/api/trabajos/cliente/${state.user.id}`);
+      clientJobs.value = trabajosRes.data;
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('Error al formalizar el trabajo.', 'error');
+  } finally {
+    isConfirmingPro.value = null;
+  }
+};
 
 // --- AL CARGAR ---
 onMounted(async () => {
@@ -105,6 +153,22 @@ onMounted(async () => {
           console.log("No se pudo cargar el historial de trabajos.");
       }
 
+      // 6. CARGAR COTIZACIONES POR TRABAJO (Porto 3003)
+      try {
+          // Load cotizaciones for each active job individually
+          const activeJobs = clientJobs.value.filter(j => j.estado === 'EN_PROGRESO' || j.estado === 'FINALIZADO_PROFESIONAL');
+          for (const job of activeJobs) {
+              try {
+                  const cotRes = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${job.id}`);
+                  jobCotizaciones.value[String(job.id)] = cotRes.data || null;
+              } catch(e) {
+                  jobCotizaciones.value[String(job.id)] = null;
+              }
+          }
+      } catch (err) {
+          console.log("Error cargando cotizaciones por trabajo.");
+      }
+
     } catch (error) {
       console.error("Error cargando dashboard:", error);
       // Si falla la conexión con BD, confiamos en lo que hay en memoria local
@@ -124,28 +188,35 @@ onMounted(async () => {
 const showPaymentModal = ref(false);
 const jobToPay = ref(null);
 
-const openPaymentModal = (job) => {
+const openPaymentModal = async (job) => {
+    // Reload the job from backend to get the latest monto_acordado
+    try {
+        const res = await axios.get(`http://localhost:3003/api/trabajos/${job.id}`);
+        if (res.data && Number(res.data.monto_acordado) > 0) {
+            job.monto_acordado = res.data.monto_acordado;
+        }
+        // Also check if there's an accepted cotizacion for this job
+        const cotRes = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${job.id}`);
+        if (cotRes.data && cotRes.data.estado === 'ACEPTADA' && Number(cotRes.data.monto_total) > 0) {
+            job.monto_acordado = cotRes.data.monto_total;
+        }
+    } catch (e) { console.log('Could not refresh job data'); }
     jobToPay.value = job;
     showPaymentModal.value = true;
 };
 
 const getJobAmount = (job) => {
     if (!job) return 0;
-    
-    // Prioridad: Monto Acordado > Monto Total > Presupuesto Max > Presupuesto (como string)
+    // Prioridad: monto_acordado del trabajo (actualizado al aceptar cotizacion) > presupuesto_max > presupuesto
     const value = job.monto_acordado || job.monto_total || job.presupuesto_max || job.presupuesto;
-    
     if (typeof value === 'number' && value > 0) return value;
     if (!value) return 0;
-
-    // Si es un string (ej: "RD$ 1,500 - RD$ 3,000"), intentamos extraer el número más alto
+    // Si es un string (ej: "RD$ 1,500 - RD$ 3,000"), extraemos el número más alto
     const matches = String(value).match(/\d+(?:[.,]\d+)*/g);
     if (!matches) return 0;
-
     const amounts = matches
       .map((part) => Number(part.replace(/,/g, '')))
       .filter((amount) => Number.isFinite(amount) && amount > 0);
-
     return amounts.length > 0 ? Math.max(...amounts) : 0;
 };
 
@@ -169,8 +240,43 @@ const formatPaymentMethod = (method) => {
 const handlePaymentSuccess = () => {
     showPaymentModal.value = false;
     if (jobToPay.value) {
-        // Redirigir a reseña después del pago
         router.push(`/client/review/${jobToPay.value.id}?ref=${jobToPay.value.profesional_id}`);
+    }
+};
+
+// --- COTIZACION LOGIC ---
+const getCotizacionForJob = (job) => {
+    const key = String(job?.id);
+    return jobCotizaciones.value[key] || null;
+};
+
+const formatMoneyQ = (value) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0
+        ? `RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : 'A coordinar';
+};
+
+const aceptarCotizacion = async (cotizacion) => {
+    if (!cotizacion?.id || isAcceptingQuote.value) return;
+    isAcceptingQuote.value = cotizacion.id;
+    try {
+        const userId = state.user.id;
+        const res = await axios.put(`http://localhost:3003/api/cotizaciones/${cotizacion.id}/aceptar`, {
+            cliente_id: userId
+        });
+        if (res.data.success) {
+            showToast('¡Cotización aceptada! El trabajo continúa con el precio acordado.', 'success');
+            // Remove from map so banner disappears
+            jobCotizaciones.value[String(cotizacion.trabajo_id)] = null;
+            // Update job monto_acordado in local state
+            const job = clientJobs.value.find(j => String(j.id) === String(cotizacion.trabajo_id));
+            if (job) job.monto_acordado = cotizacion.monto_total;
+        }
+    } catch (error) {
+        showToast(error.response?.data?.error || 'No se pudo aceptar la cotización.', 'error');
+    } finally {
+        isAcceptingQuote.value = null;
     }
 };
 </script>
@@ -247,9 +353,34 @@ const handlePaymentSuccess = () => {
               </div>
             </div>
             
-            <button class="btn-view-details" @click="router.push(`/client/request/edit/${req.id}`)">
-              Ver Detalles <i class="fa-solid fa-arrow-right"></i>
-            </button>
+            <div class="card-actions-row">
+              <button class="btn-action-outline" @click="router.push(`/client/request/edit/${req.id}`)">
+                <i class="fa-solid fa-pen"></i> Editar
+              </button>
+              <button class="btn-action-outline text-red-600" @click="cancelarSolicitud(req.id)">
+                <i class="fa-solid fa-trash"></i> Cancelar
+              </button>
+              
+              <!-- Si un profesional aceptó y espera confirmación -->
+              <div v-if="req.estado === 'POR_CONFIRMAR' || req.estado === 'por_confirmar'" class="pro-confirmation-box">
+                <div class="pro-mini-profile">
+                  <img :src="req.profesional_avatar || '/default-avatar.png'" class="pro-mini-avatar" />
+                  <div class="pro-mini-info">
+                    <span class="pro-name">{{ req.profesional_nombre || 'Profesional interesado' }}</span>
+                    <span class="pro-label">Interesado en tu solicitud</span>
+                  </div>
+                </div>
+                <button 
+                  class="btn-confirm-pro" 
+                  @click="confirmarProfesional(req)"
+                  :disabled="isConfirmingPro === req.id"
+                >
+                  <i v-if="isConfirmingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
+                  <i v-else class="fa-solid fa-handshake"></i>
+                  Confirmar Profesional
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -261,9 +392,9 @@ const handlePaymentSuccess = () => {
       <div class="ongoing-section">
         <h3 class="section-title" v-if="clientJobs.length > 0">Tus Trabajos en Curso</h3>
         <div v-if="clientJobs.length > 0" class="ongoing-list">
-          <div v-for="job in clientJobs" :key="job.id" class="ongoing-card">
+          <div v-for="job in clientJobs" :key="job.id" class="ongoing-card" :class="{ 'card-finalizado': job.estado === 'FINALIZADO_PROFESIONAL' }" style="flex-direction: column; align-items: stretch; gap: 14px;">
             <div class="card-left">
-              <div class="status-indicator" :class="job.estado === 'FINALIZADO_PROFESIONAL' ? 'orange' : 'green'"></div>
+              <div class="status-indicator" :class="job.estado === 'FINALIZADO_PROFESIONAL' ? 'orange animate-pulse' : 'green'"></div>
               <div class="req-details">
                 <h4>{{ job.titulo || 'Contratación Directa' }}</h4>
                 <p v-if="job.descripcion" class="job-desc-preview">{{ job.descripcion.slice(0, 80) }}{{ job.descripcion.length > 80 ? '...' : '' }}</p>
@@ -274,8 +405,42 @@ const handlePaymentSuccess = () => {
                   }">
                     {{ job.estado === 'EN_PROGRESO' ? 'En progreso' : job.estado === 'FINALIZADO_PROFESIONAL' ? 'Listo para confirmar' : job.estado }}
                   </span>
-                  • {{ new Date(job.fecha_creacion).toLocaleDateString() }}
+                  • {{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}
                 </span>
+              </div>
+            </div>
+            
+            <!-- COTIZACIÓN PENDIENTE INLINE — solo cuando el trabajo está en progreso o listo para confirmar y tiene una cotización pendiente -->
+            <div v-if="(job.estado === 'EN_PROGRESO' || job.estado === 'FINALIZADO_PROFESIONAL') && getCotizacionForJob(job) && getCotizacionForJob(job).estado === 'PENDIENTE'" class="cotizacion-inline-banner">
+              <div class="cib-header">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Cotización Pendiente</span>
+                <span class="cib-badge">¡Revisa!</span>
+              </div>
+              <div class="cib-body">
+                <div class="cib-row">
+                  <span class="cib-label">Servicio</span>
+                  <span class="cib-value">{{ getCotizacionForJob(job).titulo }}</span>
+                </div>
+                <div class="cib-row">
+                  <span class="cib-label">Monto</span>
+                  <span class="cib-amount">{{ formatMoneyQ(getCotizacionForJob(job).monto_total) }}</span>
+                </div>
+                <div class="cib-row" v-if="getCotizacionForJob(job).descripcion">
+                  <span class="cib-label">Detalle</span>
+                  <span class="cib-value">{{ getCotizacionForJob(job).descripcion }}</span>
+                </div>
+                <div class="cib-actions">
+                  <button 
+                    class="cib-btn-accept"
+                    :disabled="isAcceptingQuote === getCotizacionForJob(job).id"
+                    @click="aceptarCotizacion(getCotizacionForJob(job))"
+                  >
+                    <i v-if="isAcceptingQuote === getCotizacionForJob(job).id" class="fa-solid fa-spinner fa-spin"></i>
+                    <i v-else class="fa-solid fa-check"></i>
+                    {{ isAcceptingQuote === getCotizacionForJob(job).id ? 'Aceptando...' : 'Aceptar precio' }}
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -388,7 +553,7 @@ const handlePaymentSuccess = () => {
                 </div>
               </div>
               <div class="card-actions">
-                <button class="btn-receipt" @click="router.push(`/client/receipt/${job.solicitud_id || job.id}`)">
+                <button class="btn-receipt" @click="router.push(`/client/receipt/${job.id}`)">
                   <i class="fa-solid fa-file-invoice"></i> Recibo
                 </button>
                 <button class="btn-past-detail" @click="openJobDetail(job)">
@@ -536,13 +701,16 @@ const handlePaymentSuccess = () => {
 .ongoing-section { margin-bottom: 40px; }
 .section-title { font-size: 1.25rem; color: #333; margin-bottom: 15px; font-weight: 700; }
 .ongoing-list { display: flex; flex-direction: column; gap: 15px; }
-.ongoing-card { background: white; border: 1px solid #E0F2FE; border-left: 4px solid #F76B1C; border-radius: 8px; padding: 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s; }
+.ongoing-card { background: white; border: 1px solid #E0F2FE; border-left: 4px solid #22C55E; border-radius: 8px; padding: 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.3s ease; }
+.ongoing-card.card-finalizado { border-left-color: #F76B1C; background: #FFFAF5; }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 .ongoing-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
 .card-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .job-desc-preview { margin: 2px 0 4px; font-size: 0.82rem; color: #64748B; line-height: 1.4; }
 .estado-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
 .badge-progreso  { background: #ECFDF5; color: #059669; }
-.badge-finalizado { background: #FFF7ED; color: #D97706; }
+.badge-finalizado { background: #FFF7ED; color: #D97706; box-shadow: 0 0 0 1px #FED7AA; }
 
 /* --- JOB DETAIL MODAL --- */
 .modal-overlay {
@@ -789,6 +957,47 @@ const handlePaymentSuccess = () => {
 }
 .btn-past-detail { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1.5px solid #E2E8F0; border-radius: 8px; font-weight: 700; font-size: 0.82rem; color: #475569; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
 .btn-past-detail:hover { border-color: #0B4C6F; color: #0B4C6F; background: #F0F9FF; }
+
+.card-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.btn-action-outline {
+  padding: 6px 12px;
+  background: white;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: .2s;
+}
+.btn-action-outline:hover { background: #F8FAFC; border-color: #CBD5E1; }
+.btn-confirm-pro {
+  padding: 6px 14px;
+  background: #3B82F6;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: .2s;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
+}
+.btn-confirm-pro:hover { background: #2563EB; transform: translateY(-1px); }
+.btn-confirm-pro:disabled { opacity: 0.7; cursor: not-allowed; }
+.text-red-600 { color: #EF4444 !important; border-color: #FEE2E2 !important; }
+.text-red-600:hover { background: #FEF2F2 !important; }
+
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; max-height: 600px; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; max-height: 0; }
 
@@ -830,4 +1039,119 @@ const handlePaymentSuccess = () => {
 .toast-close:hover { opacity: 1; }
 .toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
 .toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateX(-50%) translateY(16px); }
-</style>
+
+/* ===== COTIZACIÓN INLINE BANNER ===== */
+.cotizacion-inline-banner {
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+  border: 1.5px solid #86EFAC;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: slideIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cib-header {
+  background: linear-gradient(90deg, #16A34A, #15803D);
+  color: white;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cib-badge {
+  background: #FEF9C3;
+  color: #92400E;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-left: auto;
+  animation: pulse-badge 1.5s infinite;
+}
+@keyframes pulse-badge { 0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.4)}50%{box-shadow:0 0 0 5px rgba(250,204,21,0)} }
+.cib-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.cib-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cib-label { font-size: 0.72rem; font-weight: 700; color: #15803D; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
+.cib-value { font-size: 0.88rem; color: #166534; font-weight: 500; text-align: right; }
+.cib-amount { font-size: 1.4rem; font-weight: 900; color: #14532D; letter-spacing: -0.5px; }
+.cib-actions { margin-top: 8px; }
+.cib-btn-accept {
+  width: 100%;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #16A34A, #15803D);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+.cib-btn-accept:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.4);
+  background: linear-gradient(135deg, #15803D, #166534);
+}
+.cib-btn-accept:disabled { background: #D1D5DB; cursor: not-allowed; box-shadow: none; }
+.pro-confirmation-box {
+   background: #f8fafc;
+   border: 1px solid #e2e8f0;
+   border-radius: 12px;
+   padding: 12px;
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+   margin-top: 10px;
+ }
+ .pro-mini-profile {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+ }
+ .pro-mini-avatar {
+   width: 40px;
+   height: 40px;
+   border-radius: 50%;
+   object-fit: cover;
+   border: 2px solid #fff;
+   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+ }
+ .pro-mini-info {
+   display: flex;
+   flex-direction: column;
+ }
+ .pro-name {
+   font-weight: 600;
+   font-size: 14px;
+   color: #1e293b;
+ }
+ .pro-label {
+   font-size: 12px;
+   color: #64748b;
+ }
+ .btn-confirm-pro {
+   background: #2563eb;
+   color: white;
+   border: none;
+   padding: 10px;
+   border-radius: 8px;
+   font-weight: 600;
+   cursor: pointer;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   transition: all 0.2s;
+ }
+ .btn-confirm-pro:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
+ .btn-confirm-pro:disabled { opacity: 0.7; cursor: not-allowed; }
+ </style>

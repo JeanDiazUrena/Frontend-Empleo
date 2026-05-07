@@ -570,24 +570,21 @@ onMounted(async () => {
                   </template>
 
                   <template v-else-if="msg.tipo === 'cotizacion'">
-                    <div v-if="parseQuote(msg.contenido)" class="quote-card">
-                      <div class="quote-card-header">
+                    <div class="quote-card" style="background: #f0fdf4; border: 1.5px solid #bbf7d0;">
+                      <div class="quote-card-header" style="color: #16a34a;">
                         <i class="fa-solid fa-file-invoice-dollar"></i>
                         <span>Cotización recibida</span>
                       </div>
-                      <h4>{{ parseQuote(msg.contenido).titulo }}</h4>
-                      <p v-if="parseQuote(msg.contenido).descripcion">{{ parseQuote(msg.contenido).descripcion }}</p>
-                      <div class="quote-total">{{ formatMoney(parseQuote(msg.contenido).monto_total) }}</div>
-                      <small>Método: {{ parseQuote(msg.contenido).metodo_pago || 'EFECTIVO' }}</small>
+                      <p style="font-size: 0.88rem; color: #166534; font-weight: 500; margin: 6px 0 0;">
+                        El profesional te ha enviado una cotización.
+                      </p>
                       <button
-                        v-if="msg.remitente_id !== myId"
                         class="quote-accept-btn"
-                        :disabled="acceptingQuoteId === parseQuote(msg.contenido).id"
-                        @click="acceptQuote(parseQuote(msg.contenido))"
+                        @click="$router.push('/client/dashboard')"
+                        style="margin-top: 10px; background: #16a34a;"
                       >
-                        <i v-if="acceptingQuoteId === parseQuote(msg.contenido).id" class="fa-solid fa-spinner fa-spin"></i>
-                        <i v-else class="fa-solid fa-check"></i>
-                        {{ acceptingQuoteId === parseQuote(msg.contenido).id ? 'Aceptando...' : 'Aceptar cotización' }}
+                        <i class="fa-solid fa-arrow-right"></i>
+                        Ver en mi Panel
                       </button>
                     </div>
                   </template>

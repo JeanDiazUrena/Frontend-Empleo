@@ -40,6 +40,98 @@ const selectedRequest = ref(null);
 const showDetailModal = ref(false);
 const showPastJobs = ref(false);
 
+// --- COTIZACION MODAL ---
+const showQuoteModal = ref(false);
+const isSendingQuote = ref(false);
+const quoteTargetJob = ref(null);
+const quoteForm = ref({ titulo: '', descripcion: '', monto_total: '', metodo_pago: 'EFECTIVO' });
+// Map of trabajo_id -> cotizacion object
+const jobCotizaciones = ref({});
+
+const getCotizacionForJob = (jobId) => jobCotizaciones.value[String(jobId)] || null;
+
+const loadCotizacionesForJobs = async (jobs) => {
+  const activeJobs = jobs.filter(j => j.estado === 'EN_PROGRESO');
+  for (const job of activeJobs) {
+    try {
+      const { data } = await axios.get(`http://localhost:3003/api/cotizaciones/trabajo/${job.id}`);
+      if (data) jobCotizaciones.value[String(job.id)] = data;
+    } catch(e) { /* no cotizacion yet */ }
+  }
+};
+
+const openQuoteModal = (job) => {
+  quoteTargetJob.value = job;
+  const existing = getCotizacionForJob(job.id);
+  quoteForm.value = {
+    titulo: existing?.titulo || job.titulo || 'Cotización de servicio',
+    descripcion: existing?.descripcion || '',
+    monto_total: existing?.monto_total || '',
+    metodo_pago: existing?.metodo_pago || job.metodo_pago || 'EFECTIVO'
+  };
+  showQuoteModal.value = true;
+};
+
+const enviarCotizacion = async () => {
+  const monto = Number(quoteForm.value.monto_total);
+  if (!Number.isFinite(monto) || monto <= 0) {
+    showToast('Ingresa un monto válido.', 'error');
+    return;
+  }
+  if (!quoteTargetJob.value) return;
+
+  isSendingQuote.value = true;
+  try {
+    const userId = state.user?.id || localStorage.getItem('usuario_id');
+    const job = quoteTargetJob.value;
+    const existing = getCotizacionForJob(job.id);
+
+    let savedCot;
+    if (existing) {
+      // EDIT existing
+      const { data } = await axios.put(`http://localhost:3003/api/cotizaciones/${existing.id}`, {
+        profesional_id: userId,
+        solicitud_id: existing.solicitud_id || null,
+        titulo: quoteForm.value.titulo || 'Cotización de servicio',
+        descripcion: quoteForm.value.descripcion,
+        monto_total: monto,
+        metodo_pago: quoteForm.value.metodo_pago
+      });
+      savedCot = data.cotizacion;
+      showToast('¡Cotización actualizada! El cliente podrá ver el nuevo precio.', 'success');
+    } else {
+      // CREATE new
+      const { data } = await axios.post('http://localhost:3003/api/cotizaciones', {
+        trabajo_id: job.id,
+        solicitud_id: job.solicitud_id || null,
+        cliente_id: job.cliente_id,
+        profesional_id: userId,
+        titulo: quoteForm.value.titulo || 'Cotización de servicio',
+        descripcion: quoteForm.value.descripcion,
+        monto_total: monto,
+        metodo_pago: quoteForm.value.metodo_pago
+      });
+      savedCot = data.cotizacion;
+      showToast('¡Cotización enviada! El cliente la verá en su panel.', 'success');
+    }
+
+    // Update local state
+    if (savedCot) jobCotizaciones.value[String(job.id)] = savedCot;
+    showQuoteModal.value = false;
+  } catch (error) {
+    showToast(error.response?.data?.error || 'No se pudo enviar la cotización.', 'error');
+  } finally {
+    isSendingQuote.value = false;
+  }
+};
+
+const formatMoney = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0
+    ? `RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : 'A coordinar';
+};
+
 const openDetail = (req) => {
   selectedRequest.value = {
     ...req,
@@ -94,65 +186,38 @@ const acceptJobRequest = async (req) => {
     return;
   }
 
-  const confirmed = await askConfirm(`¿Deseas aceptar la solicitud de ${req.cliente_nombre}? Se creará un trabajo formal.`);
+  const confirmed = await askConfirm(`¿Deseas aceptar la solicitud de ${req.cliente_nombre}? El cliente deberá confirmar para iniciar el trabajo.`);
   if (!confirmed) return;
 
   try {
     const userId = state.user?.id || localStorage.getItem('usuario_id');
     
-    // Preparar el presupuesto y horario de la solicitud para el trabajo
-    const presupuestoStr = req.presupuesto_min || req.presupuesto_max 
-      ? `RD$ ${Number(req.presupuesto_min || 0).toLocaleString()} - RD$ ${Number(req.presupuesto_max || 0).toLocaleString()}`
-      : 'No especificado';
-    const montoAcordado = Number(req.monto_acordado || req.presupuesto_max || req.presupuesto_min || 0) || null;
-    
-    const horarioStr = {
-      'manana': 'Mañana (8am – 12pm)',
-      'tarde': 'Tarde (12pm – 6pm)',
-      'noche': 'Noche (6pm – 9pm)',
-      'finde': 'Fines de semana',
-      'cualquier': 'Cualquier momento'
-    }[req.disponibilidad] || req.disponibilidad || 'No especificado';
-
-    const res = await axios.post('http://localhost:3003/api/trabajos', {
-      cliente_id: req.cliente_id,
-      profesional_id: userId,
-      solicitud_id: req.id,
-      titulo: req.titulo,
-      descripcion: req.descripcion,
-      horario: horarioStr,
-      presupuesto: presupuestoStr,
-      monto_acordado: montoAcordado,
-      metodo_pago: req.metodo_pago || 'EFECTIVO',
-      cliente_nombre: req.cliente_nombre,
-      categoria: req.categoria
+    // Postulamos al profesional. Esto cambia el estado a 'POR_CONFIRMAR'
+    const res = await axios.put(`http://localhost:3001/api/solicitudes/${req.id}/postular`, {
+      profesional_id: userId
     });
     
-    if (res.data.success) {
-      // AUTOMATIC CHAT CREATION WITH AUTO-MESSAGES
+    if (res.data) {
+      showToast('¡Interés enviado! Esperando confirmación del cliente.', 'success');
+      
+      // Refrescamos la lista local eliminando la que ya aceptamos
+      jobRequests.value = jobRequests.value.filter(r => r.id !== req.id);
+
+      // Crear chat automático con mensaje de postulación
       try {
         await axios.post('http://localhost:3001/api/chat/conversacion', {
           cliente_id: req.cliente_id,
           profesional_usuario_id: userId,
           solicitud_titulo: req.titulo,
-          solicitud_descripcion: req.descripcion
+          solicitud_descripcion: `He aceptado tu solicitud: "${req.titulo}". Estoy listo para comenzar en cuanto confirmes.`
         });
-      } catch (chatError) {
-        console.error("Error creating chat automatically:", chatError);
-      }
+      } catch (err) { console.error("Error al iniciar chat:", err); }
 
-      showToast('¡Trabajo aceptado! Se ha creado un chat con el cliente para coordinar.', 'success');
-      jobRequests.value = jobRequests.value.filter(r => r.id !== req.id);
-      professionalJobs.value.unshift({
-        ...res.data.trabajo,
-        cliente_nombre: res.data.trabajo.cliente_nombre || req.cliente_nombre || 'Cliente',
-        categoria: res.data.trabajo.categoria || req.categoria || 'Servicio'
-      });
-      closeDetail(); // Close modal if open
+      closeDetail();
     }
   } catch(e) {
     console.error(e);
-    showToast('Error al intentar aceptar la solicitud. Intenta de nuevo.', 'error');
+    showToast('Error al intentar aceptar la solicitud.', 'error');
   }
 };
 
@@ -201,6 +266,8 @@ onMounted(async () => {
           cliente_nombre: j.cliente_nombre || 'Cliente',
           categoria: j.categoria || 'Servicio'
         }));
+        // Load cotizaciones for active jobs
+        await loadCotizacionesForJobs(professionalJobs.value);
       } catch(e) { console.error("Error cargando trabajos", e); }
       
     } catch {
@@ -211,8 +278,18 @@ onMounted(async () => {
 });
 
 const finalizarTrabajo = async (trabajoId) => {
-    const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente deberá validarlo para liberar el pago.');
-    if (!confirmed) return;
+    const cotizacion = getCotizacionForJob(trabajoId);
+    if (!cotizacion) {
+        showToast('Debes enviar una cotización al cliente antes de marcar el trabajo como terminado.', 'error');
+        return;
+    }
+    if (cotizacion.estado === 'PENDIENTE') {
+        const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente aún no ha aceptado la cotización. ¿Deseas continuar de todas formas?');
+        if (!confirmed) return;
+    } else {
+        const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente deberá validarlo para liberar el pago.');
+        if (!confirmed) return;
+    }
     try {
         const userId = state.user?.id || localStorage.getItem('usuario_id');
         const res = await axios.put(`http://localhost:3003/api/trabajos/${trabajoId}/terminar`, {
@@ -274,7 +351,7 @@ const finalizarTrabajo = async (trabajoId) => {
             
             <h3 class="pb-title">Método de Cobro Requerido</h3>
             <p class="pb-desc">
-              Para poder recibir solicitudes y aceptar trabajos, necesitas ingresar una tarjeta para que el sistema pueda cobrar automáticamente la comisión (15%) por el uso de la plataforma.
+              Para poder recibir solicitudes y aceptar trabajos, necesitas ingresar una tarjeta para que el sistema pueda cobrar automáticamente la comisión (10%) por el uso de la plataforma.
             </p>
             
             <div class="pb-actions">
@@ -286,6 +363,78 @@ const finalizarTrabajo = async (trabajoId) => {
                 Hacerlo más tarde
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ===== MODAL: CREAR COTIZACION ===== -->
+    <Teleport to="body">
+      <div v-if="showQuoteModal" class="confirm-overlay" @click.self="showQuoteModal = false">
+        <div class="confirm-card" style="max-width: 520px; text-align: left; padding: 0; overflow: hidden;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #0B4C6F, #1D6FA8); padding: 22px 26px; color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 900;">
+                  {{ quoteTargetJob && getCotizacionForJob(quoteTargetJob.id) ? 'Editar Cotización' : 'Enviar Cotización' }}
+                </h3>
+                <p style="margin: 4px 0 0; font-size: 0.78rem; opacity: 0.85;">Para: <strong>{{ quoteTargetJob?.cliente_nombre || 'Cliente' }}</strong> • {{ quoteTargetJob?.titulo || 'Trabajo' }}</p>
+              </div>
+              <button @click="showQuoteModal = false" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.1rem;">×</button>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 24px 26px; display: flex; flex-direction: column; gap: 16px;">
+            <!-- Título -->
+            <div class="qm-field">
+              <label class="qm-label"><i class="fa-solid fa-heading"></i> Título de la cotización</label>
+              <input v-model="quoteForm.titulo" type="text" placeholder="Ej. Instalación eléctrica completa" class="qm-input" />
+            </div>
+
+            <!-- Monto -->
+            <div class="qm-field">
+              <label class="qm-label"><i class="fa-solid fa-money-bill-wave"></i> Monto total (RD$)</label>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.1rem; font-weight: 900; color: #0F172A;">RD$</span>
+                <input v-model="quoteForm.monto_total" type="number" min="1" step="0.01" placeholder="0.00" class="qm-input" style="flex: 1; font-size: 1.5rem; font-weight: 800; text-align: center;" />
+              </div>
+            </div>
+
+            <!-- Método de pago -->
+            <div class="qm-field">
+              <label class="qm-label"><i class="fa-solid fa-wallet"></i> Método de cobro</label>
+              <select v-model="quoteForm.metodo_pago" class="qm-input">
+                <option value="EFECTIVO">Efectivo</option>
+                <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                <option value="TARJETA_CREDITO">Tarjeta de Crédito</option>
+              </select>
+            </div>
+
+            <!-- Descripción -->
+            <div class="qm-field">
+              <label class="qm-label"><i class="fa-solid fa-align-left"></i> Detalle (opcional)</label>
+              <textarea v-model="quoteForm.descripcion" rows="3" placeholder="Describe qué incluye esta cotización..." class="qm-input" style="resize: vertical; min-height: 80px;"></textarea>
+            </div>
+
+            <!-- Comisión info -->
+            <div style="background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 12px 14px; font-size: 0.82rem; color: #92400E;">
+              <i class="fa-solid fa-circle-info"></i>
+              La plataforma cobra una <strong>comisión del 10%</strong> al finalizarse el trabajo.
+              Si el monto es RD$ {{ Number(quoteForm.monto_total) > 0 ? Number(quoteForm.monto_total).toLocaleString('es-DO') : '0' }},
+              la comisión será aproximadamente <strong>RD$ {{ (Number(quoteForm.monto_total) * 0.1).toLocaleString('es-DO', { minimumFractionDigits: 2 }) }}</strong>.
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding: 16px 26px 24px; display: flex; gap: 12px; border-top: 1px solid #F1F5F9;">
+            <button @click="showQuoteModal = false" style="flex: 1; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 10px; background: white; color: #64748B; font-weight: 700; cursor: pointer; font-size: 0.95rem;">Cancelar</button>
+            <button @click="enviarCotizacion" :disabled="isSendingQuote" style="flex: 2; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(135deg, #10B981, #059669); color: white; font-weight: 800; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <i v-if="isSendingQuote" class="fa-solid fa-spinner fa-spin"></i>
+              <i v-else class="fa-solid fa-paper-plane"></i>
+              {{ isSendingQuote ? 'Enviando...' : 'Enviar Cotización al Cliente' }}
+            </button>
           </div>
         </div>
       </div>
@@ -412,9 +561,19 @@ const finalizarTrabajo = async (trabajoId) => {
                 <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1; margin-right: 8px;" @click="openJobDetail(job)">
                   <i class="fa-solid fa-circle-info"></i> Más información
                 </button>
-                <button v-if="job.estado === 'EN_PROGRESO'" class="btn-primary-action job-action-btn" style="background: #F76B1C; margin-top:0" @click="finalizarTrabajo(job.id)">
+                <!-- COTIZACIÓN: Enviar si no existe, Editar si ya existe -->
+                <button v-if="job.estado === 'EN_PROGRESO'" class="job-action-btn" :style="getCotizacionForJob(job.id) ? 'background: #059669; color:white; border:none; margin-right: 8px;' : 'background: #0B4C6F; color:white; border:none; margin-right: 8px;'" @click="openQuoteModal(job)">
+                  <i :class="getCotizacionForJob(job.id) ? 'fa-solid fa-pen' : 'fa-solid fa-file-invoice-dollar'"></i>
+                  {{ getCotizacionForJob(job.id) ? 'Editar Cotización' : 'Enviar Cotización' }}
+                </button>
+                <!-- MARCAR TERMINADO: Solo visible si ya existe una cotización -->
+                <button v-if="job.estado === 'EN_PROGRESO' && getCotizacionForJob(job.id)" class="btn-primary-action job-action-btn" style="background: #F76B1C; margin-top:0" @click="finalizarTrabajo(job.id)">
                   <i class="fa-solid fa-flag-checkered"></i> Marcar como terminado
                 </button>
+                <!-- Aviso si no hay cotización aún -->
+                <span v-if="job.estado === 'EN_PROGRESO' && !getCotizacionForJob(job.id)" style="font-size: 0.75rem; color: #94A3B8; font-style: italic; align-self: center;">
+                  Envía la cotización primero
+                </span>
               </div>
             </div>
           </div>
@@ -981,4 +1140,21 @@ const finalizarTrabajo = async (trabajoId) => {
   .npc-steps { gap: 10px; }
   .step-text { font-size: 0.8rem; }
 }
+
+/* QUOTE MODAL FORM */
+.qm-field { display: flex; flex-direction: column; gap: 6px; }
+.qm-label {
+  font-size: 0.75rem; font-weight: 700; color: #64748B;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  display: flex; align-items: center; gap: 6px;
+}
+.qm-input {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid #E2E8F0; border-radius: 10px;
+  font-size: 0.95rem; color: #0F172A;
+  background: #F8FAFC; outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  font-family: inherit; box-sizing: border-box;
+}
+.qm-input:focus { border-color: #0B4C6F; background: white; }
 </style>

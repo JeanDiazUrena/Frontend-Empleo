@@ -29,7 +29,126 @@ const form = ref({
   availability:'',
   metodo_pago: 'EFECTIVO', // Default option
   image:       null,
+  tarjeta_id:  null, // Selected card ID
 });
+
+// ─── TARJETAS ────────────────────────────────────────────────
+const cards = ref([]);
+const isAddingCard = ref(false);
+const newCardBrand = ref('Visa');
+const newCardHolder = ref('');
+const newCardNumber = ref('');
+const newCardExpiry = ref('');
+const newCardCVV = ref('');
+const isLoadingCards = ref(false);
+
+const loadCards = async () => {
+  const userId = state.user?.id || localStorage.getItem('usuario_id');
+  if (!userId) return;
+  isLoadingCards.value = true;
+  try {
+    const res = await axios.get(`http://localhost:3002/api/settings/payments/${userId}`);
+    if (res.data.success) {
+      cards.value = res.data.data;
+      if (cards.value.length > 0 && !form.value.tarjeta_id) {
+        form.value.tarjeta_id = cards.value[0].id;
+      }
+    }
+  } catch (err) {
+    console.error("Error cargando tarjetas:", err);
+  } finally {
+    isLoadingCards.value = false;
+  }
+};
+
+const agregarTarjeta = async () => {
+  const userId = state.user?.id || localStorage.getItem('usuario_id');
+  if (!newCardNumber.value || !newCardExpiry.value || !newCardHolder.value || !newCardCVV.value) {
+    showToast('Completa todos los datos de la tarjeta');
+    return;
+  }
+  
+  try {
+    const res = await axios.post('http://localhost:3002/api/settings/payments', {
+      usuario_id: userId,
+      brand: newCardBrand.value,
+      card_number: newCardNumber.value.replace(/\s/g, ''),
+      holder_name: newCardHolder.value,
+      exp: newCardExpiry.value,
+      cvv: newCardCVV.value
+    });
+    
+    if (res.data.success) {
+      await loadCards();
+      isAddingCard.value = false;
+      newCardNumber.value = '';
+      newCardHolder.value = '';
+      newCardExpiry.value = '';
+      newCardCVV.value = '';
+      showToast('Tarjeta agregada correctamente');
+    }
+  } catch (err) {
+    const msg = err.response?.data?.error || 'Error al guardar la tarjeta';
+    showToast(msg);
+  }
+};
+
+// Watch for payment method changes
+import { watch, onMounted as onMountedVue } from 'vue';
+watch(() => form.value.metodo_pago, (newVal) => {
+  if ((newVal === 'TARJETA_CREDITO' || newVal === 'TARJETA') && cards.value.length === 0) {
+    loadCards();
+  }
+});
+
+onMountedVue(async () => {
+  if (isEditing.value) {
+    try {
+      const { data } = await axios.get(`http://localhost:3001/api/solicitudes/${route.params.id}`);
+      if (data) {
+        form.value = {
+          title: data.titulo,
+          category: data.categoria,
+          description: data.descripcion,
+          urgency: data.urgencia,
+          location: data.ubicacion,
+          availability: data.disponibilidad,
+          metodo_pago: data.metodo_pago || 'EFECTIVO',
+          image: null, // Images are not easily pre-filled in input file
+          tarjeta_id: null
+        };
+        categoryInput.value = data.categoria;
+        imagePreview.value = data.imagen_url;
+      }
+    } catch (err) {
+      console.error("Error cargando solicitud para editar:", err);
+      showToast('Error al cargar la solicitud');
+    }
+  }
+});
+
+// ─── FORMATEO DE TARJETA ──────────────────────────────────────
+const formatCardNumber = (e) => {
+  let val = e.target.value.replace(/\D/g, '');
+  if (val.length > 16) val = val.substring(0, 16);
+  newCardNumber.value = val.replace(/(\d{4})(?=\d)/g, '$1 ');
+};
+
+const formatExpiry = (e) => {
+  let val = e.target.value.replace(/\D/g, '');
+  if (val.length > 4) val = val.substring(0, 4);
+  if (val.length >= 3) {
+    newCardExpiry.value = val.substring(0, 2) + '/' + val.substring(2);
+  } else {
+    newCardExpiry.value = val;
+  }
+};
+
+const formatCVV = (e) => {
+  let val = e.target.value.replace(/\D/g, '');
+  if (val.length > 3) val = val.substring(0, 3);
+  newCardCVV.value = val;
+};
 
 // ─── CATEGORÍAS ───────────────────────────────────────────────
 const categoryOptions = [
@@ -37,6 +156,7 @@ const categoryOptions = [
   'Pintura', 'Tecnología', 'Jardinería', 'Mudanzas',
   'Limpieza', 'Seguridad', 'Climatización', 'Construcción',
   'Mecánica', 'Cerrajería', 'Gasfitería', 'Fumigación',
+  'Otro',
 ];
 
 // Combobox de categoría
@@ -110,6 +230,7 @@ const showToast = (msg) => {
 };
 
 // ─── ENVÍO ────────────────────────────────────────────────────
+// ─── ENVÍO ────────────────────────────────────────────────────
 const handleSubmit = async () => {
   formError.value = '';
   isSubmitting.value = true;
@@ -121,28 +242,42 @@ const handleSubmit = async () => {
     return;
   }
 
-  const fd = new FormData();
-  fd.append('cliente_id', userId);
-  fd.append('titulo',      form.value.title);
-  fd.append('categoria',   form.value.category);
-  fd.append('descripcion', form.value.description);
-  fd.append('urgencia',    form.value.urgency);
-  fd.append('ubicacion',   form.value.location);
-  fd.append('disponibilidad', form.value.availability);
-  fd.append('metodo_pago', form.value.metodo_pago);
-  if (form.value.image)      fd.append('imagen', form.value.image);
-  if (route.query.profesional_id) {
-    fd.append('profesional_id', route.query.profesional_id);
-  }
-
   try {
-    await axios.post('http://localhost:3001/api/solicitudes', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    submitted.value = true;
+    if (isEditing.value) {
+      await axios.put(`http://localhost:3001/api/solicitudes/${route.params.id}`, {
+        titulo: form.value.title,
+        categoria: form.value.category,
+        descripcion: form.value.description,
+        urgencia: form.value.urgency,
+        ubicacion: form.value.location,
+        disponibilidad: form.value.availability,
+        metodo_pago: form.value.metodo_pago
+      });
+      showToast('¡Solicitud actualizada con éxito!');
+      setTimeout(() => router.push('/client/dashboard'), 1500);
+    } else {
+      const fd = new FormData();
+      fd.append('cliente_id', userId);
+      fd.append('titulo',      form.value.title);
+      fd.append('categoria',   form.value.category);
+      fd.append('descripcion', form.value.description);
+      fd.append('urgencia',    form.value.urgency);
+      fd.append('ubicacion',   form.value.location);
+      fd.append('disponibilidad', form.value.availability);
+      fd.append('metodo_pago', form.value.metodo_pago);
+      if (form.value.image)      fd.append('imagen', form.value.image);
+      if (route.query.profesional_id) {
+        fd.append('profesional_id', route.query.profesional_id);
+      }
+
+      await axios.post('http://localhost:3001/api/solicitudes', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      submitted.value = true;
+    }
   } catch (err) {
     console.error(err);
-    formError.value = 'Ocurrió un error al publicar. Verifica tu conexión e intenta de nuevo.';
+    formError.value = 'Ocurrió un error al procesar tu solicitud. Intenta de nuevo.';
   } finally {
     isSubmitting.value = false;
   }
@@ -416,7 +551,7 @@ onMounted(() => {
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <!-- EFECTIVO -->
               <label :class="['payment-option-card', { active: form.metodo_pago === 'EFECTIVO' }]">
-                <input type="radio" v-model="form.metodo_pago" value="EFECTIVO" class="hidden" />
+                <input type="radio" v-model="form.metodo_pago" value="EFECTIVO" style="display: none;" />
                 <div class="option-icon text-green-600 bg-green-50">
                   <i class="fa-solid fa-money-bill-wave"></i>
                 </div>
@@ -428,7 +563,7 @@ onMounted(() => {
 
               <!-- TRANSFERENCIA -->
               <label :class="['payment-option-card', { active: form.metodo_pago === 'TRANSFERENCIA' }]">
-                <input type="radio" v-model="form.metodo_pago" value="TRANSFERENCIA" class="hidden" />
+                <input type="radio" v-model="form.metodo_pago" value="TRANSFERENCIA" style="display: none;" />
                 <div class="option-icon text-blue-600 bg-blue-50">
                   <i class="fa-solid fa-building-columns"></i>
                 </div>
@@ -439,18 +574,117 @@ onMounted(() => {
               </label>
 
               <!-- TARJETA -->
-              <label :class="['payment-option-card', { active: form.metodo_pago === 'TARJETA_CREDITO' }]">
-                <input type="radio" v-model="form.metodo_pago" value="TARJETA_CREDITO" class="hidden" />
+              <label :class="['payment-option-card', { active: form.metodo_pago === 'TARJETA_CREDITO' || form.metodo_pago === 'TARJETA' }]">
+                <input type="radio" v-model="form.metodo_pago" value="TARJETA_CREDITO" style="display: none;" />
                 <div class="option-icon text-purple-600 bg-purple-50">
                   <i class="fa-solid fa-credit-card"></i>
                 </div>
                 <span class="option-label">Tarjeta</span>
-                <div v-if="form.metodo_pago === 'TARJETA_CREDITO'" class="check-badge">
+                <div v-if="form.metodo_pago === 'TARJETA_CREDITO' || form.metodo_pago === 'TARJETA'" class="check-badge">
                   <i class="fa-solid fa-circle-check"></i>
                 </div>
               </label>
             </div>
           </div>
+
+          <!-- MÓDULO DE TARJETAS (Solo si elige tarjeta) -->
+          <Transition name="expand">
+            <div v-if="form.metodo_pago === 'TARJETA_CREDITO' || form.metodo_pago === 'TARJETA'" class="card-management-box animate-pop">
+              <div v-if="cards.length > 0" class="cards-list">
+                <p class="box-subtitle">Selecciona una tarjeta guardada</p>
+                <div class="cards-grid-internal">
+                  <div 
+                    v-for="c in cards" 
+                    :key="c.id" 
+                    class="card-item"
+                    :class="{ selected: form.tarjeta_id === c.id }"
+                    @click="form.tarjeta_id = c.id"
+                  >
+                    <div class="card-item-check">
+                      <i class="fa-solid fa-circle-check" v-if="form.tarjeta_id === c.id"></i>
+                      <div class="uncheck-circle" v-else></div>
+                    </div>
+                    <div class="card-item-info">
+                      <div class="card-brand">
+                        <i :class="['fa-brands', `fa-cc-${c.brand.toLowerCase().replace(' ', '-')}`]"></i>
+                        {{ c.brand }}
+                      </div>
+                      <div class="card-number">**** **** **** {{ c.last4 }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="!isLoadingCards" class="no-cards-msg">
+                <i class="fa-solid fa-credit-card"></i>
+                <p>No tienes tarjetas guardadas para pagos automáticos.</p>
+              </div>
+
+              <div v-if="isLoadingCards" class="loading-cards">
+                <i class="fa-solid fa-spinner fa-spin"></i> Cargando tus tarjetas...
+              </div>
+
+              <!-- Botón para mostrar formulario de agregar -->
+              <button 
+                type="button" 
+                class="btn-show-add" 
+                @click="isAddingCard = !isAddingCard"
+                :class="{ active: isAddingCard }"
+              >
+                <i :class="isAddingCard ? 'fa-solid fa-minus' : 'fa-solid fa-plus'"></i>
+                {{ isAddingCard ? 'Cancelar' : 'Agregar nueva tarjeta' }}
+              </button>
+
+              <div v-if="isAddingCard" class="add-card-mini-form">
+                <div class="field-group-mini">
+                  <label>Nombre del Titular</label>
+                  <input v-model="newCardHolder" placeholder="Nombre completo como en la tarjeta" class="mini-input" />
+                </div>
+                <div class="field-group-mini">
+                  <label>Número de Tarjeta</label>
+                  <input 
+                    :value="newCardNumber" 
+                    @input="formatCardNumber"
+                    maxlength="19" 
+                    placeholder="0000 0000 0000 0000" 
+                    class="mini-input" 
+                  />
+                </div>
+                <div class="mini-row">
+                  <div class="mini-group">
+                    <label>Marca</label>
+                    <select v-model="newCardBrand" class="mini-input">
+                      <option value="Visa">Visa</option>
+                      <option value="MasterCard">MasterCard</option>
+                      <option value="American Express">American Express</option>
+                    </select>
+                  </div>
+                  <div class="mini-group">
+                    <label>Vence</label>
+                    <input 
+                      :value="newCardExpiry" 
+                      @input="formatExpiry"
+                      maxlength="5" 
+                      placeholder="MM/YY" 
+                      class="mini-input" 
+                    />
+                  </div>
+                  <div class="mini-group">
+                    <label>CVV</label>
+                    <input 
+                      :value="newCardCVV" 
+                      @input="formatCVV"
+                      maxlength="3" 
+                      type="password" 
+                      placeholder="123" 
+                      class="mini-input" 
+                    />
+                  </div>
+                </div>
+                <button type="button" @click="agregarTarjeta" class="btn-save-mini">Guardar y usar tarjeta</button>
+              </div>
+            </div>
+          </Transition>
 
           <!-- Resumen de la solicitud -->
           <div class="summary-card">
@@ -794,6 +1028,127 @@ onMounted(() => {
 
 /* ─── ACCIONES ─── */
 .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 28px; padding-top: 24px; border-top: 1px solid #F1F5F9; }
+/* ─── PAYMENT OPTIONS ─── */
+.payment-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #E2E8F0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+.payment-option-card:hover { border-color: #CBD5E1; background: #F8FAFC; }
+.payment-option-card.active { border-color: #3B82F6; background: #EFF6FF; }
+.option-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+}
+.option-label { font-size: 0.85rem; font-weight: 700; color: #475569; }
+.active .option-label { color: #3B82F6; }
+.check-badge { position: absolute; top: 8px; right: 8px; color: #3B82F6; font-size: 1.1rem; }
+
+/* ─── CARD MANAGEMENT BOX ─── */
+.card-management-box {
+  margin-top: 16px;
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 20px;
+}
+.box-subtitle {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+.cards-grid-internal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.card-item {
+  background: white;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.card-item:hover { border-color: #CBD5E1; }
+.card-item.selected { border-color: #3B82F6; background: #F0F7FF; }
+.card-item-check { color: #3B82F6; font-size: 1.2rem; }
+.uncheck-circle { width: 18px; height: 18px; border: 2px solid #CBD5E1; border-radius: 50%; }
+.card-item-info { display: flex; flex-direction: column; gap: 2px; }
+.card-brand { font-size: 0.7rem; font-weight: 800; color: #64748B; display: flex; align-items: center; gap: 4px; }
+.card-number { font-size: 0.95rem; font-weight: 700; color: #1E293B; letter-spacing: 1px; }
+
+.no-cards-msg {
+  text-align: center;
+  padding: 16px;
+  color: #94A3B8;
+  font-size: 0.85rem;
+}
+.no-cards-msg i { font-size: 1.5rem; margin-bottom: 6px; display: block; }
+
+.btn-show-add {
+  width: 100%;
+  padding: 10px;
+  background: white;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-show-add.active { color: #EF4444; border-color: #FECACA; }
+
+.add-card-mini-form {
+  margin-top: 12px;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px;
+}
+.mini-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.mini-group label { display: block; font-size: 0.65rem; font-weight: 800; color: #94A3B8; margin-bottom: 4px; text-transform: uppercase; }
+.mini-input { width: 100%; padding: 8px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 0.85rem; outline: none; }
+.btn-save-mini {
+  width: 100%;
+  padding: 10px;
+  background: #1E293B;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.field-group-mini { margin-bottom: 12px; }
+.field-group-mini label { display: block; font-size: 0.65rem; font-weight: 800; color: #94A3B8; margin-bottom: 4px; text-transform: uppercase; }
+
+.animate-pop { animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.expand-enter-active, .expand-leave-active { transition: all 0.3s ease-out; max-height: 500px; overflow: hidden; }
+.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; transform: translateY(-10px); }
 .btn-prev {
   display: flex; align-items: center; gap: 6px;
   background: white; border: 1.5px solid #E2E8F0; color: #64748B;
@@ -914,4 +1269,8 @@ onMounted(() => {
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
+.animate-pop { animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.expand-enter-active, .expand-leave-active { transition: all 0.3s ease-out; max-height: 500px; overflow: hidden; }
+.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; transform: translateY(-10px); }
 </style>

@@ -29,18 +29,6 @@ let socket = null;
 const showAttachmentMenu = ref(false);
 const fileInput = ref(null);
 const lightbox = ref({ show: false, url: '' });
-const showQuoteModal = ref(false);
-const isSendingQuote = ref(false);
-const isLoadingClientRequests = ref(false);
-const clientRequests = ref([]);
-const editingQuoteId = ref(null);
-const quoteForm = ref({
-  solicitud_id: '',
-  titulo: '',
-  descripcion: '',
-  monto_total: '',
-  metodo_pago: 'EFECTIVO'
-});
 
 const openLightbox = (url) => {
   lightbox.value = { show: true, url };
@@ -116,134 +104,7 @@ const enviarDatosBancarios = () => {
   });
 };
 
-const loadClientRequests = async () => {
-  if (!activeConv.value?.cliente_id) return;
-  isLoadingClientRequests.value = true;
-  try {
-    const { data } = await axios.get(`http://localhost:3001/api/solicitudes/cliente/${activeConv.value.cliente_id}`);
-    clientRequests.value = (data || []).filter(req => ['pendiente', 'en_progreso'].includes(String(req.estado || '').toLowerCase()));
-  } catch (error) {
-    console.error('No se pudieron cargar solicitudes del cliente:', error);
-    clientRequests.value = [];
-  } finally {
-    isLoadingClientRequests.value = false;
-  }
-};
 
-const selectQuoteRequest = (requestId) => {
-  quoteForm.value.solicitud_id = requestId;
-  const req = clientRequests.value.find(item => String(item.id) === String(requestId));
-  if (!req) return;
-
-  quoteForm.value.titulo = req.titulo || quoteForm.value.titulo;
-  quoteForm.value.descripcion = req.descripcion || quoteForm.value.descripcion;
-  quoteForm.value.metodo_pago = req.metodo_pago || 'EFECTIVO';
-  quoteForm.value.monto_total = req.monto_acordado || req.presupuesto_max || req.presupuesto_min || quoteForm.value.monto_total;
-};
-
-const abrirModalCotizacion = async () => {
-  showAttachmentMenu.value = false;
-  editingQuoteId.value = null;
-  quoteForm.value = {
-    solicitud_id: '',
-    titulo: 'Servicio solicitado',
-    descripcion: '',
-    monto_total: '',
-    metodo_pago: activeConv.value?.metodo_pago || 'EFECTIVO'
-  };
-  await loadClientRequests();
-  if (clientRequests.value.length === 1) {
-    selectQuoteRequest(clientRequests.value[0].id);
-  }
-  showQuoteModal.value = true;
-  // Próximo paso: Abrir modal de cotización
-};
-
-const parseQuote = (content) => {
-  try {
-    return JSON.parse(content);
-  } catch (error) {
-    return null;
-  }
-};
-
-const formatMoney = (value) => {
-  const amount = Number(value);
-  return Number.isFinite(amount)
-    ? `RD$ ${amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : 'RD$ 0.00';
-};
-
-const crearCotizacion = async () => {
-  if (!activeConv.value) return;
-
-  const monto = Number(quoteForm.value.monto_total);
-  if (!quoteForm.value.solicitud_id) {
-    alert('Selecciona la solicitud activa que corresponde a esta cotizacion.');
-    return;
-  }
-  if (!Number.isFinite(monto) || monto <= 0) {
-    alert('Ingresa un monto valido para la cotizacion.');
-    return;
-  }
-
-  isSendingQuote.value = true;
-  try {
-    const payload = {
-      conversacion_id: activeConv.value.id,
-      solicitud_id: quoteForm.value.solicitud_id || null,
-      cliente_id: activeConv.value.cliente_id,
-      profesional_id: myId.value,
-      titulo: quoteForm.value.titulo || 'Cotizacion de servicio',
-      descripcion: quoteForm.value.descripcion,
-      monto_total: monto,
-      metodo_pago: quoteForm.value.metodo_pago || activeConv.value.metodo_pago || 'EFECTIVO'
-    };
-    const { data } = editingQuoteId.value
-      ? await axios.put(`http://localhost:3003/api/cotizaciones/${editingQuoteId.value}`, payload)
-      : await axios.post('http://localhost:3003/api/cotizaciones', payload);
-
-    const cotizacion = data.cotizacion;
-    socket.emit('send_message', {
-      conversacion_id: activeConv.value.id,
-      remitente_id: myId.value,
-      tipo: 'cotizacion',
-      contenido: JSON.stringify({
-        id: cotizacion.id,
-        solicitud_id: cotizacion.solicitud_id,
-        titulo: cotizacion.titulo,
-        descripcion: cotizacion.descripcion,
-        monto_total: cotizacion.monto_total,
-        monto_comision: cotizacion.monto_comision,
-        metodo_pago: cotizacion.metodo_pago,
-        estado: cotizacion.estado,
-        editada: Boolean(editingQuoteId.value)
-      })
-    });
-
-    showQuoteModal.value = false;
-    editingQuoteId.value = null;
-  } catch (error) {
-    console.error('Error creando cotizacion:', error);
-    alert(error.response?.data?.error || 'No se pudo crear la cotizacion.');
-  } finally {
-    isSendingQuote.value = false;
-  }
-};
-
-const editarCotizacion = async (quote) => {
-  if (!quote || quote.estado !== 'PENDIENTE') return;
-  editingQuoteId.value = quote.id;
-  await loadClientRequests();
-  quoteForm.value = {
-    solicitud_id: quote.solicitud_id || '',
-    titulo: quote.titulo || 'Servicio solicitado',
-    descripcion: quote.descripcion || '',
-    monto_total: quote.monto_total || '',
-    metodo_pago: quote.metodo_pago || 'EFECTIVO'
-  };
-  showQuoteModal.value = true;
-};
 
 const compartirUbicacion = () => {
   if (!activeConv.value) return;
@@ -439,59 +300,7 @@ onMounted(async () => {
       </Transition>
     </Teleport>
 
-    <Teleport to="body">
-      <div v-if="showQuoteModal" class="quote-modal-overlay" @click.self="showQuoteModal = false">
-        <div class="quote-modal-card">
-          <div class="quote-modal-header">
-            <h3>Crear Cotización</h3>
-            <button @click="showQuoteModal = false"><i class="fa-solid fa-xmark"></i></button>
-          </div>
 
-          <div class="quote-modal-body">
-            <label>
-              <span>Solicitud del cliente</span>
-              <select v-model="quoteForm.solicitud_id" @change="selectQuoteRequest(quoteForm.solicitud_id)">
-                <option value="">Selecciona una solicitud activa</option>
-                <option v-for="req in clientRequests" :key="req.id" :value="req.id">
-                  {{ req.titulo }} - {{ req.metodo_pago || 'EFECTIVO' }}
-                </option>
-              </select>
-              <small v-if="isLoadingClientRequests">Cargando solicitudes...</small>
-              <small v-else-if="clientRequests.length === 0">Este cliente no tiene solicitudes activas.</small>
-            </label>
-
-            <label>
-              <span>Método de pago</span>
-              <input :value="quoteForm.metodo_pago || 'EFECTIVO'" type="text" readonly />
-            </label>
-
-            <label>
-              <span>Título</span>
-              <input v-model="quoteForm.titulo" type="text" placeholder="Ej. Reparación de inversor" />
-            </label>
-
-            <label>
-              <span>Monto acordado</span>
-              <input v-model="quoteForm.monto_total" type="number" min="1" step="0.01" placeholder="0.00" />
-            </label>
-
-            <label>
-              <span>Detalle</span>
-              <textarea v-model="quoteForm.descripcion" rows="4" placeholder="Describe qué incluye la cotización"></textarea>
-            </label>
-          </div>
-
-          <div class="quote-modal-footer">
-            <button class="quote-cancel" @click="showQuoteModal = false">Cancelar</button>
-            <button class="quote-submit" :disabled="isSendingQuote" @click="crearCotizacion">
-              <i v-if="isSendingQuote" class="fa-solid fa-spinner fa-spin"></i>
-              <i v-else class="fa-solid fa-paper-plane"></i>
-              {{ isSendingQuote ? 'Guardando...' : editingQuoteId ? 'Guardar cambios' : 'Enviar cotización' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
 
     <!-- SIDEBAR -->
@@ -652,22 +461,19 @@ onMounted(async () => {
                   </template>
 
                   <template v-else-if="msg.tipo === 'cotizacion'">
-                    <div v-if="parseQuote(msg.contenido)" class="quote-card">
-                      <div class="quote-card-header">
+                    <div class="bank-info-card" style="background-color: #f0fdf4; border-color: #bbf7d0;">
+                      <div class="bic-header" style="color: #16a34a;">
                         <i class="fa-solid fa-file-invoice-dollar"></i>
                         <span>Cotización enviada</span>
                       </div>
-                      <h4>{{ parseQuote(msg.contenido).titulo }}</h4>
-                      <p v-if="parseQuote(msg.contenido).descripcion">{{ parseQuote(msg.contenido).descripcion }}</p>
-                      <div class="quote-total">{{ formatMoney(parseQuote(msg.contenido).monto_total) }}</div>
-                      <small>Método: {{ parseQuote(msg.contenido).metodo_pago || 'EFECTIVO' }}</small>
-                      <button
-                        v-if="msg.remitente_id === myId && ['PENDIENTE', 'ACEPTADA'].includes(parseQuote(msg.contenido).estado)"
-                        class="quote-edit-btn"
-                        @click="editarCotizacion(parseQuote(msg.contenido))"
-                      >
-                        <i class="fa-solid fa-pen"></i> Editar cotización
-                      </button>
+                      <div class="bic-body">
+                        <p style="font-size: 0.9rem; color: #166534; font-weight: 500;">
+                          Se ha enviado una cotización al cliente.
+                        </p>
+                        <p style="font-size: 0.8rem; color: #15803d; margin-top: 4px;">
+                          El cliente puede revisarla y aceptarla desde su panel.
+                        </p>
+                      </div>
                     </div>
                   </template>
 
@@ -718,10 +524,7 @@ onMounted(async () => {
 
                 <div class="menu-divider"></div>
 
-                <button @click="abrirModalCotizacion" class="menu-special">
-                  <div class="menu-icon quote-icon text-emerald-600"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                  <span>Crear Cotización</span>
-                </button>
+
 
                 <button v-if="activeConv.metodo_pago === 'TRANSFERENCIA'" @click="enviarDatosBancarios" class="menu-special">
                   <div class="menu-icon bank-icon text-blue-600"><i class="fa-solid fa-building-columns"></i></div>

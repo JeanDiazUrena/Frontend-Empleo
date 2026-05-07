@@ -1,5 +1,14 @@
 import { reactive, computed } from 'vue';
 
+// Helper para obtener cuentas guardadas
+const getSavedAccounts = () => {
+  try {
+    return JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+  } catch {
+    return [];
+  }
+};
+
 // 1. ESTADO GLOBAL (Se mantiene sincronizado en toda la app)
 const state = reactive({
   user: {
@@ -11,7 +20,8 @@ const state = reactive({
     location: localStorage.getItem('usuario_direccion') || '',
     avatar: localStorage.getItem('usuario_avatar') || ''
   },
-  token: localStorage.getItem('token') || ''
+  token: localStorage.getItem('token') || '',
+  accounts: getSavedAccounts() // Lista de todas las cuentas logueadas
 });
 
 export function useUserSession() {
@@ -28,26 +38,61 @@ export function useUserSession() {
       : parts[0].substring(0, 2).toUpperCase();
   });
 
+  // Guardar lista de cuentas en localStorage
+  const persistAccounts = () => {
+    localStorage.setItem('saved_accounts', JSON.stringify(state.accounts));
+  };
+
   // ACCIÓN: Iniciar Sesión (Login o Registro)
   const login = (userData, token) => {
-    // 1. Actualizar estado en memoria (Reactividad inmediata)
-    state.user.id = userData.id;
-    state.user.name = userData.nombre || userData.name;
-    state.user.email = userData.email;
-    state.user.role = userData.rol || userData.role;
-    state.user.phone = userData.telefono || '';
-    state.user.location = userData.direccion || '';
-    state.user.avatar = userData.avatar || '';
-    state.token = token || 'dummy-token'; // Si el registro no da token, ponemos uno temporal
+    const newUser = {
+      id: userData.id,
+      name: userData.nombre || userData.name,
+      email: userData.email,
+      role: userData.rol || userData.role,
+      phone: userData.telefono || '',
+      location: userData.direccion || '',
+      avatar: userData.avatar || '',
+      token: token || 'dummy-token'
+    };
 
-    // 2. Guardar en disco (Para cuando recargues la página)
+    // 1. Actualizar estado actual
+    state.user.id = newUser.id;
+    state.user.name = newUser.name;
+    state.user.email = newUser.email;
+    state.user.role = newUser.role;
+    state.user.phone = newUser.phone;
+    state.user.location = newUser.location;
+    state.user.avatar = newUser.avatar;
+    state.token = newUser.token;
+
+    // 2. Guardar en localStorage actual
     localStorage.setItem('usuario_id', state.user.id);
     localStorage.setItem('usuario_nombre', state.user.name);
     localStorage.setItem('usuario_email', state.user.email);
     localStorage.setItem('user_role', state.user.role);
-    if (state.token) localStorage.setItem('token', state.token);
+    localStorage.setItem('token', state.token);
     if (state.user.phone) localStorage.setItem('usuario_telefono', state.user.phone);
     if (state.user.location) localStorage.setItem('usuario_direccion', state.user.location);
+
+    // 3. Agregar a la lista de cuentas si no existe
+    const index = state.accounts.findIndex(acc => acc.id === newUser.id);
+    if (index === -1) {
+      state.accounts.push(newUser);
+    } else {
+      state.accounts[index] = newUser; // Actualizar datos
+    }
+    persistAccounts();
+  };
+
+  // ACCIÓN: Cambiar de cuenta
+  const switchAccount = (userId) => {
+    const target = state.accounts.find(acc => acc.id === userId);
+    if (target) {
+      login(target, target.token);
+      return true;
+    }
+    return false;
   };
 
   // ACCIÓN: Actualizar Perfil
@@ -56,14 +101,45 @@ export function useUserSession() {
     if (newData.phone) { state.user.phone = newData.phone; localStorage.setItem('usuario_telefono', newData.phone); }
     if (newData.location) { state.user.location = newData.location; localStorage.setItem('usuario_direccion', newData.location); }
     if (newData.avatar) { state.user.avatar = newData.avatar; localStorage.setItem('usuario_avatar', newData.avatar); }
+    
+    // Actualizar también en la lista de cuentas
+    const index = state.accounts.findIndex(acc => acc.id === state.user.id);
+    if (index !== -1) {
+      state.accounts[index] = { ...state.accounts[index], ...state.user };
+      persistAccounts();
+    }
   };
 
-  // ACCIÓN: Cerrar Sesión
-  const logout = () => {
+  // ACCIÓN: Cerrar Sesión (Una sola cuenta)
+  const logoutAccount = (userId) => {
+    state.accounts = state.accounts.filter(acc => acc.id !== userId);
+    persistAccounts();
+    
+    if (state.user.id === userId) {
+      if (state.accounts.length > 0) {
+        switchAccount(state.accounts[0].id);
+      } else {
+        logoutAll();
+      }
+    }
+  };
+
+  // ACCIÓN: Cerrar Todo
+  const logoutAll = () => {
     Object.keys(state.user).forEach(key => state.user[key] = '');
     state.token = '';
+    state.accounts = [];
     localStorage.clear();
   };
 
-  return { state, isLoggedIn, userInitials, login, updateProfile, logout };
+  return { 
+    state, 
+    isLoggedIn, 
+    userInitials, 
+    login, 
+    switchAccount, 
+    updateProfile, 
+    logout: logoutAccount, 
+    logoutAll 
+  };
 }

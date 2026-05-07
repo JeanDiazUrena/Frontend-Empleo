@@ -1,323 +1,645 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
+import { useUserSession } from '../composables/useUserSession.js';
 
 const router = useRouter();
-// 2. USAR EL ESTADO GLOBAL (isLoggedIn es reactivo automático)
 const { isLoggedIn, state } = useUserSession(); 
 const searchQuery = ref('');
 
-// --- LÓGICA AL CARGAR ---
 onMounted(() => {
-  // Nota: Ya no necesitamos verificar token aquí manualmente.
-  
-  // Lógica de Animaciones (Intacta)
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
       }
     });
-  }, { threshold: 0.15 });
+  }, { threshold: 0.1 });
 
-  document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 });
 
-// --- ACCIÓN INTELIGENTE (Hero Tags y CTA) ---
 const handleAction = () => {
   if (isLoggedIn.value) {
-    // Si ya tiene sesión, va a su dashboard correspondiente
     if (state.user.role === 'profesional') {
       router.push('/professional/dashboard');
     } else {
       router.push('/client/dashboard');
     }
   } else {
-    // Si no, va al registro
     router.push('/register');
   }
 };
 
-// --- BUSCADOR ---
 const searchService = () => {
   if (searchQuery.value.trim()) {
-    // Si es cliente logueado, busca adentro
     if (isLoggedIn.value && state.user.role === 'cliente') {
       router.push({ path: '/client/explore', query: { q: searchQuery.value } });
     } else {
-      // Si no, registro (o podrías mandarlo al login)
       router.push('/register');
     }
   }
 };
+
+const categories = [
+  { id: 1, title: 'Gráfica y Diseño', img: '/generated/design.png', color: '#F76B1C' },
+  { id: 2, title: 'Programación y Tech', img: '/generated/programming.png', color: '#0B4C6F' },
+  { id: 3, title: 'Marketing Digital', img: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800', color: '#F76B1C' },
+  { id: 4, title: 'Video y Animación', img: '/generated/video.png', color: '#0B4C6F' },
+  { id: 5, title: 'Servicios de Hogar', img: '/generated/home_services.png', color: '#F76B1C' }
+];
+
+const stats = [
+  { value: '50k+', label: 'Profesionales' },
+  { value: '120k+', label: 'Proyectos Listos' },
+  { value: '4.9/5', label: 'Calificación Media' },
+  { value: '24/7', label: 'Soporte Activo' }
+];
 </script>
 
 <template>
-  <div class="home-wrapper">
-    
-    <section class="hero">
-      <video autoplay muted loop playsinline class="video-bg">
-        <source src="/videos/videohero.mp4" type="video/mp4">
-      </video>
-      <div class="video-overlay"></div>
-
-      <div class="container hero-container animate-on-scroll">
-        <div class="hero-content">
-          <h1>Encuentra los <span class="highlight">servicios</span><br>adecuados para tu negocio.</h1>
+  <div class="home-v2">
+    <!-- HERO SECTION CON VIDEO RESTAURADO -->
+    <section class="hero-premium">
+      <div class="hero-bg">
+        <video autoplay muted loop playsinline class="video-bg">
+          <source src="/videos/videohero.mp4" type="video/mp4">
+        </video>
+        <div class="hero-overlay"></div>
+      </div>
+      
+      <div class="container hero-content-v2 reveal">
+        <div class="hero-text-area">
+          <span class="badge-premium">🚀 El futuro del trabajo está aquí</span>
+          <h1>Encuentra el <span class="text-gradient">talento ideal</span> para cualquier proyecto</h1>
+          <p class="hero-subtitle">Conectamos a profesionales de élite con clientes visionarios. Calidad, rapidez y seguridad garantizada en cada servicio.</p>
           
-          <div class="search-bar-hero big-search">
-            <input 
-              type="text" 
-              v-model="searchQuery" 
-              placeholder='Prueba "diseño web", "plomería", "limpieza"'
-              @keyup.enter="searchService"
-            >
-            <button @click="searchService">Buscar</button>
+          <div class="search-glass-container">
+            <div class="search-input-wrapper">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input 
+                type="text" 
+                v-model="searchQuery" 
+                placeholder="¿Qué servicio buscas hoy?"
+                @keyup.enter="searchService"
+              />
+            </div>
+            <button @click="searchService" class="btn-primary-v2">Buscar Talento</button>
           </div>
 
-          <div class="hero-tags big-tags">
-            <button class="pill" @click="handleAction">Diseño Web</button>
-            <button class="pill" @click="handleAction">Electricidad</button>
-            <button class="pill" @click="handleAction">Construccion</button>
-            <button class="pill" @click="handleAction">Limpieza</button>
+          <div class="hero-labels">
+            <span>Populares:</span>
+            <span class="label-chip" @click="searchQuery = 'Diseño'; searchService()">Diseño Web</span>
+            <span class="label-chip" @click="searchQuery = 'Plomeria'; searchService()">Plomería</span>
+            <span class="label-chip" @click="searchQuery = 'Limpieza'; searchService()">Limpieza</span>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="how-it-works container">
-      <h2 class="section-title animate-on-scroll">¿Cómo funciona ServiHub?</h2>
-      <div class="steps-grid">
-        <div class="step-card animate-on-scroll delay-1">
-          <div class="icon-box">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="step-svg"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
-          </div>
-          <h3>1. Explora</h3>
-          <p>Navega entre miles de servicios o usa el buscador para encontrar exactamente lo que necesitas.</p>
-        </div>
-        <div class="step-card animate-on-scroll delay-2">
-          <div class="icon-box">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="step-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" /></svg>
-          </div>
-          <h3>2. Conecta</h3>
-          <p>Habla directamente con el profesional, revisa su portafolio y acuerda los detalles.</p>
-        </div>
-        <div class="step-card animate-on-scroll delay-3">
-          <div class="icon-box">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="step-svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" /></svg>
-          </div>
-          <h3>3. Resuelve</h3>
-          <p>Recibe el trabajo terminado. Tu pago solo se libera cuando estés 100% satisfecho.</p>
+    <!-- STATS SECTION -->
+    <section class="stats-bar">
+      <div class="container stats-grid">
+        <div v-for="stat in stats" :key="stat.label" class="stat-item reveal">
+          <span class="stat-value">{{ stat.value }}</span>
+          <span class="stat-label">{{ stat.label }}</span>
         </div>
       </div>
     </section>
 
-    <section class="quality-section animate-on-scroll">
-      <div class="container quality-grid">
-        <div class="quality-text">
-          <h2>La mejor parte? Todo.</h2>
-          <div class="quality-item">
-            <div class="check-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>
-            </div>
-            <div>
-              <h3>Presupuesto claro</h3>
-              <p>Encuentra servicios de alta calidad a cualquier precio. Sin tarifas por hora sorpresa.</p>
-            </div>
+    <!-- CATEGORIES SECTION -->
+    <section class="categories-v2 container" id="explorar-seccion">
+      <div class="section-header reveal">
+        <h2>Explora el <span class="text-blue">Mercado</span></h2>
+        <p>Encuentra exactamente lo que necesitas entre nuestras especialidades más demandadas.</p>
+      </div>
+      
+      <div class="cat-grid-v2">
+        <div 
+          v-for="cat in categories" 
+          :key="cat.id" 
+          class="cat-card-v2 reveal"
+          :style="{ '--accent': cat.color }"
+          @click="handleAction"
+        >
+          <div class="cat-img-wrapper">
+            <img :src="cat.img" :alt="cat.title" />
           </div>
-          <div class="quality-item">
-            <div class="check-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>
-            </div>
-            <div>
-              <h3>Calidad garantizada</h3>
-              <p>Encuentra al freelancer adecuado para comenzar tu proyecto en minutos.</p>
-            </div>
+          <div class="cat-info-v2">
+            <h4>{{ cat.title }}</h4>
+            <i class="fa-solid fa-arrow-right"></i>
           </div>
-          <div class="quality-item">
-            <div class="check-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>
-            </div>
-            <div>
-              <h3>Pagos protegidos</h3>
-              <p>Siempre sabrás lo que pagarás por adelantado. Tu pago no se libera hasta que apruebes el trabajo.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY CHOOSE US SECTION -->
+    <section class="features-premium">
+      <div class="container features-grid-v2">
+        <div class="features-image-side reveal">
+          <div class="image-stack">
+            <img src="/generated/features.png" class="img-main" />
+            <div class="floating-card reveal delay-1">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>Pagos 100% Protegidos</span>
             </div>
           </div>
         </div>
         
-        <div class="quality-image">
-          <img src="/fotos/marketinga.jpg" alt="Trabajo de calidad" style="width: 100%; border-radius: 8px; object-fit: cover;">
-        </div>
-      </div>
-    </section>
-
-    <section id="explorar-seccion" class="categories container animate-on-scroll">
-      <h2 class="section-title">Explora el mercado</h2>
-      <div class="cat-grid">
-        <div class="cat-item">
-          <img src="/fotos/cat-graphic.jpg" alt="Gráfica y Diseño" class="cat-img-real">
-          <div class="cat-content"><h4>Gráfica y Diseño</h4></div>
-        </div>
-        <div class="cat-item">
-          <img src="/fotos/cat-programming.jpg" alt="Programación" class="cat-img-real">
-          <div class="cat-content"><h4>Programación</h4></div>
-        </div>
-        <div class="cat-item">
-          <img src="/fotos/cat-marketing.jpg" alt="Marketing Digital" class="cat-img-real">
-          <div class="cat-content"><h4>Marketing Digital</h4></div>
-        </div>
-        <div class="cat-item">
-          <img src="/fotos/cat-video.jpg" alt="Video y Animación" class="cat-img-real">
-          <div class="cat-content"><h4>Video y Animación</h4></div>
-        </div>
-        <div class="cat-item">
-          <img src="/fotos/cat-negocios.jpg" alt="Negocios" class="cat-img-real">
-          <div class="cat-content"><h4>Negocios</h4></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="mission-section">
-      <div class="container mission-grid">
-        <div class="mission-card animate-on-scroll">
-          <div class="card-header">
-            <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-8a2 2 0 012-2h14a2 2 0 012 2v8l-6-3-6 3zM3 10V3l6 3 6-3v7" /></svg>
-            <h3>Misión</h3>
-          </div>
-          <p>Conectar talento local con oportunidades globales, empoderando a profesionales y negocios.</p>
-        </div>
-        <div class="mission-card animate-on-scroll delay-1">
-          <div class="card-header">
-            <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-            <h3>Visión</h3>
-          </div>
-          <p>Ser la plataforma líder en Latinoamérica donde cualquier servicio sea accesible en un solo clic.</p>
-        </div>
-        <div class="mission-card animate-on-scroll delay-2">
-          <div class="card-header">
-            <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>
-            <h3>Valores</h3>
-          </div>
-          <p>Transparencia total, seguridad en pagos, calidad garantizada y soporte humano.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta-banner">
-      <div class="container cta-content animate-on-scroll">
-        <div class="cta-text">
-          <h2 v-if="!isLoggedIn">¿Listo para empezar?</h2>
-          <h2 v-else>Bienvenido de nuevo, {{ state.user.name }}</h2>
-
-          <p>Únete a miles de profesionales y clientes hoy mismo.</p>
+        <div class="features-content-side reveal">
+          <h2 class="section-title-v2">¿Por qué elegir <span class="text-orange">ServiHub</span>?</h2>
           
-          <button class="btn-start" @click="handleAction">
-            {{ isLoggedIn ? 'Ir a mi Panel' : 'Comenzar Ahora' }}
-          </button>
-        </div>
-        <div class="cta-img-placeholder">
-          <img src="/fotos/persona felix.jpg" alt="Comenzar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          <div class="feature-item-v2 reveal">
+            <div class="feature-icon"><i class="fa-solid fa-bolt"></i></div>
+            <div class="feature-text">
+              <h3>1. Explora</h3>
+              <p>Navega entre miles de servicios o usa el buscador para encontrar exactamente lo que necesitas.</p>
+            </div>
+          </div>
+
+          <div class="feature-item-v2 reveal">
+            <div class="feature-icon"><i class="fa-solid fa-message"></i></div>
+            <div class="feature-text">
+              <h3>2. Conecta</h3>
+              <p>Habla directamente con el profesional, revisa su portafolio y acuerda los detalles.</p>
+            </div>
+          </div>
+
+          <div class="feature-item-v2 reveal">
+            <div class="feature-icon"><i class="fa-solid fa-check-double"></i></div>
+            <div class="feature-text">
+              <h3>3. Resuelve</h3>
+              <p>Recibe el trabajo terminado. Tu pago solo se libera cuando estés 100% satisfecho.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- CTA SECTION -->
+    <section class="cta-premium reveal">
+      <div class="container cta-box-v2">
+        <div class="cta-inner">
+          <h2>¿Listo para <span class="text-orange">empezar</span> hoy mismo?</h2>
+          <p>Únete a la plataforma más segura y eficiente para contratar servicios profesionales.</p>
+          <div class="cta-btns">
+            <button class="btn-orange" @click="handleAction">Comenzar Ahora</button>
+            <button class="btn-outline-white" @click="router.push('/register')">Soy Profesional</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-/* ANIMACIÓN */
-.animate-on-scroll { opacity: 0; transform: translateY(30px); transition: all 0.8s ease-out; }
-.animate-on-scroll.visible { opacity: 1; transform: translateY(0); }
-.delay-1 { transition-delay: 0.1s; }
-.delay-2 { transition-delay: 0.2s; }
-.delay-3 { transition-delay: 0.3s; }
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
 
-/* HERO */
-.hero { position: relative; height: 750px; display: flex; align-items: center; overflow: hidden; }
-.video-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-.video-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1; }
-.hero-container { position: relative; z-index: 2; width: 100%; }
-.hero-content { max-width: 850px; color: white; margin: 0 auto; }
-.hero-content h1 { font-size: 4rem; margin-bottom: 30px; font-weight: 800; line-height: 1.1; }
-.highlight { font-family: serif; font-style: italic; color: #F76B1C; }
-
-/* BUSCADOR */
-.big-search { display: flex; height: 70px; margin-bottom: 30px; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 4px; overflow: hidden; backdrop-filter: blur(8px); }
-.big-search input { flex: 1; border: none; background: transparent; padding: 0 30px; font-size: 20px; outline: none; color: white; }
-.big-search input::placeholder { color: rgba(255, 255, 255, 0.8); }
-.big-search button { background: #0B4C6F; color: white; border: none; padding: 0 50px; font-weight: 700; cursor: pointer; font-size: 20px; transition: background 0.2s; }
-.big-search button:hover { background: #093a55; }
-
-/* TAGS */
-.big-tags { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-.big-tags .pill { background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.5); color: white; padding: 10px 24px; border-radius: 30px; cursor: pointer; transition: 0.2s; font-size: 16px; font-weight: 600; }
-.big-tags .pill:hover { background: white; color: #333; border-color: white; }
-
-/* CÓMO FUNCIONA */
-.how-it-works { padding: 100px 0; background: white; text-align: center; }
-.section-title { font-size: 36px; color: #404145; margin-bottom: 60px; font-weight: 800; }
-.steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-.step-card { text-align: center; padding: 20px; }
-.icon-box { width: 90px; height: 90px; margin: 0 auto 24px; background: #FFF4EC; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.step-svg { width: 45px; height: 45px; color: #F76B1C; }
-.step-card h3 { font-size: 22px; margin-bottom: 12px; color: #404145; font-weight: 700; }
-.step-card p { color: #62646a; line-height: 1.6; font-size: 16px; }
-
-/* NUEVA SECCIÓN DE MARKETING (Quality Work) */
-.quality-section { background: #f1fdf7; padding: 100px 0; }
-.quality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
-.quality-text h2 { font-size: 36px; font-weight: 800; color: #404145; margin-bottom: 40px; }
-.quality-item { display: flex; gap: 15px; margin-bottom: 24px; }
-.check-icon { color: #0B4C6F; width: 30px; flex-shrink: 0; }
-.quality-item h3 { font-size: 18px; font-weight: 700; color: #404145; margin: 0 0 5px 0; }
-.quality-item p { margin: 0; color: #62646a; line-height: 1.5; }
-
-/* CATEGORÍAS CON IMÁGENES */
-.categories { padding: 100px 0; background: white; }
-.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; }
-.cat-item { border: 1px solid #e4e5e7; border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.2s; background: white; }
-.cat-item:hover { box-shadow: 0 10px 20px rgba(0,0,0,0.08); transform: translateY(-5px); }
-.cat-img-real { width: 100%; height: 180px; object-fit: cover; border-radius: 8px 8px 0 0; }
-.cat-content { padding: 20px; }
-.cat-content h4 { margin: 0; color: #404145; font-size: 18px; font-weight: 700; }
-
-/* MISIÓN VISIÓN VALORES */
-.mission-section { padding: 80px 0; background: #fafafa; }
-.mission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-.mission-card { background: white; padding: 30px; border-radius: 8px; border: 1px solid #e4e5e7; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-.card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
-.card-icon { width: 30px; height: 30px; color: #0B4C6F; }
-.mission-card h3 { font-size: 20px; font-weight: 800; color: #0B4C6F; margin: 0; }
-.mission-card p { color: #62646a; line-height: 1.6; }
-
-/* CTA BANNER */
-.cta-banner { background: #0B4C6F; padding: 100px 0; color: white; }
-.cta-content { display: flex; align-items: center; justify-content: space-between; gap: 50px; } 
-.cta-text h2 { font-size: 42px; font-weight: 800; margin-bottom: 16px; }
-.cta-text p { font-size: 18px; margin-bottom: 30px; opacity: 0.9; }
-.btn-start { background: #F76B1C; color: white; border: none; padding: 16px 36px; border-radius: 4px; font-weight: 700; cursor: pointer; font-size: 18px; transition: 0.2s; }
-.btn-start:hover { background: #e05a10; }
-.cta-img-placeholder { width: 450px; height: 350px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,0.5); }
-
-@media (max-width: 900px) {
-  .hero { height: auto; min-height: 500px; padding: 120px 20px 60px; }
-  .hero-content h1 { font-size: 2.2rem; }
-  .big-search { flex-direction: column; height: auto; gap: 10px; background: none; border: none; backdrop-filter: none; }
-  .big-search input { background: white; border-radius: 8px; height: 60px; color: #333; width: 100%; border: 1px solid #ddd; }
-  .big-search input::placeholder { color: #888; }
-  .big-search button { width: 100%; height: 60px; border-radius: 8px; }
-  .big-tags { justify-content: center; }
-  .big-tags .pill { padding: 8px 16px; font-size: 14px; }
-  
-  .steps-grid, .quality-grid, .mission-grid, .cta-content { grid-template-columns: 1fr; gap: 40px; text-align: center; }
-  .quality-grid { text-align: left; }
-  .quality-image { order: -1; } /* Imagen arriba del texto en móviles */
-  .cta-img-placeholder { width: 100%; height: 250px; }
+.home-v2 {
+  font-family: 'Outfit', sans-serif;
+  color: #1e293b;
+  overflow-x: hidden;
 }
 
-@media (max-width: 480px) {
-  .hero-content h1 { font-size: 1.8rem; }
-  .section-title { font-size: 28px; }
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.delay-1 { transition-delay: 0.2s; }
+
+.text-gradient {
+  background: linear-gradient(135deg, #F76B1C, #0B4C6F);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-orange { color: #F76B1C; }
+.text-blue { color: #0B4C6F; }
+
+/* HERO SECTION CON VIDEO */
+.hero-premium {
+  position: relative;
+  height: 90vh;
+  min-height: 700px;
+  display: flex;
+  align-items: center;
+  background: #0B4C6F;
+  overflow: hidden;
+}
+
+.video-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.hero-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(11, 76, 111, 0.7), rgba(11, 76, 111, 0.9));
+  z-index: 1;
+}
+
+.hero-content-v2 {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+.hero-text-area {
+  max-width: 700px;
+}
+
+.badge-premium {
+  display: inline-block;
+  background: rgba(247, 107, 28, 0.2);
+  color: #F76B1C;
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+  border: 1px solid rgba(247, 107, 28, 0.4);
+}
+
+.hero-text-area h1 {
+  font-size: 4.5rem;
+  line-height: 1.1;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 24px;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #e2e8f0;
+  margin-bottom: 40px;
+  line-height: 1.6;
+}
+
+/* SEARCH GLASS */
+.search-glass-container {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px;
+  border-radius: 16px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.search-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+}
+
+.search-input-wrapper i {
+  color: #cbd5e1;
+  font-size: 1.2rem;
+}
+
+.search-input-wrapper input {
+  background: transparent;
+  border: none;
+  width: 100%;
+  height: 50px;
+  color: white;
+  font-size: 1.1rem;
+  outline: none;
+}
+
+.search-input-wrapper input::placeholder {
+  color: rgba(255,255,255,0.7);
+}
+
+.btn-primary-v2 {
+  background: #F76B1C;
+  color: white;
+  border: none;
+  padding: 0 32px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary-v2:hover {
+  transform: translateY(-2px);
+  background: #e05a10;
+  box-shadow: 0 10px 20px rgba(247, 107, 28, 0.4);
+}
+
+.hero-labels {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.label-chip {
+  background: rgba(255,255,255,0.1);
+  padding: 4px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+  color: white;
+}
+
+.label-chip:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* STATS BAR */
+.stats-bar {
+  background: white;
+  padding: 60px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #0B4C6F;
+}
+
+.stat-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* CATEGORIES */
+.categories-v2 {
+  padding: 100px 0;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #1e293b;
+}
+
+.section-header p {
+  color: #64748b;
+  font-size: 1.1rem;
+}
+
+.cat-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.cat-card-v2 {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.cat-card-v2:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+  border-color: var(--accent);
+}
+
+.cat-img-wrapper {
+  height: 250px;
+  overflow: hidden;
+}
+
+.cat-img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s;
+}
+
+.cat-card-v2:hover .cat-img-wrapper img {
+  transform: scale(1.1);
+}
+
+.cat-info-v2 {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cat-info-v2 h4 {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.cat-info-v2 i {
+  color: var(--accent);
+  transition: transform 0.3s;
+}
+
+/* FEATURES */
+.features-premium {
+  padding: 120px 0;
+  background: #f0f9ff;
+}
+
+.features-grid-v2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+
+.image-stack {
+  position: relative;
+  padding-bottom: 40px;
+}
+
+.img-main {
+  width: 100%;
+  border-radius: 30px;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+}
+
+.floating-card {
+  position: absolute;
+  bottom: 0;
+  right: -20px;
+  background: white;
+  padding: 20px 30px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-weight: 700;
+}
+
+.floating-card i {
+  color: #F76B1C;
+  font-size: 1.5rem;
+}
+
+.section-title-v2 {
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: 40px;
+  color: #0B4C6F;
+}
+
+.feature-item-v2 {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.feature-icon {
+  width: 56px;
+  height: 56px;
+  background: white;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #F76B1C;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+}
+
+.feature-text h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: #1e293b;
+}
+
+.feature-text p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* CTA */
+.cta-premium {
+  padding: 100px 0;
+}
+
+.cta-box-v2 {
+  background: #0B4C6F;
+  border-radius: 40px;
+  padding: 80px 40px;
+  text-align: center;
+  color: white;
+}
+
+.cta-inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.cta-inner h2 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 24px;
+}
+
+.cta-inner p {
+  font-size: 1.25rem;
+  opacity: 0.9;
+  margin-bottom: 40px;
+}
+
+.cta-btns {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.btn-orange {
+  background: #F76B1C;
+  color: white;
+  border: none;
+  padding: 16px 40px;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-orange:hover {
+  transform: translateY(-3px);
+  background: #e05a10;
+  box-shadow: 0 15px 30px rgba(247, 107, 28, 0.3);
+}
+
+.btn-outline-white {
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255,255,255,0.4);
+  padding: 16px 40px;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-outline-white:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: white;
+}
+
+@media (max-width: 1024px) {
+  .hero-text-area h1 { font-size: 3.5rem; }
+  .features-grid-v2 { grid-template-columns: 1fr; gap: 60px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
+}
+
+@media (max-width: 768px) {
+  .hero-text-area h1 { font-size: 2.8rem; }
+  .cta-inner h2 { font-size: 2.5rem; }
+  .search-glass-container { flex-direction: column; }
+  .cta-btns { flex-direction: column; }
 }
 </style>

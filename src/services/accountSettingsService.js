@@ -36,9 +36,9 @@ export const accountApi = {
   },
 
   // --- RECEIPTS ---
-  async getReceipt(solicitudId) {
+  async getReceipt(trabajoId) {
     try {
-      const res = await axios.get(`${PERFILES_URL}/recibo/${solicitudId}`);
+      const res = await axios.get(`http://localhost:3003/api/trabajos/${trabajoId}/recibo`);
       return res.data;
     } catch (err) {
       throw new Error(err.response?.data?.message || "Error al obtener el recibo");

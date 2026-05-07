@@ -82,30 +82,41 @@ const formatDate = (date) => {
 
       <div class="service-table">
         <div class="table-header">
-          <span>Descripción del Servicio</span>
-          <span>Total</span>
+          <span>Descripción</span>
+          <span>Precio</span>
         </div>
+        
+        <!-- Datos de la Solicitud Original -->
         <div class="table-row">
           <div class="service-info">
-            <span class="service-title">{{ receipt.titulo }}</span>
+            <span class="service-title">{{ receipt.titulo }} (Solicitud)</span>
             <span class="service-desc">{{ receipt.descripcion }}</span>
           </div>
-          <span class="service-amount">{{ formatCurrency(receipt.monto_acordado || receipt.presupuesto_max) }}</span>
+          <span class="service-amount">{{ formatCurrency(receipt.presupuesto_max || receipt.presupuesto_min) }}</span>
+        </div>
+
+        <!-- Ajuste por Cotización (si existe) -->
+        <div class="table-row" v-if="receipt.cotizacion_monto && receipt.cotizacion_monto != (receipt.presupuesto_max || receipt.presupuesto_min)">
+          <div class="service-info">
+            <span class="service-title">Ajuste de Cotización Profesional</span>
+            <span class="service-desc">{{ receipt.cotizacion_desc || 'Presupuesto ajustado por el profesional' }}</span>
+          </div>
+          <span class="service-amount">{{ formatCurrency(receipt.cotizacion_monto) }}</span>
         </div>
       </div>
 
       <div class="receipt-total">
         <div class="total-row">
-          <span>Subtotal</span>
-          <span>{{ formatCurrency(receipt.monto_acordado || receipt.presupuesto_max) }}</span>
+          <span>Total Acordado</span>
+          <span>{{ formatCurrency(receipt.monto_acordado) }}</span>
         </div>
         <div class="total-row">
-          <span>Impuestos (0%)</span>
-          <span>RD$ 0.00</span>
+          <span>Comisión ServiHub (Incluida)</span>
+          <span>{{ formatCurrency(receipt.monto_acordado * 0.1) }}</span>
         </div>
         <div class="total-row grand-total">
-          <span>TOTAL PAGADO</span>
-          <span>{{ formatCurrency(receipt.monto_acordado || receipt.presupuesto_max) }}</span>
+          <span>TOTAL FINAL</span>
+          <span>{{ formatCurrency(receipt.monto_acordado) }}</span>
         </div>
       </div>
 
