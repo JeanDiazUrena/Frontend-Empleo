@@ -8,4 +8,6 @@ export const API_URLS = {
     NOTIFICACIONES: `${GATEWAY_URL}/notificaciones-service`,
 };
 
-export const SOCKET_URL = `${GATEWAY_URL}/perfiles-service`;
+export const SOCKET_URL = GATEWAY_URL;
+
+export const GOOGLE_CLIENT_ID = '508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com';

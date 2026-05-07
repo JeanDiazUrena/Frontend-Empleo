@@ -142,7 +142,7 @@ const unreadTotal = computed(() => {
 const onlineUsers = ref([]);
 
 const connectSocket = () => {
-  socket = io(`${API_URLS.PERFILES}`, { query: { userId: myId.value } });
+  socket = io(SOCKET_URL, { query: { userId: myId.value } });
 };
 
 onUnmounted(() => {

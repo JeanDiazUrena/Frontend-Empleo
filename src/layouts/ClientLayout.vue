@@ -26,21 +26,35 @@ const notifRef = ref(null);
 
 let notifInterval = null;
 
+const isRequestAborted = (error) => {
+  return error?.code === 'ERR_CANCELED' || error?.message === 'Request aborted';
+};
+
+const hasValidToken = () => {
+  const token = localStorage.getItem('token');
+  return !!token && token !== 'dummy-token';
+};
+
 const fetchNotifications = async () => {
   const userId = localStorage.getItem('usuario_id');
-  if (!userId) return;
+  if (!userId || !hasValidToken()) return;
   try {
     const { data } = await axios.get(`${API_URLS.NOTIFICACIONES}/notificaciones/${userId}`);
     notifications.value = data;
     unreadNotifCount.value = data.filter(n => !n.is_read).length;
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    if (!isRequestAborted(e) && e?.response?.status !== 403) console.error(e);
+  }
 };
 
 const markAsRead = async (id) => {
+  if (!hasValidToken()) return;
   try {
     await axios.put(`${API_URLS.NOTIFICACIONES}/notificaciones/${id}/read`);
     fetchNotifications();
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    if (!isRequestAborted(e) && e?.response?.status !== 403) console.error(e);
+  }
 };
 
 const toggleNotif = () => {
@@ -56,7 +70,9 @@ const fetchUnreadCount = async () => {
   try {
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/unread-count/${userId}`);
     unreadCount.value = data.count || 0;
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    if (!isRequestAborted(e)) console.error(e);
+  }
 };
 
 // --- NAVEGACIÓN GENERAL ---
@@ -117,7 +133,7 @@ onMounted(() => {
     fetchNotifications();
     notifInterval = setInterval(fetchNotifications, 15000);
     
-    socket = io(`${API_URLS.PERFILES}`, { query: { userId } });
+    socket = io(SOCKET_URL, { query: { userId } });
     socket.on('notification_new_message', (msg) => {
       if (msg.remitente_id !== userId) {
         unreadCount.value++;

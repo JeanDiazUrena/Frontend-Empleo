@@ -324,7 +324,7 @@ const confirmarTransferencia = async () => {
   isConfirmingTransfer.value = true;
   try {
     const userId = state.user?.id || localStorage.getItem('usuario_id');
-    const { data } = await axios.post(`http://localhost:3003/api/trabajos/${transferTargetJob.value.id}/confirmar-transferencia`, {
+    const { data } = await axios.post(`${API_URLS.TRABAJOS}/api/trabajos/${transferTargetJob.value.id}/confirmar-transferencia`, {
       profesional_id: userId
     });
     
@@ -332,7 +332,7 @@ const confirmarTransferencia = async () => {
       showToast('¡Pago confirmado con éxito! El trabajo ha sido finalizado.', 'success');
       showTransferModal.value = false;
       // Refrescamos la lista
-      const trabRes = await axios.get(`http://localhost:3003/api/trabajos/profesional/${userId}`);
+      const trabRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`);
       professionalJobs.value = trabRes.data;
     }
   } catch (error) {

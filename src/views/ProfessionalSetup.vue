@@ -212,8 +212,13 @@ const saveProfile = async () => {
     if (fileAvatar.value) formData.append('avatar', fileAvatar.value);
     if (fileCover.value) formData.append('cover', fileCover.value);
 
+    const token = localStorage.getItem('token');
+
     await axios.post(`${API_URLS.PERFILES}/api/perfiles`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     showToast("¡Perfil guardado con éxito!", "success");

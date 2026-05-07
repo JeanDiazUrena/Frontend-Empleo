@@ -1,5 +1,5 @@
 <script setup>
-import { API_URLS, SOCKET_URL } from '../config.js';
+import { API_URLS, SOCKET_URL, GOOGLE_CLIENT_ID } from '../config.js';
 
 import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
@@ -91,7 +91,7 @@ async function handleLogin() {
 const loginWithGoogle = () => {
   googleSdkLoaded((google) => {
     google.accounts.id.initialize({
-      client_id: "508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com",
+      client_id: GOOGLE_CLIENT_ID,
       callback: handleGoogleCallback
     });
     google.accounts.id.prompt();
@@ -182,10 +182,12 @@ async function handleGoogleCallback(response) {
           <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
 
           <form @submit.prevent="handleLogin">
-            <button type="button" class="btn-google" @click="loginWithGoogle">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-              Continuar con Google
-            </button>
+            <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper">
+              <button type="button" class="btn-google">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+                Continuar con Google
+              </button>
+            </GoogleLogin>
 
             <div class="separator"><span>o ingresa con tu email</span></div>
 

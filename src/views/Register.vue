@@ -1,4 +1,6 @@
 <script setup>
+import { API_URLS, SOCKET_URL, GOOGLE_CLIENT_ID } from '../config.js';
+
 import { ref, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from "axios";
@@ -42,7 +44,7 @@ function handleStep1Submit() {
 const loginWithGoogle = () => {
   googleSdkLoaded((google) => {
     google.accounts.id.initialize({
-      client_id: "508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com",
+      client_id: GOOGLE_CLIENT_ID,
       callback: handleGoogleCallback
     });
     google.accounts.id.prompt(); // Mostrar el One Tap o Popup
@@ -57,7 +59,7 @@ const handleGoogleCallback = async (response) => {
     // Intentar login automático si ya existe
     try {
       errorMessage.value = '';
-      const res = await axios.post("http://localhost:3000/api/google", {
+      const res = await axios.post(`${API_URLS.AUTH}/api/google`, {
         credential: response.credential
         // No mandamos rol para ver si ya existe
       });
@@ -98,14 +100,14 @@ async function handleRegistration() {
     // Si viene de Google
     if (googleCredential.value) {
       console.log("Registering with Google...");
-      response = await axios.post("http://localhost:3000/api/google", {
+      response = await axios.post(`${API_URLS.AUTH}/api/google`, {
         credential: googleCredential.value,
         rol: selectedRole.value
       });
     } else {
       // Registro normal
       console.log("Registering with Email...");
-      response = await axios.post("http://localhost:3000/api/register", {
+      response = await axios.post(`${API_URLS.AUTH}/api/register`, {
         nombre: name.value,
         email: email.value,
         password: password.value,
@@ -207,10 +209,12 @@ async function handleRegistration() {
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
           
-          <button type="button" class="google-btn" @click="loginWithGoogle">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-            Continuar con Google
-          </button>
+          <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper">
+            <button type="button" class="google-btn">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
+              Continuar con Google
+            </button>
+          </GoogleLogin>
 
           <div class="divider"><span>o regístrate con tu email</span></div>
 

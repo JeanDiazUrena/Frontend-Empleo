@@ -75,6 +75,8 @@ const agregarTarjeta = async () => {
       usuario_id: userId,
       brand: newCardBrand.value,
       card_number: newCardNumber.value.replace(/\s/g, ''),
+      last4: newCardNumber.value.replace(/\s/g, '').slice(-4),
+      token: `local-card-${Date.now()}`,
       holder_name: newCardHolder.value,
       exp: newCardExpiry.value,
       cvv: newCardCVV.value

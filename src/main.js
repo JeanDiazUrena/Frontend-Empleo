@@ -1,14 +1,42 @@
 import { createApp } from 'vue'
-import './style.css' // Tu CSS global
+import './style.css'
 import App from './App.vue'
+import router from './router'
+import axios from 'axios'
+import vue3GoogleLogin from 'vue3-google-login'
+import { GOOGLE_CLIENT_ID } from './config'
 
-// 1. Importa el router que creaste
-import router from './router' // (Apunta a router/index.js)
+// --- Configuración Global de Axios ---
+axios.defaults.baseURL = 'http://localhost:4000';
+
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      console.warn("Sesión expirada o inválida. Redirigiendo...");
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario_id');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 const app = createApp(App)
 
-// 2. Dile a la app que use el router
 app.use(router)
+app.use(vue3GoogleLogin, {
+  clientId: GOOGLE_CLIENT_ID
+})
 
-// 4. Monta la app
 app.mount('#app')

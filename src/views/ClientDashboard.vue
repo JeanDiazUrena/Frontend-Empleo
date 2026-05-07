@@ -11,6 +11,10 @@ import ConfirmacionCliente from '../components/ConfirmacionCliente.vue';
 const router = useRouter();
 const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
 
+const isRequestAborted = (error) => {
+  return error?.code === 'ERR_CANCELED' || error?.message === 'Request aborted';
+};
+
 const loading = ref(true);
 const activeRequests = ref([]); 
 const featuredProfessionals = ref([]); 
@@ -58,6 +62,7 @@ const cancelarSolicitud = async (id) => {
 
 const isConfirmingPro = ref(null);
 const confirmarProfesional = async (req) => {
+  if (!req?.profesional_usuario_id || isConfirmingPro.value) return;
   isConfirmingPro.value = req.id;
   try {
     const res = await axios.post(`${API_URLS.TRABAJOS}/api/trabajos`, {
@@ -75,7 +80,7 @@ const confirmarProfesional = async (req) => {
     });
     
     if (res.data.success) {
-      showToast('¡Trabajo formalizado con éxito!', 'success');
+      showToast(res.data.alreadyExists ? 'Este trabajo ya estaba formalizado.' : '¡Trabajo formalizado con éxito!', 'success');
       activeRequests.value = activeRequests.value.filter(r => r.id !== req.id);
       // Recargar trabajos
       const trabajosRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${state.user.id}`);
@@ -86,6 +91,35 @@ const confirmarProfesional = async (req) => {
     showToast('Error al formalizar el trabajo.', 'error');
   } finally {
     isConfirmingPro.value = null;
+  }
+};
+
+const isRejectingPro = ref(null);
+const rechazarProfesional = async (req) => {
+  if (!req?.profesional_usuario_id || isRejectingPro.value) return;
+  if (!confirm(`¿Rechazar a ${req.profesional_nombre || 'este profesional'} para esta solicitud? La solicitud volverá a estar disponible para otros profesionales.`)) return;
+
+  isRejectingPro.value = req.id;
+  try {
+    const { data } = await axios.put(`${API_URLS.PERFILES}/api/solicitudes/${req.id}/rechazar-profesional`, {
+      cliente_id: state.user.id,
+      profesional_id: req.profesional_usuario_id
+    });
+
+    if (data.success) {
+      const updated = data.solicitud || { ...req, estado: 'pendiente', profesional_id: null };
+      activeRequests.value = activeRequests.value.map(r =>
+        r.id === req.id
+          ? { ...r, ...updated, profesional_nombre: null, profesional_avatar: null, profesional_usuario_id: null }
+          : r
+      );
+      showToast('Profesional rechazado. La solicitud vuelve a estar disponible.', 'success');
+    }
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.error || 'No se pudo rechazar al profesional.', 'error');
+  } finally {
+    isRejectingPro.value = null;
   }
 };
 
@@ -172,6 +206,7 @@ onMounted(async () => {
       }
 
     } catch (error) {
+      if (isRequestAborted(error)) return;
       console.error("Error cargando dashboard:", error);
       // Si falla la conexión con BD, confiamos en lo que hay en memoria local
       if (!state.user.phone || !state.user.location) {
@@ -375,11 +410,20 @@ const aceptarCotizacion = async (cotizacion) => {
                 <button 
                   class="btn-confirm-pro" 
                   @click="confirmarProfesional(req)"
-                  :disabled="isConfirmingPro === req.id"
+                  :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
                 >
                   <i v-if="isConfirmingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
                   <i v-else class="fa-solid fa-handshake"></i>
-                  Confirmar Profesional
+                  {{ isConfirmingPro === req.id ? 'Confirmando...' : 'Aceptar profesional' }}
+                </button>
+                <button
+                  class="btn-action-outline text-red-600"
+                  @click="rechazarProfesional(req)"
+                  :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
+                >
+                  <i v-if="isRejectingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
+                  <i v-else class="fa-solid fa-xmark"></i>
+                  {{ isRejectingPro === req.id ? 'Rechazando...' : 'Rechazar' }}
                 </button>
               </div>
             </div>
