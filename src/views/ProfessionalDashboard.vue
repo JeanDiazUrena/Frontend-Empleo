@@ -48,6 +48,16 @@ const quoteForm = ref({ titulo: '', descripcion: '', monto_total: '', metodo_pag
 // Map of trabajo_id -> cotizacion object
 const jobCotizaciones = ref({});
 
+// --- TRANSFERENCIA MODAL ---
+const showTransferModal = ref(false);
+const isConfirmingTransfer = ref(false);
+const transferTargetJob = ref(null);
+
+const openTransferModal = (job) => {
+  transferTargetJob.value = job;
+  showTransferModal.value = true;
+};
+
 const getCotizacionForJob = (jobId) => jobCotizaciones.value[String(jobId)] || null;
 
 const loadCotizacionesForJobs = async (jobs) => {
@@ -284,12 +294,12 @@ const finalizarTrabajo = async (trabajoId) => {
         return;
     }
     if (cotizacion.estado === 'PENDIENTE') {
-        const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente aún no ha aceptado la cotización. ¿Deseas continuar de todas formas?');
-        if (!confirmed) return;
-    } else {
-        const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente deberá validarlo para liberar el pago.');
-        if (!confirmed) return;
+        showToast('El cliente aún no ha aceptado la cotización. Debe aceptarla antes de finalizar el trabajo.', 'info');
+        return;
     }
+    
+    const confirmed = await askConfirm('¿Confirmas que el trabajo fue completado? El cliente deberá validarlo para liberar el pago.');
+    if (!confirmed) return;
     try {
         const userId = state.user?.id || localStorage.getItem('usuario_id');
         const res = await axios.put(`http://localhost:3003/api/trabajos/${trabajoId}/terminar`, {
@@ -304,6 +314,30 @@ const finalizarTrabajo = async (trabajoId) => {
         showToast('Error al finalizar el trabajo. Intenta de nuevo.', 'error');
         console.error(e);
     }
+};
+
+const confirmarTransferencia = async () => {
+  if (!transferTargetJob.value) return;
+  
+  isConfirmingTransfer.value = true;
+  try {
+    const userId = state.user?.id || localStorage.getItem('usuario_id');
+    const { data } = await axios.post(`http://localhost:3003/api/trabajos/${transferTargetJob.value.id}/confirmar-transferencia`, {
+      profesional_id: userId
+    });
+    
+    if (data.success) {
+      showToast('¡Pago confirmado con éxito! El trabajo ha sido finalizado.', 'success');
+      showTransferModal.value = false;
+      // Refrescamos la lista
+      const trabRes = await axios.get(`http://localhost:3003/api/trabajos/profesional/${userId}`);
+      professionalJobs.value = trabRes.data;
+    }
+  } catch (error) {
+    showToast(error.response?.data?.error || 'Error al confirmar la transferencia.', 'error');
+  } finally {
+    isConfirmingTransfer.value = false;
+  }
 };
 </script>
 
@@ -534,6 +568,81 @@ const finalizarTrabajo = async (trabajoId) => {
           </div>
         </div>
 
+        <!-- PAGOS PENDIENTES DE CONFIRMACIÓN (TRANSFERENCIA) -->
+        <div class="section-card" style="margin-bottom: 24px; border-color: #F59E0B; background: #FFFBEB;" v-if="professionalJobs.filter(j => j.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA').length > 0">
+          <div class="sc-header" style="border-bottom-color: #FEF3C7;">
+            <h3 style="color: #92400E;"><i class="fa-solid fa-triangle-exclamation"></i> Pagos por Confirmar</h3>
+            <p style="color: #B45309;">El cliente ha subido un comprobante de transferencia. Verifica tu cuenta y confirma el pago.</p>
+          </div>
+
+          <div class="jobs-list">
+            <div v-for="job in professionalJobs.filter(j => j.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA')" :key="job.id" class="job-card" style="border-left: 4px solid #F59E0B; background: white;">
+              <div class="job-header">
+                <div>
+                  <h4 style="margin:0 0 4px; font-size:1.1rem; color:#1E293B;">{{ job.titulo }}</h4>
+                  <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+                    <span style="font-size: 0.9rem; font-weight: 700; color: #0F172A;">
+                      {{ formatMoney(job.monto_acordado) }}
+                    </span>
+                    <span style="font-size: 0.8rem; color: #64748B;"><i class="fa-solid fa-user"></i> {{ job.cliente_nombre }}</span>
+                  </div>
+                </div>
+                <span class="job-category" style="background: #FEF3C7; color: #92400E;">PENDIENTE DE VERIFICACIÓN</span>
+              </div>
+              
+              <div class="job-footer">
+                <button class="job-action-btn" style="background: #F59E0B; color: white; border: none;" @click="openTransferModal(job)">
+                  <i class="fa-solid fa-magnifying-glass-dollar"></i> Verificar Pago
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL DE CONFIRMACIÓN DE TRANSFERENCIA -->
+        <Teleport to="body">
+          <div v-if="showTransferModal" class="confirm-overlay" @click.self="showTransferModal = false">
+            <div class="confirm-card" style="max-width: 500px; padding: 0; overflow: hidden;">
+              <div class="modal-header">
+                <h3>Verificar Transferencia</h3>
+                <button @click="showTransferModal = false" class="btn-close">&times;</button>
+              </div>
+              
+              <div class="modal-body" style="padding: 20px;">
+                <div style="margin-bottom: 20px; padding: 15px; background: #F8FAFC; border-radius: 12px; border: 1px solid #E2E8F0;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 0.85rem; color: #64748B;">Monto a recibir:</span>
+                    <strong style="color: #0F172A;">{{ formatMoney(transferTargetJob?.monto_acordado) }}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="font-size: 0.85rem; color: #64748B;">Cliente:</span>
+                    <strong style="color: #0F172A;">{{ transferTargetJob?.cliente_nombre }}</strong>
+                  </div>
+                </div>
+
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 10px;">Comprobante enviado por el cliente:</label>
+                <div style="width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #E2E8F0; background: #F1F5F9; margin-bottom: 20px;">
+                  <img :src="transferTargetJob?.comprobante_url" style="width: 100%; display: block; max-height: 400px; object-fit: contain;" alt="Comprobante" />
+                </div>
+
+                <div style="background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 10px; padding: 12px; font-size: 0.82rem; color: #1E40AF; margin-bottom: 20px;">
+                  <i class="fa-solid fa-circle-info"></i>
+                  Al confirmar, el trabajo se marcará como pagado y se debitará la comisión de tu billetera. Asegúrate de que el dinero esté en tu cuenta.
+                </div>
+              </div>
+
+              <div class="modal-footer" style="padding: 16px 20px 20px; background: #F8FAFC;">
+                <button @click="showTransferModal = false" style="flex: 1; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: white; color: #64748B; font-weight: 700; cursor: pointer;">Cancelar</button>
+                <button @click="confirmarTransferencia" :disabled="isConfirmingTransfer" style="flex: 2; padding: 12px; border: none; border-radius: 8px; background: #F59E0B; color: white; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <i v-if="isConfirmingTransfer" class="fa-solid fa-spinner fa-spin"></i>
+                  <i v-else class="fa-solid fa-check-double"></i>
+                  {{ isConfirmingTransfer ? 'Confirmando...' : 'Confirmar Pago Recibido' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+
         <!-- TRABAJOS EN CURSO -->
         <div class="section-card" style="margin-bottom: 24px;" v-if="professionalJobs.filter(j => j.estado === 'EN_PROGRESO').length > 0">
           <div class="sc-header">
@@ -554,7 +663,7 @@ const finalizarTrabajo = async (trabajoId) => {
                   <span style="font-size: 0.85rem; font-weight:600; color:#F76B1C;" v-if="job.estado === 'EN_PROGRESO'">EN PROGRESO</span>
                   <span style="font-size: 0.85rem; font-weight:600; color:#22C55E;" v-else-if="job.estado === 'FINALIZADO_PROFESIONAL'">ESPERANDO CLIENTE</span>
                 </div>
-                <span class="job-category">{{ new Date(job.fecha_creacion).toLocaleDateString() }}</span>
+                <span class="job-category">{{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}</span>
               </div>
               
               <div class="job-footer">
@@ -566,13 +675,17 @@ const finalizarTrabajo = async (trabajoId) => {
                   <i :class="getCotizacionForJob(job.id) ? 'fa-solid fa-pen' : 'fa-solid fa-file-invoice-dollar'"></i>
                   {{ getCotizacionForJob(job.id) ? 'Editar Cotización' : 'Enviar Cotización' }}
                 </button>
-                <!-- MARCAR TERMINADO: Solo visible si ya existe una cotización -->
-                <button v-if="job.estado === 'EN_PROGRESO' && getCotizacionForJob(job.id)" class="btn-primary-action job-action-btn" style="background: #F76B1C; margin-top:0" @click="finalizarTrabajo(job.id)">
+                <!-- MARCAR TERMINADO: Solo visible si ya existe una cotización y ha sido ACEPTADA -->
+                <button v-if="job.estado === 'EN_PROGRESO' && getCotizacionForJob(job.id) && getCotizacionForJob(job.id).estado === 'ACEPTADA'" class="btn-primary-action job-action-btn" style="background: #F76B1C; margin-top:0" @click="finalizarTrabajo(job.id)">
                   <i class="fa-solid fa-flag-checkered"></i> Marcar como terminado
                 </button>
                 <!-- Aviso si no hay cotización aún -->
                 <span v-if="job.estado === 'EN_PROGRESO' && !getCotizacionForJob(job.id)" style="font-size: 0.75rem; color: #94A3B8; font-style: italic; align-self: center;">
                   Envía la cotización primero
+                </span>
+                <!-- Aviso si la cotización está pendiente de aceptación -->
+                <span v-if="job.estado === 'EN_PROGRESO' && getCotizacionForJob(job.id) && getCotizacionForJob(job.id).estado === 'PENDIENTE'" style="font-size: 0.75rem; color: #94A3B8; font-style: italic; align-self: center;">
+                  <i class="fa-solid fa-clock-rotate-left"></i> Esperando aceptación del cliente
                 </span>
               </div>
             </div>
@@ -598,7 +711,7 @@ const finalizarTrabajo = async (trabajoId) => {
                   <span style="font-size: 0.8rem; color:#22C55E; font-weight:700;" v-if="job.estado === 'CONFIRMADO_CLIENTE'">COMPLETADO</span>
                   <span style="font-size: 0.8rem; color:#F59E0B; font-weight:700;" v-else>ESPERANDO CLIENTE</span>
                 </div>
-                <span class="job-category">{{ new Date(job.fecha_creacion).toLocaleDateString() }}</span>
+                <span class="job-category">{{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}</span>
               </div>
               <div class="job-footer">
                 <button class="job-action-btn" style="background: #F0F9FF; color: #0B4C6F; border: 1.5px solid #0B4C6F;" @click="router.push(`/client/receipt/${job.solicitud_id || job.id}`)">
@@ -637,7 +750,7 @@ const finalizarTrabajo = async (trabajoId) => {
                   <div v-else class="client-avatar-initial">{{ req.cliente_nombre ? req.cliente_nombre.charAt(0) : 'C' }}</div>
                   <div class="client-details">
                     <h4>{{ req.cliente_nombre || 'Cliente' }}</h4>
-                    <span>{{ new Date(req.fecha_creacion).toLocaleDateString() }}</span>
+                    <span>{{ new Date(req.created_at || req.fecha_creacion).toLocaleDateString() }}</span>
                   </div>
                 </div>
                 <span class="job-category">{{ req.categoria }}</span>
@@ -676,7 +789,7 @@ const finalizarTrabajo = async (trabajoId) => {
                   <div v-else class="modal-avatar-initial">{{ selectedRequest.cliente_nombre?.charAt(0) || 'C' }}</div>
                   <div>
                     <strong>{{ selectedRequest.cliente_nombre || 'Cliente' }}</strong>
-                    <span>Publicado el {{ new Date(selectedRequest.fecha_creacion).toLocaleDateString() }}</span>
+                    <span>Publicado el {{ new Date(selectedRequest.created_at || selectedRequest.fecha_creacion).toLocaleDateString() }}</span>
                   </div>
                 </div>
 

@@ -233,17 +233,32 @@ const confirmarFinalizacion = async () => {
 
   isLoading.value = true;
   try {
-    // Si fuera real, subiríamos la foto a un endpoint de subida aquí y obtendríamos la URL del comprobante.
+    let comprobanteUrl = null;
+
+    // 1. SUBIR COMPROBANTE SI ES TRANSFERENCIA
+    if (normalizedMetodoPago.value === 'TRANSFERENCIA' && selectedFile.value) {
+      const formData = new FormData();
+      formData.append('comprobante', selectedFile.value);
+      const uploadRes = await axios.post('http://localhost:3003/api/trabajos/upload-comprobante', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      comprobanteUrl = uploadRes.data.url;
+    }
     
-    // Ejecutamos el endpoint que construimos en el backend
+    // 2. FINALIZAR TRABAJO
     const res = await axios.post(`http://localhost:3003/api/trabajos/${props.trabajo_id}/finalizar`, {
       monto_final: montoAPagar.value,
       metodo_pago_real: normalizedMetodoPago.value,
-      tarjeta_id: selectedCardId.value // Enviamos el ID de la tarjeta seleccionada
+      tarjeta_id: selectedCardId.value,
+      comprobante_url: comprobanteUrl
     });
     
     if (res.data.success) {
-      showToast('Trabajo finalizado y pago procesado con éxito', 'success');
+      if (res.data.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA') {
+        showToast('Comprobante enviado. El profesional debe confirmarlo para finalizar.', 'success');
+      } else {
+        showToast('Trabajo finalizado y pago procesado con éxito', 'success');
+      }
       setTimeout(() => emit('success'), 2000);
     }
   } catch (error) {

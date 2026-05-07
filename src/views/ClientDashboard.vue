@@ -348,7 +348,7 @@ const aceptarCotizacion = async (cotizacion) => {
               <div class="req-details">
                 <h4>{{ req.title || req.titulo }}</h4>
                 <span class="req-status">
-                  {{ req.status || req.estado || 'Pendiente' }} • {{ new Date(req.fecha_creacion || Date.now()).toLocaleDateString() }}
+                  {{ req.status || req.estado || 'Pendiente' }} • {{ new Date(req.created_at || req.fecha_creacion || Date.now()).toLocaleDateString() }}
                 </span>
               </div>
             </div>
@@ -401,9 +401,10 @@ const aceptarCotizacion = async (cotizacion) => {
                 <span class="req-status">
                   <span class="estado-badge" :class="{
                     'badge-progreso': job.estado === 'EN_PROGRESO',
-                    'badge-finalizado': job.estado === 'FINALIZADO_PROFESIONAL'
+                    'badge-finalizado': job.estado === 'FINALIZADO_PROFESIONAL',
+                    'badge-pendiente-confirmacion': job.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA'
                   }">
-                    {{ job.estado === 'EN_PROGRESO' ? 'En progreso' : job.estado === 'FINALIZADO_PROFESIONAL' ? 'Listo para confirmar' : job.estado }}
+                    {{ job.estado === 'EN_PROGRESO' ? 'En progreso' : job.estado === 'FINALIZADO_PROFESIONAL' ? 'Listo para confirmar' : job.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA' ? 'Pago en verificación' : job.estado }}
                   </span>
                   • {{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}
                 </span>
@@ -464,9 +465,10 @@ const aceptarCotizacion = async (cotizacion) => {
               <div>
                 <span class="job-modal-tag" :class="{
                   'badge-progreso': selectedJob.estado === 'EN_PROGRESO',
-                  'badge-finalizado': selectedJob.estado === 'FINALIZADO_PROFESIONAL'
+                  'badge-finalizado': selectedJob.estado === 'FINALIZADO_PROFESIONAL',
+                  'badge-pendiente-confirmacion': selectedJob.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA'
                 }">
-                  {{ selectedJob.estado === 'EN_PROGRESO' ? '🟢 En progreso' : selectedJob.estado === 'FINALIZADO_PROFESIONAL' ? '🟠 Listo para confirmar' : selectedJob.estado }}
+                  {{ selectedJob.estado === 'EN_PROGRESO' ? '🟢 En progreso' : selectedJob.estado === 'FINALIZADO_PROFESIONAL' ? '🟠 Listo para confirmar' : selectedJob.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA' ? '🔴 Pago en verificación' : selectedJob.estado }}
                 </span>
                 <h3>{{ selectedJob.titulo || 'Contratación Directa' }}</h3>
               </div>
@@ -489,7 +491,7 @@ const aceptarCotizacion = async (cotizacion) => {
                 </div>
                 <div class="jm-meta-item">
                   <span class="jm-label"><i class="fa-solid fa-calendar"></i> Fecha inicio</span>
-                  <span class="jm-value">{{ new Date(selectedJob.fecha_creacion).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' }) }}</span>
+                  <span class="jm-value">{{ new Date(selectedJob.created_at || selectedJob.fecha_creacion).toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' }) }}</span>
                 </div>
                 <div class="jm-meta-item">
                   <span class="jm-label"><i class="fa-solid fa-id-badge"></i> ID del trabajo</span>
@@ -549,7 +551,7 @@ const aceptarCotizacion = async (cotizacion) => {
                 <div class="past-job-info">
                   <h4>{{ job.titulo || 'Contratación Directa' }}</h4>
                   <p v-if="job.descripcion" class="past-job-desc">{{ job.descripcion.slice(0, 60) }}{{ job.descripcion.length > 60 ? '...' : '' }}</p>
-                  <span class="past-job-date">Completado el {{ new Date(job.fecha_creacion).toLocaleDateString('es-DO', { day:'2-digit', month:'long', year:'numeric' }) }}</span>
+                  <span class="past-job-date">Completado el {{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString('es-DO', { day:'2-digit', month:'long', year:'numeric' }) }}</span>
                 </div>
               </div>
               <div class="card-actions">

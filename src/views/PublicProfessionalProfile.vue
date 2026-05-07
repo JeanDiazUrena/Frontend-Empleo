@@ -121,7 +121,7 @@ onMounted(async () => {
         skills: data.habilidades || "",
         avatar: data.avatar_url || "", 
         cover: data.cover_url || "",   
-        joinDate: data.fecha_registro ? new Date(data.fecha_registro).toLocaleDateString('es-DO', { year: 'numeric', month: 'long' }) : "",
+        joinDate: (data.created_at || data.fecha_registro) ? new Date(data.created_at || data.fecha_registro).toLocaleDateString('es-DO', { year: 'numeric', month: 'long' }) : "",
         usuario_id: data.usuario_id || userId
       };
       
@@ -485,7 +485,7 @@ const categoryStyle = computed(() => {
                 <div v-else style="width: 44px; height: 44px; border-radius: 50%; background: #F1F5F9; color: #1E293B; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">{{ resena.cliente_nombre?.charAt(0) || 'C' }}</div>
                 <div>
                   <h4 style="margin: 0; color: #0F172A; font-size: 1rem;">{{ resena.cliente_nombre }}</h4>
-                  <span style="font-size: 0.8rem; color: #94A3B8;">{{ new Date(resena.fecha_creacion).toLocaleDateString() }}</span>
+                  <span style="font-size: 0.8rem; color: #94A3B8;">{{ new Date(resena.created_at || resena.fecha_creacion).toLocaleDateString() }}</span>
                 </div>
               </div>
               <div style="display: flex; color: #F59E0B; font-size: 1.1rem; gap: 2px;">
