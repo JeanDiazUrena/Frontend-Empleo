@@ -88,7 +88,7 @@ const confirmarProfesional = async (req) => {
     }
   } catch (error) {
     console.error(error);
-    showToast('Error al formalizar el trabajo.', 'error');
+    showToast(error.response?.data?.error || 'Error al formalizar el trabajo.', 'error');
   } finally {
     isConfirmingPro.value = null;
   }

@@ -233,6 +233,33 @@ const showToast = (msg) => {
   setTimeout(() => toastMsg.value = '', 3500);
 };
 
+const PROFILE_INCOMPLETE_MESSAGE = 'Debes completar tu perfil antes de hacer una solicitud.';
+
+const isClientProfileComplete = (client) => Boolean(
+  client?.nombre?.trim() &&
+  client?.telefono?.trim() &&
+  client?.direccion?.trim()
+);
+
+const validateClientProfile = async () => {
+  const userId = state.user?.id || localStorage.getItem('usuario_id');
+  if (!userId) return false;
+
+  try {
+    const { data } = await axios.get(`${API_URLS.PERFILES}/api/clientes/${userId}`);
+    if (isClientProfileComplete(data)) {
+      showBlock.value = false;
+      form.value.location = data.direccion;
+      return true;
+    }
+  } catch (err) {
+    console.error('Error validando perfil del cliente:', err);
+  }
+
+  showBlock.value = true;
+  return false;
+};
+
 // ─── ENVÍO ────────────────────────────────────────────────────
 // ─── ENVÍO ────────────────────────────────────────────────────
 const handleSubmit = async () => {
@@ -247,6 +274,15 @@ const handleSubmit = async () => {
   }
 
   try {
+    if (!isEditing.value) {
+      const profileOk = await validateClientProfile();
+      if (!profileOk) {
+        formError.value = PROFILE_INCOMPLETE_MESSAGE;
+        showToast(PROFILE_INCOMPLETE_MESSAGE);
+        return;
+      }
+    }
+
     if (isEditing.value) {
       await axios.put(`${API_URLS.PERFILES}/api/solicitudes/${route.params.id}`, {
         titulo: form.value.title,
@@ -281,20 +317,19 @@ const handleSubmit = async () => {
     }
   } catch (err) {
     console.error(err);
-    formError.value = 'Ocurrió un error al procesar tu solicitud. Intenta de nuevo.';
+    const serverMessage = err.response?.data?.error || err.response?.data?.message;
+    formError.value = serverMessage || 'Ocurrió un error al procesar tu solicitud. Intenta de nuevo.';
+    if (err.response?.data?.code === 'CLIENT_PROFILE_INCOMPLETE') {
+      showBlock.value = true;
+    }
   } finally {
     isSubmitting.value = false;
   }
 };
 
 // ─── AL MONTAR ────────────────────────────────────────────────
-onMounted(() => {
-  const phone   = localStorage.getItem('usuario_telefono');
-  const address = localStorage.getItem('usuario_direccion');
-  if (!phone || !address) showBlock.value = true;
-
-  // Pre-cargar ubicación del usuario si existe
-  if (address) form.value.location = address;
+onMounted(async () => {
+  await validateClientProfile();
 });
 </script>
 

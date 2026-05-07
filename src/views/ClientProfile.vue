@@ -172,6 +172,12 @@ const saveChanges = async () => {
     ? `${selectedCity.value}, ${selectedSector.value}`
     : (editForm.value.location || '');
 
+  if (!locationString.trim()) {
+    saveError.value = 'La dirección es obligatoria para completar tu perfil.';
+    isSaving.value = false;
+    return;
+  }
+
   try {
     const formData = new FormData();
     formData.append('usuario_id', user.value.id);

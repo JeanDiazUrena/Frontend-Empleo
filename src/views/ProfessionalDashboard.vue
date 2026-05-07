@@ -229,7 +229,7 @@ const acceptJobRequest = async (req) => {
     }
   } catch(e) {
     console.error(e);
-    showToast('Error al intentar aceptar la solicitud.', 'error');
+    showToast(e.response?.data?.error || 'Error al intentar aceptar la solicitud.', 'error');
   }
 };
 
