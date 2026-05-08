@@ -1,4 +1,10 @@
-const GATEWAY_URL = 'http://localhost:4000';
+const PRODUCTION_GATEWAY_URL = 'https://servihub-gateway.onrender.com';
+const LOCAL_GATEWAY_URL = 'http://localhost:4000';
+const configuredGatewayUrl = import.meta.env.VITE_GATEWAY_URL;
+
+export const GATEWAY_URL = import.meta.env.PROD
+    ? PRODUCTION_GATEWAY_URL
+    : configuredGatewayUrl || LOCAL_GATEWAY_URL;
 
 export const API_URLS = {
     AUTH: `${GATEWAY_URL}/auth-service`,
@@ -10,4 +16,4 @@ export const API_URLS = {
 
 export const SOCKET_URL = GATEWAY_URL;
 
-export const GOOGLE_CLIENT_ID = '508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com';
