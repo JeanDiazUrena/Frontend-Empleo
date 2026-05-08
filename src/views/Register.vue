@@ -191,10 +191,13 @@ async function handleRegistration() {
         <div v-if="errorMessage" class="error-alert">{{ errorMessage }}</div>
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
-          
-          <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper" />
+          <div class="social-registration">
+            <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper" />
+          </div>
 
-          <div class="divider"><span>o regístrate con tu email</span></div>
+          <div class="divider">
+            <span class="divider-text">o regístrate con tu email</span>
+          </div>
 
           <div class="input-group">
             <label>Nombre Completo</label>
@@ -352,29 +355,63 @@ async function handleRegistration() {
 .row-inputs { display: flex; gap: 20px; }
 .half { flex: 1; }
 
-/* BOTONES */
-.google-btn {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  width: 100%; padding: 14px; background: white; border: 1px solid #E5E7EB; 
-  border-radius: 12px; font-weight: 600; font-size: 1rem; color: #374151; 
-  cursor: pointer; transition: 0.2s;
+.social-registration {
+  width: 100%;
+  margin-bottom: 10px;
 }
-.google-btn:hover { background: #F9FAFB; border-color: #D1D5DB; }
-.google-btn img { width: 20px; }
 
-.primary-btn {
-  background: #0B4C6F; color: white; border: none; padding: 16px; 
-  border-radius: 12px; font-size: 1.1rem; font-weight: 700; cursor: pointer; 
-  width: 100%; margin-top: 10px; transition: 0.2s;
+.google-btn-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
-.primary-btn:hover { background: #093a55; transform: translateY(-1px); }
+
+/* BOTONES */
+.primary-btn {
+  background: #0B4C6F;
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(11, 76, 111, 0.15);
+}
+
+.primary-btn:hover {
+  background: #093a55;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(11, 76, 111, 0.25);
+}
 
 .text-btn { background: none; border: none; color: #666; margin-top: 15px; cursor: pointer; text-decoration: underline; font-size: 1rem; }
 
 /* DIVIDER */
-.divider { display: flex; align-items: center; color: #9CA3AF; font-size: 0.9rem; margin: 10px 0; font-weight: 500; }
-.divider span { padding: 0 15px; }
-.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #E5E7EB; }
+.divider {
+  display: flex;
+  align-items: center;
+  color: #9CA3AF;
+  font-size: 0.9rem;
+  margin: 15px 0;
+  font-weight: 500;
+}
+
+.divider-text {
+  padding: 0 15px;
+  background: white;
+  z-index: 1;
+}
+
+.divider::before, .divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #E5E7EB;
+}
 
 /* ROLES (PASO 2) */
 .role-selector { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }

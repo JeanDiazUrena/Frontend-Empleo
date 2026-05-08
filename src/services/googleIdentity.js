@@ -136,7 +136,7 @@ export async function renderGoogleLoginButton(container, buttonConfig = {}) {
 
   google.accounts.id.renderButton(container, {
     type: 'standard',
-    theme: 'outline',
+    theme: 'filled_blue',
     size: 'large',
     text: 'continue_with',
     shape: 'rectangular',

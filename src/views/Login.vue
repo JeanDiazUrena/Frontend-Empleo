@@ -177,9 +177,13 @@ async function handleGoogleCallback(response) {
           <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
 
           <form @submit.prevent="handleLogin">
+          <div class="social-login">
             <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper" />
+          </div>
 
-            <div class="separator"><span>o ingresa con tu email</span></div>
+          <div class="separator">
+            <span class="separator-text">o continuar con email</span>
+          </div>
 
             <div class="field">
               <label>Correo Electrónico</label>
@@ -229,16 +233,97 @@ async function handleGoogleCallback(response) {
 .field label { display: block; font-weight: 700; margin-bottom: 8px; color: #374151; }
 .field input { width: 100%; padding: 16px; border: 1px solid #D1D5DB; border-radius: 10px; font-size: 1rem; background: #F9FAFB; }
 .field input:focus { border-color: #0B4C6F; background: white; outline: none; }
-.google-btn-wrapper { width: 100%; display: block; }
-.btn-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; background: white; border: 1px solid #D1D5DB; border-radius: 10px; font-weight: 600; cursor: pointer; }
-.btn-submit { width: 100%; background: #0B4C6F; color: white; padding: 16px; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 20px; transition: 0.3s; }
-.btn-submit:disabled { background: #ccc; cursor: not-allowed; }
-.error-msg { background-color: #FEE2E2; color: #DC2626; padding: 10px; border-radius: 6px; margin-bottom: 20px; text-align: center; border: 1px solid #FCA5A5; }
-.separator { display: flex; align-items: center; color: #9CA3AF; margin: 20px 0; }
-.separator span { padding: 0 15px; }
-.separator::before, .separator::after { content: ""; flex: 1; height: 1px; background: #E5E7EB; }
-.forgot { text-align: right; }
-.forgot a { color: #0B4C6F; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+.social-login {
+  margin-bottom: 25px;
+  width: 100%;
+}
+
+.google-btn-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  color: #9CA3AF;
+  margin: 25px 0;
+  font-size: 0.9rem;
+}
+
+.separator-text {
+  padding: 0 15px;
+  background: white;
+  z-index: 1;
+}
+
+.separator::before, .separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #E5E7EB;
+}
+
+.btn-submit {
+  width: 100%;
+  background: #0B4C6F;
+  color: white;
+  padding: 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(11, 76, 111, 0.15);
+}
+
+.btn-submit:hover {
+  background: #083a55;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(11, 76, 111, 0.25);
+}
+
+.btn-submit:disabled {
+  background: #CBD5E1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.error-msg {
+  background-color: #FEE2E2;
+  color: #DC2626;
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  text-align: center;
+  border: 1px solid #FCA5A5;
+  font-weight: 500;
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.forgot {
+  text-align: right;
+  margin-bottom: 10px;
+}
+
+.forgot a {
+  color: #0B4C6F;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 1000px) {
   .login-page-fullscreen { position: relative; height: auto; min-height: 100vh; }
   .login-nav { padding: 0 20px; }

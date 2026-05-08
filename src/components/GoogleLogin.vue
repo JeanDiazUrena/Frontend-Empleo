@@ -63,28 +63,42 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .google-login-wrapper {
-  display: block;
+  display: flex;
+  justify-content: center;
   width: 100%;
+  margin: 10px 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.google-login-wrapper:hover {
+  transform: translateY(-1px);
 }
 
 .google-login-button {
   display: flex;
   width: 100%;
+  justify-content: center;
 }
 
 .google-login-button :deep(div),
 .google-login-button :deep(iframe) {
-  max-width: 100%;
+  max-width: 100% !important;
+  border-radius: 10px !important;
+  overflow: hidden;
 }
 
 .google-login-fallback {
   width: 100%;
   padding: 14px;
-  background: white;
-  border: 1px solid #D1D5DB;
+  background: #4285F4;
+  border: none;
   border-radius: 10px;
-  color: #6B7280;
-  font-weight: 600;
+  color: white;
+  font-weight: 700;
   cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 </style>
