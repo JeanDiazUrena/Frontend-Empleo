@@ -145,7 +145,15 @@ onMounted(async () => {
     fetchNotifications();
     notifInterval = setInterval(fetchNotifications, 15000);
     
-    socket = io(SOCKET_URL, { query: { userId } });
+    // Freno de reconexión para evitar error 429
+    socket = io(SOCKET_URL, { 
+      query: { userId },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 5000, 
+      reconnectionDelayMax: 10000,
+      randomizationFactor: 0.5
+    });
+
     socket.on('notification_new_message', (msg) => {
       if (msg.remitente_id !== userId) {
         unreadCount.value++;

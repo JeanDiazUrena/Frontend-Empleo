@@ -1,12 +1,11 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
-
 import { ref, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from "axios";
-import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR
+import { useUserSession } from '../composables/useUserSession.js';
 
-const { login, logout } = useUserSession(); // 2. USAR
+const { login, logout } = useUserSession();
 const router = useRouter();
 const step = ref(1); 
 
@@ -21,10 +20,11 @@ const isLoading = ref(false);
 
 onMounted(() => {
   console.log("Limpiando datos anteriores...");
-  logout(); // 3. Usar la limpieza centralizada
+  logout();
 });
 
 function handleStep1Submit() {
+  if (isLoading.value) return;
   if (!name.value || !email.value || !password.value) return;
   
   if (password.value.length < 8) {
@@ -45,12 +45,11 @@ const handleGoogleCallback = async (response) => {
   if (response.credential) {
     googleCredential.value = response.credential;
     
-    // Intentar login automático si ya existe
     try {
       errorMessage.value = '';
+      isLoading.value = true;
       const res = await axios.post(`${API_URLS.AUTH}/api/google`, {
         credential: response.credential
-        // No mandamos rol para ver si ya existe
       });
 
       if (res.data.user) {
@@ -67,17 +66,19 @@ const handleGoogleCallback = async (response) => {
       }
     } catch (err) {
       console.log("User does not exist or error:", err.response?.data);
-      // Si el error es 404 (No registrado), pasamos al paso 2
       if (err.response && err.response.status === 404) {
         step.value = 2; 
       } else {
         errorMessage.value = err.response?.data?.error || err.response?.data?.message || "Error al conectar con Google.";
       }
+    } finally {
+      isLoading.value = false;
     }
   }
 };
 
 async function handleRegistration() {
+  if (isLoading.value) return;
   console.log("Finalizing registration with role:", selectedRole.value);
   errorMessage.value = '';
   if (!selectedRole.value) { errorMessage.value = "Selecciona un rol."; return; }
@@ -85,17 +86,12 @@ async function handleRegistration() {
   isLoading.value = true;
   try {
     let response;
-    
-    // Si viene de Google
     if (googleCredential.value) {
-      console.log("Registering with Google...");
       response = await axios.post(`${API_URLS.AUTH}/api/google`, {
         credential: googleCredential.value,
         rol: selectedRole.value
       });
     } else {
-      // Registro normal
-      console.log("Registering with Email...");
       response = await axios.post(`${API_URLS.AUTH}/api/register`, {
         nombre: name.value,
         email: email.value,
@@ -104,11 +100,8 @@ async function handleRegistration() {
       });
     }
 
-    console.log("Response from server:", response.data);
-
     if (response.data.user && response.data.user.id) {
        const user = response.data.user;
-       console.log("Saving user to session:", user);
        const newUser = {
          id: user.id,
          nombre: user.nombre,
@@ -116,11 +109,9 @@ async function handleRegistration() {
          rol: user.rol
        };
        const token = response.data.token || 'temp-token'; 
-       
        login(newUser, token);
     }
 
-    console.log("Redirecting to dashboard...");
     if (selectedRole.value === 'profesional') {
       router.push('/professional/dashboard');
     } else {
@@ -129,7 +120,9 @@ async function handleRegistration() {
 
   } catch (error) {
     console.error("ERROR IN handleRegistration:", error);
-    if (error.response && error.response.data && (error.response.data.message || error.response.data.error)) {
+    if (error.response && error.response.status === 429) {
+      errorMessage.value = "Demasiados intentos. Por favor, espera un minuto e intenta de nuevo.";
+    } else if (error.response && error.response.data && (error.response.data.message || error.response.data.error)) {
       errorMessage.value = error.response.data.error || error.response.data.message;
     } else {
       errorMessage.value = "Error en el registro. " + (error.message || "");
@@ -139,6 +132,7 @@ async function handleRegistration() {
   }
 }
 </script>
+
 <template>
   <div class="split-screen">
     
