@@ -14,6 +14,7 @@ const selectedCity = ref('');
 const professionals = ref([]);
 const isLoading = ref(true);
 const hasSearched = ref(false);
+let searchDebounce = null;
 const sortedProfessionals = computed(() => {
   return [...professionals.value].sort((a, b) => (b.promedio_estrellas || 0) - (a.promedio_estrellas || 0));
 });
@@ -30,6 +31,35 @@ const CATEGORIES = [
   { label: 'Construcción', value: 'construccion' },
   { label: 'Otros', value: 'otros' },
 ];
+
+const normalizeSearchText = (value = '') =>
+  String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const CATEGORY_KEYWORDS = {
+  hogar: ['hogar', 'casa', 'plomero', 'plomeria', 'electricista', 'limpieza', 'mantenimiento', 'pintor'],
+  tecnologia: ['tecnologia', 'tecnico', 'computadora', 'laptop', 'pc', 'web', 'programador', 'informatica', 'software'],
+  educacion: ['educacion', 'clases', 'tutor', 'profesor', 'curso', 'idioma'],
+  belleza: ['belleza', 'estetica', 'maquillaje', 'unas', 'peluqueria', 'barberia'],
+  eventos: ['eventos', 'fotografia', 'decoracion', 'musica', 'dj', 'catering'],
+  salud: ['salud', 'medico', 'terapia', 'enfermeria', 'fitness'],
+  legal: ['legal', 'abogado', 'contrato', 'notario'],
+  construccion: ['construccion', 'albanil', 'obra', 'remodelacion', 'pintura'],
+  otros: ['otros', 'servicio']
+};
+
+const inferCategoryFromText = (value = '') => {
+  const normalized = normalizeSearchText(value);
+  if (!normalized) return '';
+
+  for (const [category, words] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (words.some((word) => normalized.includes(word))) return category;
+  }
+  return '';
+};
 
 const locationsDB = {
   "Santiago de los Caballeros": ["Villa Olga", "Los Jardines", "Gurabo", "El Embrujo", "Pekin", "Cienfuegos", "Centro Histórico"],
@@ -105,6 +135,21 @@ const selectLoc = (l) => {
 watch(catSearch, (val) => { if (!val) selectedCategory.value = ''; });
 watch(locSearch, (val) => { if (!val) selectedCity.value = ''; });
 
+watch([searchQuery, catSearch, locSearch], () => {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    if (catSearch.value && !selectedCategory.value) {
+      const exactCat = CATEGORIES.find((cat) => normalizeSearchText(cat.label) === normalizeSearchText(catSearch.value));
+      if (exactCat) selectedCategory.value = exactCat.value;
+    }
+
+    const exactLoc = allLocations.value.find((loc) => normalizeSearchText(loc.label) === normalizeSearchText(locSearch.value));
+    selectedCity.value = exactLoc?.value || locSearch.value.trim();
+
+    loadProfessionals();
+  }, 350);
+});
+
 const focusInput = (refName) => {
   const el = refName === 'catInput' ? catInputRef.value : locInputRef.value;
   if (el) el.focus();
@@ -123,7 +168,8 @@ const loadProfessionals = async () => {
   try {
     const params = {};
     if (searchQuery.value.trim()) params.busqueda = searchQuery.value.trim();
-    if (selectedCategory.value) params.categoria = selectedCategory.value;
+    const smartCategory = selectedCategory.value || inferCategoryFromText(searchQuery.value) || inferCategoryFromText(catSearch.value);
+    if (smartCategory) params.categoria = smartCategory;
     if (selectedCity.value) params.ciudad = selectedCity.value;
 
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales`, { params });
@@ -175,6 +221,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
+  if (searchDebounce) clearTimeout(searchDebounce);
 });
 </script>
 
