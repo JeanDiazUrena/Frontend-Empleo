@@ -718,7 +718,7 @@ const confirmarTransferencia = async () => {
                 <span class="job-category">{{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}</span>
               </div>
               <div class="job-footer">
-                <button class="job-action-btn" style="background: #F0F9FF; color: #0B4C6F; border: 1.5px solid #0B4C6F;" @click="router.push(`/professional/receipt/${job.solicitud_id || job.id}`)">
+                <button class="job-action-btn" style="background: #F0F9FF; color: #0B4C6F; border: 1.5px solid #0B4C6F;" @click="router.push(`/professional/receipt/${job.id}`)">
                   <i class="fa-solid fa-file-invoice"></i> Ver Recibo
                 </button>
                 <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1;" @click="openJobDetail(job)">
