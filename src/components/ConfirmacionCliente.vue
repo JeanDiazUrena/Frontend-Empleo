@@ -266,11 +266,11 @@ const confirmarFinalizacion = async () => {
       
       // Cerramos y recargamos el dashboard tras un breve delay
       setTimeout(() => {
-        emit('success');
-        // Redirección forzada para asegurar que sale de cualquier sub-modal o estado
-        const role = localStorage.getItem('usuario_rol');
-        if (role === 'cliente') window.location.href = '/client/dashboard';
-        else if (role === 'profesional') window.location.href = '/professional/dashboard';
+        emit('success', res.data);
+        // Redirección forzada eliminada para que el dashboard controle el flujo
+        // const role = localStorage.getItem('usuario_rol');
+        // if (role === 'cliente') window.location.href = '/client/dashboard';
+        // else if (role === 'profesional') window.location.href = '/professional/dashboard';
       }, 2500);
     }
   } catch (error) {

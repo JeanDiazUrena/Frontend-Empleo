@@ -286,8 +286,19 @@ const formatPaymentMethod = (method) => {
     return labels[String(method || '').toUpperCase()] || 'No especificado';
 };
 
-const handlePaymentSuccess = () => {
+const handlePaymentSuccess = (result) => {
     showPaymentModal.value = false;
+    
+    // Si el estado es esperando confirmación, no redirigimos a reseña
+    if (result && result.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA') {
+        showToast('Comprobante enviado. Esperando que el profesional confirme la recepción', 'success');
+        // Recargar datos para ver el cambio de estado
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+        return;
+    }
+
     if (jobToPay.value) {
         router.push(`/client/review/${jobToPay.value.id}?ref=${jobToPay.value.profesional_id}`);
     }
@@ -634,6 +645,9 @@ const aceptarCotizacion = async (cotizacion) => {
                 </div>
               </div>
               <div class="card-actions">
+                <button v-if="!job.tiene_resena" class="btn-review-action" @click="router.push(`/client/review/${job.id}?ref=${job.profesional_id}`)">
+                   <i class="fa-solid fa-star"></i> Dejar Reseña
+                </button>
                 <button class="btn-receipt" @click="router.push(`/client/receipt/${job.id}`)">
                   <i class="fa-solid fa-file-invoice"></i> Recibo
                 </button>
@@ -1446,6 +1460,27 @@ const aceptarCotizacion = async (cotizacion) => {
 }
 
 .btn-reject-secondary:hover { background: #fecaca; }
+
+.btn-review-action {
+  background: #f76b1c;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-review-action:hover {
+  background: #e65a10;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(247, 107, 28, 0.2);
+}
 
 @media (max-width: 768px) {
   .card-main-content { flex-direction: column; }
