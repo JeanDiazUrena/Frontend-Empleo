@@ -5,6 +5,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 const router = useRouter();
 const { state } = useUserSession();
@@ -155,7 +156,6 @@ const openDetail = (req) => {
 
 const openJobDetail = (job) => {
   // Para profesional, usamos la misma lógica que openDetail pero adaptada si es necesario
-  // Por ahora lo reusamos para el modal de detalles
   selectedRequest.value = {
     ...job,
     cliente_nombre: job.cliente_nombre || 'Cliente',
@@ -239,50 +239,50 @@ onMounted(async () => {
 
   // Cargar foto y nombre para mostrar en el dashboard
   userDisplayName.value = state.user?.name || localStorage.getItem('usuario_nombre') || 'Profesional';
-  userAvatar.value = localStorage.getItem('usuario_avatar') || '';
+  userAvatar.value = normalizeMediaUrl(state.user?.avatar || localStorage.getItem('usuario_avatar') || '');
 
   try {
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
     profileStatus.value = !!data;
     // Si el perfil tiene avatar, actualizarlo
-    if (data?.avatar_url) {
-      userAvatar.value = data.avatar_url;
-      localStorage.setItem('usuario_avatar', data.avatar_url);
-    }
+    const avatar = normalizeMediaUrl(data?.avatar_url || '');
+    userAvatar.value = avatar;
+    avatar ? localStorage.setItem('usuario_avatar', avatar) : localStorage.removeItem('usuario_avatar');
     if (data?.nombre) userDisplayName.value = data.nombre;
 
-      try {
-        const solRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes?profesional_id=${userId}`);
-        jobRequests.value = solRes.data.map(s => ({
-          ...s,
-          cliente_nombre: s.cliente_nombre || 'Cliente',
-          categoria: s.categoria || 'Servicio'
-        }));
-      } catch(e) { console.error("Error cargando solicitudes", e); }
+    try {
+      const solRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes?profesional_id=${userId}`);
+      jobRequests.value = solRes.data.map(s => ({
+        ...s,
+        cliente_avatar: normalizeMediaUrl(s.cliente_avatar || ''),
+        cliente_nombre: s.cliente_nombre || 'Cliente',
+        categoria: s.categoria || 'Servicio'
+      }));
+    } catch(e) { console.error("Error cargando solicitudes", e); }
 
-      // Check financial status
-      try {
-        const finRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}/financiero`);
-        if (!finRes.data.stripe_card_token) {
-           hasPaymentMethod.value = false;
-        }
-      } catch(e) { 
-         // If 404 or error, they likely haven't set it up
+    // Check financial status
+    try {
+      const finRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}/financiero`);
+      if (!finRes.data.stripe_card_token) {
          hasPaymentMethod.value = false;
       }
+    } catch(e) { 
+       hasPaymentMethod.value = false;
+    }
 
-      try {
-        const trabRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`);
-        professionalJobs.value = trabRes.data.map(j => ({
-          ...j,
-          cliente_nombre: j.cliente_nombre || 'Cliente',
-          categoria: j.categoria || 'Servicio'
-        }));
-        // Load cotizaciones for active jobs
-        await loadCotizacionesForJobs(professionalJobs.value);
-      } catch(e) { console.error("Error cargando trabajos", e); }
-      
-    } catch {
+    try {
+      const trabRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`);
+      professionalJobs.value = trabRes.data.map(j => ({
+        ...j,
+        cliente_avatar: normalizeMediaUrl(j.cliente_avatar || ''),
+        cliente_nombre: j.cliente_nombre || 'Cliente',
+        categoria: j.categoria || 'Servicio'
+      }));
+      // Load cotizaciones for active jobs
+      await loadCotizacionesForJobs(professionalJobs.value);
+    } catch(e) { console.error("Error cargando trabajos", e); }
+    
+  } catch {
     profileStatus.value = false;
   } finally {
     isLoading.value = false;
@@ -481,7 +481,6 @@ const confirmarTransferencia = async () => {
       <div class="spinner"></div>
       <p>Cargando tu panel...</p>
     </div>
-
 
     <template v-else>
 
@@ -716,7 +715,7 @@ const confirmarTransferencia = async () => {
                 <span class="job-category">{{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}</span>
               </div>
               <div class="job-footer">
-                <button class="job-action-btn" style="background: #F0F9FF; color: #0B4C6F; border: 1.5px solid #0B4C6F;" @click="router.push(`/client/receipt/${job.solicitud_id || job.id}`)">
+                <button class="job-action-btn" style="background: #F0F9FF; color: #0B4C6F; border: 1.5px solid #0B4C6F;" @click="router.push(`/professional/receipt/${job.solicitud_id || job.id}`)">
                   <i class="fa-solid fa-file-invoice"></i> Ver Recibo
                 </button>
                 <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1;" @click="openJobDetail(job)">
@@ -748,7 +747,7 @@ const confirmarTransferencia = async () => {
             <div v-for="req in jobRequests" :key="req.id" class="job-card">
               <div class="job-header">
                 <div class="client-info">
-                  <img v-if="req.cliente_avatar" :src="req.cliente_avatar.startsWith('http') ? req.cliente_avatar : `${API_URLS.PERFILES}${req.cliente_avatar}`" class="client-avatar" alt="Avatar"/>
+                  <img v-if="req.cliente_avatar" :src="req.cliente_avatar" class="client-avatar" alt="Avatar"/>
                   <div v-else class="client-avatar-initial">{{ req.cliente_nombre ? req.cliente_nombre.charAt(0) : 'C' }}</div>
                   <div class="client-details">
                     <h4>{{ req.cliente_nombre || 'Cliente' }}</h4>
@@ -768,9 +767,18 @@ const confirmarTransferencia = async () => {
                 <button class="job-action-btn" style="background: white; color: #1E293B; border: 1px solid #CBD5E1; margin-right: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s;" @click="openDetail(req)">
                   <i class="fa-solid fa-circle-info"></i> Más información
                 </button>
-                <button class="btn-primary-action job-action-btn" @click="acceptJobRequest(req)">
-                  <i class="fa-solid fa-check"></i> Tomar Trabajo
-                </button>
+                
+                <template v-if="req.estado === 'POR_CONFIRMAR' || req.estado === 'por_confirmar'">
+                  <div class="waiting-badge">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    Esperando confirmación del cliente
+                  </div>
+                </template>
+                <template v-else>
+                  <button class="btn-primary-action job-action-btn" @click="acceptJobRequest(req)">
+                    <i class="fa-solid fa-check"></i> Tomar Trabajo
+                  </button>
+                </template>
               </div>
             </div>
           </div>
@@ -787,7 +795,7 @@ const confirmarTransferencia = async () => {
               
               <div class="modal-body">
                 <div class="detail-client">
-                  <img v-if="selectedRequest.cliente_avatar" :src="selectedRequest.cliente_avatar.startsWith('http') ? selectedRequest.cliente_avatar : `${API_URLS.PERFILES}${selectedRequest.cliente_avatar}`" class="modal-avatar" />
+                  <img v-if="selectedRequest.cliente_avatar" :src="selectedRequest.cliente_avatar" class="modal-avatar" />
                   <div v-else class="modal-avatar-initial">{{ selectedRequest.cliente_nombre?.charAt(0) || 'C' }}</div>
                   <div>
                     <strong>{{ selectedRequest.cliente_nombre || 'Cliente' }}</strong>
@@ -798,8 +806,6 @@ const confirmarTransferencia = async () => {
                 <div class="detail-info">
                   <label>Título:</label>
                   <p class="detail-title">{{ selectedRequest.titulo }}</p>
-
-
 
                   <div class="detail-meta-grid">
                     <div class="detail-meta-item">
@@ -828,7 +834,7 @@ const confirmarTransferencia = async () => {
                       }}</p>
                     </div>
                     <div class="detail-meta-item" v-if="selectedRequest.presupuesto_min || selectedRequest.presupuesto_max || selectedRequest.presupuesto || selectedRequest.isWorkDetail">
-                      <label><i class="fa-solid fa-money-bill-wave"></i> Presupuesto</label>
+                      <label><i class="fa-solid fa-money-bill-wave"></i> Monto total:</label>
                       <p class="detail-budget">
                         <span v-if="selectedRequest.presupuesto">{{ selectedRequest.presupuesto }}</span>
                         <span v-else-if="!selectedRequest.presupuesto_min && !selectedRequest.presupuesto_max">A coordinar</span>
@@ -1272,4 +1278,16 @@ const confirmarTransferencia = async () => {
   font-family: inherit; box-sizing: border-box;
 }
 .qm-input:focus { border-color: #0B4C6F; background: white; }
+.waiting-badge {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #FDE68A;
+}
 </style>

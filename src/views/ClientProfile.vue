@@ -5,6 +5,8 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
+import { normalizeMediaUrl } from '../utils/media.js';
+import { getCurrentBrowserLocation } from '../utils/location.js';
 
 const router = useRouter();
 const { state, updateProfile } = useUserSession();
@@ -18,6 +20,7 @@ const user = ref({
 const activeTab = ref('info');
 const isLoading = ref(true);
 const isSaving = ref(false);
+const isLocating = ref(false);
 const saveSuccess = ref(false);
 const saveError = ref('');
 const serviceHistory = ref([]);     
@@ -80,14 +83,20 @@ onMounted(async () => {
         email: data.email || user.value.email,
         phone: data.telefono || '',
         location: data.direccion || '',
-        avatar: data.avatar || '',
-        banner: data.banner || '',
+        avatar: normalizeMediaUrl(data.avatar || ''),
+        banner: normalizeMediaUrl(data.banner || ''),
         joinDate: data.created_at
           ? new Date(data.created_at).toLocaleDateString('es-DO', { year: 'numeric', month: 'long' })
           : '',
         id: userId
       };
-      updateProfile({ name: user.value.name, email: user.value.email, avatar: user.value.avatar });
+      updateProfile({
+        name: user.value.name,
+        email: user.value.email,
+        phone: user.value.phone,
+        location: user.value.location,
+        avatar: user.value.avatar
+      });
 
       // Precargar solicitudes
       try {
@@ -103,7 +112,7 @@ onMounted(async () => {
           try {
             const pRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${r.profesional_id}`);
             r.profesional_nombre = pRes.data?.nombre || "Profesional";
-            r.profesional_avatar = pRes.data?.avatar_url || null;
+            r.profesional_avatar = normalizeMediaUrl(pRes.data?.avatar_url || '');
             r.profesion = pRes.data?.profesion || "";
           } catch(e) { r.profesional_nombre = "Profesional"; }
         }
@@ -159,6 +168,23 @@ const handleImageChange = (event, type) => {
   else                   { bannerFile.value = file;  bannerPreview.value = url; }
 };
 
+const useCurrentLocation = async () => {
+  if (isLocating.value) return;
+  isLocating.value = true;
+  saveError.value = '';
+
+  try {
+    const location = await getCurrentBrowserLocation();
+    selectedCity.value = '';
+    selectedSector.value = '';
+    editForm.value.location = `${location.label} (${location.mapsUrl})`;
+  } catch (error) {
+    saveError.value = error.message;
+  } finally {
+    isLocating.value = false;
+  }
+};
+
 // --- GUARDAR ---
 const saveChanges = async () => {
   saveError.value = '';
@@ -199,8 +225,8 @@ const saveChanges = async () => {
         email: updatedClient.email,
         phone: updatedClient.telefono,
         location: updatedClient.direccion,
-        avatar: updatedClient.avatar,
-        banner: updatedClient.banner,
+        avatar: normalizeMediaUrl(updatedClient.avatar || ''),
+        banner: normalizeMediaUrl(updatedClient.banner || ''),
         id: user.value.id,
         joinDate: user.value.joinDate
       };
@@ -577,6 +603,10 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
                     placeholder="Ej: Calle Principal #12, Los Jardines, Santiago"
                   />
                 </div>
+                <button type="button" class="btn-use-location" @click="useCurrentLocation" :disabled="isLocating">
+                  <i :class="isLocating ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-location-crosshairs'"></i>
+                  {{ isLocating ? 'Obteniendo ubicacion...' : 'Usar ubicacion actual' }}
+                </button>
                 <span class="field-hint">Si seleccionas ciudad y sector, se usará esa combinación.</span>
               </div>
 
@@ -764,6 +794,9 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 .modal-field select:focus { border-color: #0B4C6F; outline: none; box-shadow: 0 0 0 3px rgba(11,76,111,0.1); background: white; }
 .modal-field select:disabled { opacity: 0.5; cursor: not-allowed; }
 .field-hint { font-size: 0.78rem; color: #9CA3AF; }
+.btn-use-location { align-self: flex-start; margin-top: 4px; background: #EFF6FF; color: #0B4C6F; border: 1.5px solid #BFDBFE; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 0.84rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+.btn-use-location:hover:not(:disabled) { background: #DBEAFE; border-color: #0B4C6F; }
+.btn-use-location:disabled { opacity: 0.65; cursor: not-allowed; }
 
 .modal-error { margin: 0 24px 16px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 10px 14px; color: #DC2626; font-size: 0.88rem; font-weight: 600; }
 

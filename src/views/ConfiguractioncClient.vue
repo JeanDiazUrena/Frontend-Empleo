@@ -193,8 +193,8 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
       </div>
 
       <!-- Lista de tarjetas -->
-      <div class="cards-grid">
-        <div v-for="card in cards" :key="card.id" :class="['payment-card', card.brand]">
+      <div v-if="cards.length > 0" class="cards-grid">
+        <div v-for="card in cards" :key="card.id" :class="['payment-card', card.brand?.toLowerCase()]">
           <div class="card-top">
             <div class="card-chip">
               <svg viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -203,19 +203,31 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
                 <rect x="10" y="0" width="8" height="28" fill="gold" fill-opacity="0.4"/>
               </svg>
             </div>
-            <span class="card-brand-label">{{ card.brand.toUpperCase() }}</span>
+            <span class="card-brand-label">{{ (card.brand || 'Card').toUpperCase() }}</span>
           </div>
           <div class="card-number">•••• •••• •••• {{ card.last4 }}</div>
-          <div class="card-bottom">
-            <div>
-              <span class="card-meta-label">Vence</span>
-              <span class="card-meta-val">{{ card.exp }}</span>
-            </div>
-            <button class="card-delete-btn" @click="removeCard(card.id)" title="Eliminar tarjeta">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4Z" clip-rule="evenodd"/></svg>
-            </button>
+          <div class="card-info-row">
+             <div class="card-holder">
+               <span class="card-meta-label">Titular</span>
+               <span class="card-meta-val">{{ card.holder_name || 'Nombre no disponible' }}</span>
+             </div>
+             <div class="card-expiry">
+               <span class="card-meta-label">Vence</span>
+               <span class="card-meta-val">{{ card.exp }}</span>
+             </div>
           </div>
+          <button class="card-delete-btn" @click="removeCard(card.id)" title="Eliminar tarjeta">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4Z" clip-rule="evenodd"/></svg>
+          </button>
         </div>
+      </div>
+
+      <div v-else class="no-cards-placeholder">
+        <div class="placeholder-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75-10.5h16.5a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5V5.25a1.5 1.5 0 0 1 1.5-1.5Z" /></svg>
+        </div>
+        <p>No tienes tarjetas guardadas.</p>
+        <span>Las tarjetas que agregues al realizar una solicitud aparecerán aquí.</span>
       </div>
 
       <!-- Agregar tarjeta -->
@@ -518,12 +530,20 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
 .card-chip svg { width: 36px; height: 28px; }
 .card-brand-label { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.15em; opacity: 0.7; }
 .card-number { font-family: 'Courier New', monospace; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.15em; margin-bottom: 16px; }
-.card-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+.card-info-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; }
+.card-holder { flex: 1; min-width: 0; margin-right: 12px; }
+.card-holder .card-meta-val { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+.card-expiry { flex-shrink: 0; text-align: right; }
 .card-meta-label { display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.6; }
 .card-meta-val { font-size: 0.9rem; font-weight: 700; }
-.card-delete-btn { background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+.card-delete-btn { background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; position: absolute; top: 12px; right: 12px; }
 .card-delete-btn:hover { background: rgba(239,68,68,0.7); }
 .card-delete-btn svg { width: 14px; height: 14px; }
+
+.no-cards-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; background: #F8FAFC; border: 2px dashed #E2E8F0; border-radius: 12px; text-align: center; margin-bottom: 24px; }
+.placeholder-icon { width: 48px; height: 48px; color: #94A3B8; margin-bottom: 16px; }
+.no-cards-placeholder p { font-size: 1.05rem; font-weight: 700; color: #334155; margin: 0 0 6px; }
+.no-cards-placeholder span { font-size: 0.85rem; color: #64748B; max-width: 280px; line-height: 1.5; }
 
 .add-card-form { border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 24px; background: #FAFBFC; }
 .add-card-form h3 { font-size: 0.95rem; font-weight: 700; color: #334155; margin: 0 0 20px; }

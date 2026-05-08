@@ -1,9 +1,14 @@
 import { reactive, computed } from 'vue';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 // Helper para obtener cuentas guardadas
 const getSavedAccounts = () => {
   try {
-    return JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+    return JSON.parse(localStorage.getItem('saved_accounts') || '[]')
+      .map(account => ({
+        ...account,
+        avatar: normalizeMediaUrl(account.avatar || account.avatar_url || '')
+      }));
   } catch {
     return [];
   }
@@ -18,7 +23,7 @@ const state = reactive({
     role: localStorage.getItem('user_role') || '',
     phone: localStorage.getItem('usuario_telefono') || '',
     location: localStorage.getItem('usuario_direccion') || '',
-    avatar: localStorage.getItem('usuario_avatar') || ''
+    avatar: normalizeMediaUrl(localStorage.getItem('usuario_avatar') || '')
   },
   token: localStorage.getItem('token') || '',
   accounts: getSavedAccounts() // Lista de todas las cuentas logueadas
@@ -52,7 +57,7 @@ export function useUserSession() {
       role: userData.rol || userData.role,
       phone: userData.telefono || '',
       location: userData.direccion || '',
-      avatar: userData.avatar || '',
+      avatar: normalizeMediaUrl(userData.avatar || userData.avatar_url || ''),
       token: token || 'dummy-token'
     };
 
@@ -72,8 +77,9 @@ export function useUserSession() {
     localStorage.setItem('usuario_email', state.user.email);
     localStorage.setItem('user_role', state.user.role);
     localStorage.setItem('token', state.token);
-    if (state.user.phone) localStorage.setItem('usuario_telefono', state.user.phone);
-    if (state.user.location) localStorage.setItem('usuario_direccion', state.user.location);
+    state.user.phone ? localStorage.setItem('usuario_telefono', state.user.phone) : localStorage.removeItem('usuario_telefono');
+    state.user.location ? localStorage.setItem('usuario_direccion', state.user.location) : localStorage.removeItem('usuario_direccion');
+    state.user.avatar ? localStorage.setItem('usuario_avatar', state.user.avatar) : localStorage.removeItem('usuario_avatar');
 
     // 3. Agregar a la lista de cuentas si no existe
     const index = state.accounts.findIndex(acc => acc.id === newUser.id);
@@ -97,10 +103,20 @@ export function useUserSession() {
 
   // ACCIÓN: Actualizar Perfil
   const updateProfile = (newData) => {
-    if (newData.name) { state.user.name = newData.name; localStorage.setItem('usuario_nombre', newData.name); }
-    if (newData.phone) { state.user.phone = newData.phone; localStorage.setItem('usuario_telefono', newData.phone); }
-    if (newData.location) { state.user.location = newData.location; localStorage.setItem('usuario_direccion', newData.location); }
-    if (newData.avatar) { state.user.avatar = newData.avatar; localStorage.setItem('usuario_avatar', newData.avatar); }
+    if ('name' in newData && newData.name) { state.user.name = newData.name; localStorage.setItem('usuario_nombre', newData.name); }
+    if ('email' in newData && newData.email) { state.user.email = newData.email; localStorage.setItem('usuario_email', newData.email); }
+    if ('phone' in newData) {
+      state.user.phone = newData.phone || '';
+      state.user.phone ? localStorage.setItem('usuario_telefono', state.user.phone) : localStorage.removeItem('usuario_telefono');
+    }
+    if ('location' in newData) {
+      state.user.location = newData.location || '';
+      state.user.location ? localStorage.setItem('usuario_direccion', state.user.location) : localStorage.removeItem('usuario_direccion');
+    }
+    if ('avatar' in newData || 'avatar_url' in newData) {
+      state.user.avatar = normalizeMediaUrl(newData.avatar || newData.avatar_url || '');
+      state.user.avatar ? localStorage.setItem('usuario_avatar', state.user.avatar) : localStorage.removeItem('usuario_avatar');
+    }
     
     // Actualizar también en la lista de cuentas
     const index = state.accounts.findIndex(acc => acc.id === state.user.id);
@@ -112,10 +128,16 @@ export function useUserSession() {
 
   // ACCIÓN: Cerrar Sesión (Una sola cuenta)
   const logoutAccount = (userId) => {
-    state.accounts = state.accounts.filter(acc => acc.id !== userId);
+    const targetId = userId || state.user.id;
+    if (!targetId) {
+      logoutAll();
+      return;
+    }
+
+    state.accounts = state.accounts.filter(acc => acc.id !== targetId);
     persistAccounts();
     
-    if (state.user.id === userId) {
+    if (state.user.id === targetId) {
       if (state.accounts.length > 0) {
         switchAccount(state.accounts[0].id);
       } else {

@@ -4,6 +4,7 @@ import { API_URLS, SOCKET_URL } from '../config.js';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -18,6 +19,12 @@ const activeTab = ref('info');
 const portfolioItems = ref([]); 
 const reviews = ref([]);
 const isLoading = ref(true);
+
+const normalizePortfolioItems = (items = []) =>
+  items.map(item => ({
+    ...item,
+    imagen_url: normalizeMediaUrl(item.imagen_url || '')
+  }));
 
 // --- TOAST SYSTEM ---
 const toast = ref({ show: false, msg: '', type: 'success' });
@@ -109,7 +116,7 @@ onMounted(async () => {
     
     if (data) {
       user.value = {
-        name: data.nombre || state.user?.name,
+        name: data.nombre || "Profesional",
         profession: data.profesion || "",
         bio: data.biografia || "",
         category: data.categoria_nombre || data.categoria || "", 
@@ -121,13 +128,13 @@ onMounted(async () => {
         website: data.sitio_web || "",
         workingHours: data.horario_texto || null,
         skills: data.habilidades || "",
-        avatar: data.avatar_url || "", 
-        cover: data.cover_url || "",   
+        avatar: normalizeMediaUrl(data.avatar_url || ""),
+        cover: normalizeMediaUrl(data.cover_url || ""),
         joinDate: (data.created_at || data.fecha_registro) ? new Date(data.created_at || data.fecha_registro).toLocaleDateString('es-DO', { year: 'numeric', month: 'long' }) : "",
         usuario_id: data.usuario_id || userId
       };
       
-      portfolioItems.value = data.portfolio || [];
+      portfolioItems.value = normalizePortfolioItems(data.portfolio || []);
       
       // LOAD REVIEWS
       try {
@@ -137,7 +144,7 @@ onMounted(async () => {
           try {
             const cRes = await axios.get(`${API_URLS.PERFILES}/api/clientes/${r.cliente_id}`);
             r.cliente_nombre = cRes.data?.nombre || "Cliente";
-            r.cliente_avatar = cRes.data?.avatar || null;
+            r.cliente_avatar = normalizeMediaUrl(cRes.data?.avatar || '');
           } catch(e) { r.cliente_nombre = "Cliente"; }
         }
         reviews.value = fetchedReviews;
@@ -483,7 +490,7 @@ const categoryStyle = computed(() => {
           <div v-for="resena in reviews" :key="resena.id" class="review-card" style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `${API_URLS.PERFILES}${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
+                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
                 <div v-else style="width: 44px; height: 44px; border-radius: 50%; background: #F1F5F9; color: #1E293B; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">{{ resena.cliente_nombre?.charAt(0) || 'C' }}</div>
                 <div>
                   <h4 style="margin: 0; color: #0F172A; font-size: 1rem;">{{ resena.cliente_nombre }}</h4>

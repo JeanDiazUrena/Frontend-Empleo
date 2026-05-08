@@ -38,7 +38,7 @@ const scrollToSection = () => {
 const toggleMenu = () => isMenuOpen.value = !isMenuOpen.value;
 
 const handleLogout = () => {
-  logout(); // Limpieza profunda desde el cerebro
+  logout(state.user.id);
   isMenuOpen.value = false;
   router.push('/login');
 };

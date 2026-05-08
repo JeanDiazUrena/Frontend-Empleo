@@ -6,6 +6,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 
 const router = useRouter();
@@ -94,7 +95,7 @@ const userInitials = computed(() => {
 // --- 3. FUNCIONES DEL MENÚ ---
 const toggleMenu = () => isMenuOpen.value = !isMenuOpen.value;
 
-const { state, switchAccount, logout } = useUserSession();
+const { state, switchAccount, logout, updateProfile } = useUserSession();
 
 const handleLogout = () => {
   logout(state.user.id);
@@ -139,7 +140,7 @@ onMounted(async () => {
 
   // Cargar nombre y avatar del localStorage inmediatamente
   const storedName = localStorage.getItem('usuario_nombre') || localStorage.getItem('user_name');
-  const storedAvatar = localStorage.getItem('usuario_avatar') || localStorage.getItem('user_avatar') || '';
+  const storedAvatar = normalizeMediaUrl(state.user?.avatar || localStorage.getItem('usuario_avatar') || localStorage.getItem('user_avatar') || '');
   if (storedName) {
     user.value.name = storedName;
     user.value.role = "Profesional Verificado";
@@ -171,14 +172,20 @@ onMounted(async () => {
       const res = await fetch(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
       if (res.ok) {
         const data = await res.json();
-        if (data?.avatar_url) {
-          user.value.avatar = data.avatar_url;
-          localStorage.setItem('usuario_avatar', data.avatar_url);
-        }
+        const avatar = normalizeMediaUrl(data?.avatar_url || '');
+        user.value.avatar = avatar;
+        avatar ? localStorage.setItem('usuario_avatar', avatar) : localStorage.removeItem('usuario_avatar');
         if (data?.nombre) {
           user.value.name = data.nombre;
           user.value.role = "Profesional Verificado";
         }
+        updateProfile({
+          name: data?.nombre || user.value.name,
+          email: data?.email_publico || state.user.email,
+          phone: data?.telefono || '',
+          location: [data?.ciudad, data?.sector].filter(Boolean).join(', '),
+          avatar
+        });
       }
     } catch (_) { /* silencioso si la petición falla */ }
   }
@@ -240,7 +247,7 @@ const isActive = (path) => {
         <div class="user-trigger" ref="menuRef" @click="toggleMenu">
           <span class="user-name">{{ user.name }}</span>
           <div class="avatar-circle">
-            <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="foto" />
+            <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="foto" @error="user.avatar = ''" />
             <span v-else>{{ userInitials }}</span>
           </div>
           <svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" :class="{ 'rotate': isMenuOpen }" viewBox="0 0 20 20" fill="currentColor">

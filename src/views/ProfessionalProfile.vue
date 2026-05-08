@@ -5,6 +5,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession'; 
+import { normalizeMediaUrl } from '../utils/media.js';
 
 const router = useRouter();
 const { state, updateProfile } = useUserSession(); 
@@ -19,6 +20,12 @@ const activeTab = ref('info');
 const portfolioItems = ref([]); 
 const reviews = ref([]);
 const isLoading = ref(true);
+
+const normalizePortfolioItems = (items = []) =>
+  items.map(item => ({
+    ...item,
+    imagen_url: normalizeMediaUrl(item.imagen_url || '')
+  }));
 
 // --- TOAST SYSTEM ---
 const toast = ref({ show: false, msg: '', type: 'success' });
@@ -122,16 +129,18 @@ onMounted(async () => {
         website: data.sitio_web || "",
         workingHours: data.horario_texto || null,
         skills: data.habilidades || "",
-        avatar: data.avatar_url || "", 
-        cover: data.cover_url || "",   
+        avatar: normalizeMediaUrl(data.avatar_url || ""),
+        cover: normalizeMediaUrl(data.cover_url || ""),
         joinDate: (data.created_at || data.fecha_registro) ? new Date(data.created_at || data.fecha_registro).toLocaleDateString('es-DO', { year: 'numeric', month: 'long' }) : ""
       };
       
-      portfolioItems.value = data.portfolio || [];
+      portfolioItems.value = normalizePortfolioItems(data.portfolio || []);
 
       updateProfile({
         name: user.value.name,
         email: user.value.emailPublic,
+        phone: user.value.phone,
+        location: [user.value.city, user.value.sector].filter(Boolean).join(', '),
         avatar: user.value.avatar
       });
       
@@ -143,7 +152,7 @@ onMounted(async () => {
           try {
             const cRes = await axios.get(`${API_URLS.PERFILES}/api/clientes/${r.cliente_id}`);
             r.cliente_nombre = cRes.data?.nombre || "Cliente";
-            r.cliente_avatar = cRes.data?.avatar || null;
+            r.cliente_avatar = normalizeMediaUrl(cRes.data?.avatar || '');
           } catch(e) { r.cliente_nombre = "Cliente"; }
         }
         reviews.value = fetchedReviews;
@@ -199,7 +208,7 @@ const openEditModal = (item) => {
   editingPortfolioId.value = item.id;
   portfolioForm.value = { titulo: item.titulo, descripcion: item.descripcion };
   portfolioImageFile.value = null;
-  portfolioImagePreview.value = item.imagen_url;
+  portfolioImagePreview.value = normalizeMediaUrl(item.imagen_url || '');
   portfolioError.value = '';
   showPortfolioModal.value = true;
 };
@@ -246,12 +255,12 @@ const savePortfolioItem = async () => {
     } else {
       // CREAR
       fd.append('profesional_id', userId);
-      const { data } = await axios.post(`${API_URLS.PERFILES}/api/portfolio`, fd, {
+      await axios.post(`${API_URLS.PERFILES}/api/portfolio`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       // Recargar portfolio completo para obtener el ID real del nuevo item
       const res = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
-      portfolioItems.value = res.data?.portfolio || portfolioItems.value;
+      portfolioItems.value = normalizePortfolioItems(res.data?.portfolio || portfolioItems.value);
     }
 
     closePortfolioModal();
@@ -666,7 +675,7 @@ const categoryStyle = computed(() => {
           <div v-for="resena in reviews" :key="resena.id" class="review-card" style="background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
               <div style="display: flex; align-items: center; gap: 12px;">
-                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar.startsWith('http') ? resena.cliente_avatar : `${API_URLS.PERFILES}${resena.cliente_avatar}`" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
+                <img v-if="resena.cliente_avatar" :src="resena.cliente_avatar" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" alt="Avatar" />
                 <div v-else style="width: 44px; height: 44px; border-radius: 50%; background: #F1F5F9; color: #1E293B; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;">{{ resena.cliente_nombre?.charAt(0) || 'C' }}</div>
                 <div>
                   <h4 style="margin: 0; color: #0F172A; font-size: 1rem;">{{ resena.cliente_nombre }}</h4>

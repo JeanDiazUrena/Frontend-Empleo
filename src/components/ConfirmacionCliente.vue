@@ -259,11 +259,19 @@ const confirmarFinalizacion = async () => {
     
     if (res.data.success) {
       if (res.data.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA') {
-        showToast('Comprobante enviado. El profesional debe confirmarlo para finalizar.', 'success');
+        showToast('Comprobante enviado correctamente. El profesional debe verificarlo para completar el trabajo.', 'success');
       } else {
-        showToast('Trabajo finalizado y pago procesado con éxito', 'success');
+        showToast('¡Trabajo finalizado con éxito!', 'success');
       }
-      setTimeout(() => emit('success'), 2000);
+      
+      // Cerramos y recargamos el dashboard tras un breve delay
+      setTimeout(() => {
+        emit('success');
+        // Redirección forzada para asegurar que sale de cualquier sub-modal o estado
+        const role = localStorage.getItem('usuario_rol');
+        if (role === 'cliente') window.location.href = '/client/dashboard';
+        else if (role === 'profesional') window.location.href = '/professional/dashboard';
+      }, 2500);
     }
   } catch (error) {
     console.error(error);

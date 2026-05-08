@@ -1,11 +1,10 @@
 <script setup>
-import { API_URLS, SOCKET_URL, GOOGLE_CLIENT_ID } from '../config.js';
+import { API_URLS, SOCKET_URL } from '../config.js';
 
 import { ref, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from "axios";
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR
-import { GoogleLogin, googleSdkLoaded } from 'vue3-google-login';
 
 const { login, logout } = useUserSession(); // 2. USAR
 const router = useRouter();
@@ -40,16 +39,6 @@ function handleStep1Submit() {
 
   step.value = 2;
 }
-
-const loginWithGoogle = () => {
-  googleSdkLoaded((google) => {
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCallback
-    });
-    google.accounts.id.prompt(); // Mostrar el One Tap o Popup
-  });
-};
 
 const handleGoogleCallback = async (response) => {
   console.log("Google response received:", response);
@@ -209,12 +198,7 @@ async function handleRegistration() {
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
           
-          <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper">
-            <button type="button" class="google-btn">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-              Continuar con Google
-            </button>
-          </GoogleLogin>
+          <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper" />
 
           <div class="divider"><span>o regístrate con tu email</span></div>
 

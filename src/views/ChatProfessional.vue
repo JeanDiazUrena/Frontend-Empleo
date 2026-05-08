@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useUserSession } from '../composables/useUserSession.js';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 const router = useRouter();
 const { state } = useUserSession();
@@ -153,7 +154,10 @@ const loadConversations = async () => {
   isLoadingConvs.value = true;
   try {
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/conversaciones/profesional/${myId.value}`);
-    conversations.value = data || [];
+    conversations.value = (data || []).map(conv => ({
+      ...conv,
+      otro_avatar: normalizeMediaUrl(conv.otro_avatar || '')
+    }));
   } catch (e) {
     console.error(e);
   } finally {

@@ -4,6 +4,7 @@ import { API_URLS, SOCKET_URL } from '../config.js';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 const router = useRouter();
 
@@ -126,7 +127,11 @@ const loadProfessionals = async () => {
     if (selectedCity.value) params.ciudad = selectedCity.value;
 
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales`, { params });
-    professionals.value = data || [];
+    professionals.value = (data || []).map(pro => ({
+      ...pro,
+      avatar_url: normalizeMediaUrl(pro.avatar_url || ''),
+      cover_url: normalizeMediaUrl(pro.cover_url || '')
+    }));
   } catch (error) {
     console.error('Error cargando profesionales:', error);
     professionals.value = [];

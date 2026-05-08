@@ -4,6 +4,7 @@ import { API_URLS, SOCKET_URL } from '../config.js';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -39,8 +40,8 @@ onMounted(async () => {
         email: data.email || '',
         phone: data.telefono || '',
         location: data.direccion || '',
-        avatar: data.avatar || '',
-        banner: data.banner || '',
+        avatar: normalizeMediaUrl(data.avatar || ''),
+        banner: normalizeMediaUrl(data.banner || ''),
         joinDate: data.created_at
           ? new Date(data.created_at).toLocaleDateString('es-DO', { year: 'numeric', month: 'long' })
           : '',
@@ -61,7 +62,7 @@ onMounted(async () => {
           try {
             const pRes = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${r.profesional_id}`);
             r.profesional_nombre = pRes.data?.nombre || "Profesional";
-            r.profesional_avatar = pRes.data?.avatar_url || null;
+            r.profesional_avatar = normalizeMediaUrl(pRes.data?.avatar_url || '');
             r.profesion = pRes.data?.profesion || "";
           } catch(e) { r.profesional_nombre = "Profesional"; }
         }

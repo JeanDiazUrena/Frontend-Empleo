@@ -6,13 +6,14 @@ import { useRouter, useRoute } from 'vue-router';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
+import { normalizeMediaUrl } from '../utils/media.js';
 
 
 const router = useRouter();
 const route = useRoute(); 
 
 // --- ESTADO DEL USUARIO Y MENÚ ---
-const user = ref({ name: "Cliente", initials: "CL" });
+const user = ref({ name: "Cliente", initials: "CL", avatar: "" });
 const isMenuOpen = ref(false);
 const menuRef = ref(null);
 const unreadCount = ref(0);
@@ -85,7 +86,7 @@ const isActive = (path) => {
 // --- LÓGICA DEL MENÚ ---
 const toggleMenu = () => isMenuOpen.value = !isMenuOpen.value;
 
-const { state, switchAccount, logout } = useUserSession();
+const { state, switchAccount, logout, updateProfile } = useUserSession();
 
 const handleLogout = () => {
   logout(state.user.id);
@@ -123,7 +124,18 @@ const handleClickOutside = (event) => {
 };
 
 // --- AL CARGAR ---
-onMounted(() => {
+const syncLocalUser = (name, avatar = '') => {
+  const nextName = name || user.value.name || 'Cliente';
+  const parts = nextName.trim().split(' ').filter(Boolean);
+
+  user.value.name = nextName;
+  user.value.initials = parts.length > 1
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : (parts[0]?.substring(0, 2).toUpperCase() || 'CL');
+  user.value.avatar = normalizeMediaUrl(avatar);
+};
+
+onMounted(async () => {
   document.addEventListener('click', handleClickOutside);
 
   // Cargar nombre real del localStorage
@@ -147,13 +159,24 @@ onMounted(() => {
     });
 
     const storedName = localStorage.getItem('usuario_nombre');
-    if (storedName) {
-      user.value.name = storedName;
-      // Generar iniciales (Ej: Juan Perez -> JP)
-      const parts = storedName.split(' ');
-      user.value.initials = parts.length > 1 
-        ? (parts[0][0] + parts[1][0]).toUpperCase() 
-        : parts[0].substring(0, 2).toUpperCase();
+    const storedAvatar = localStorage.getItem('usuario_avatar') || '';
+    syncLocalUser(storedName, storedAvatar);
+
+    try {
+      const { data } = await axios.get(`${API_URLS.PERFILES}/api/clientes/${userId}`);
+      if (data) {
+        const avatar = normalizeMediaUrl(data.avatar || '');
+        syncLocalUser(data.nombre || storedName, avatar);
+        updateProfile({
+          name: data.nombre || storedName,
+          email: data.email || state.user.email,
+          phone: data.telefono || '',
+          location: data.direccion || '',
+          avatar
+        });
+      }
+    } catch (error) {
+      if (!isRequestAborted(error)) console.error(error);
     }
   }
 });
@@ -207,7 +230,8 @@ onUnmounted(() => {
         <div class="user-trigger" ref="menuRef" @click="toggleMenu">
           <span class="user-name">{{ user.name }}</span>
           <div class="avatar-circle">
-            {{ user.initials }}
+            <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="foto" @error="user.avatar = ''" />
+            <span v-else>{{ user.initials }}</span>
           </div>
           <svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" :class="{ 'rotate': isMenuOpen }" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -343,7 +367,8 @@ onUnmounted(() => {
 .user-trigger { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 12px; border-radius: 30px; transition: background 0.2s; }
 .user-trigger:hover { background-color: #f3f4f6; }
 .user-name { font-weight: 600; color: #333; font-size: 0.95rem; }
-.avatar-circle { width: 38px; height: 38px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.avatar-circle { width: 38px; height: 38px; background: #0B4C6F; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }
+.avatar-circle .avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .arrow-icon { width: 16px; color: #64748b; transition: transform 0.2s; }
 .rotate { transform: rotate(180deg); }
 

@@ -5,10 +5,13 @@ import { reactive, ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from "axios";
 import './ProfessionalSetup.css'; 
+import { normalizeMediaUrl } from '../utils/media.js';
+import { getCurrentBrowserLocation } from '../utils/location.js';
 
 const router = useRouter();
 const isSaving = ref(false);
 const isEditingMode = ref(false);
+const isLocating = ref(false);
 
 const fileAvatar = ref(null);
 const fileCover = ref(null);
@@ -137,8 +140,8 @@ onMounted(async () => {
         availableSectors.value = locationsDB[form.location] || [];
       }
 
-      if (data.avatar_url) previewAvatar.value = data.avatar_url;
-      if (data.cover_url) previewCover.value = data.cover_url;
+      if (data.avatar_url) previewAvatar.value = normalizeMediaUrl(data.avatar_url);
+      if (data.cover_url) previewCover.value = normalizeMediaUrl(data.cover_url);
 
     } else {
       isEditingMode.value = false;
@@ -157,6 +160,23 @@ const handleProfessionChange = () => {
 const updateSectors = () => {
   availableSectors.value = (form.location && locationsDB[form.location]) ? locationsDB[form.location] : [];
   form.coverageArea = "";
+};
+
+const useCurrentLocation = async () => {
+  if (isLocating.value) return;
+  isLocating.value = true;
+
+  try {
+    const location = await getCurrentBrowserLocation();
+    form.location = 'Ubicacion actual';
+    form.coverageArea = `${location.latitude}, ${location.longitude}`;
+    availableSectors.value = [form.coverageArea];
+    showToast(`Ubicacion detectada con precision aprox. de ${location.accuracy}m.`, 'success');
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    isLocating.value = false;
+  }
 };
 
 const validateFileSize = (file) => {
@@ -444,6 +464,7 @@ const saveProfile = async () => {
                   <label>Ciudad *</label>
                   <select v-model="form.location" @change="updateSectors" required>
                     <option value="" disabled>Selecciona ciudad</option>
+                    <option v-if="form.location && !locationsDB[form.location]" :value="form.location">{{ form.location }}</option>
                     <option v-for="(sectores, ciudad) in locationsDB" :key="ciudad" :value="ciudad">{{ ciudad }}</option>
                   </select>
                 </div>
@@ -453,6 +474,12 @@ const saveProfile = async () => {
                     <option value="" disabled>{{ form.location ? 'Selecciona sector' : 'Elige ciudad primero' }}</option>
                     <option v-for="sector in availableSectors" :key="sector" :value="sector">{{ sector }}</option>
                   </select>
+                </div>
+                <div class="input-group full-width">
+                  <button type="button" class="btn-use-location" @click="useCurrentLocation" :disabled="isLocating">
+                    <i :class="isLocating ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-location-crosshairs'"></i>
+                    {{ isLocating ? 'Obteniendo ubicacion...' : 'Usar ubicacion actual del navegador' }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -576,6 +603,9 @@ const saveProfile = async () => {
   border-color: #0B4C6F; box-shadow: 0 0 0 3px rgba(11,76,111,0.1); outline: none; background: white;
 }
 .input-group textarea { resize: vertical; }
+.btn-use-location { align-self: flex-start; background: #EFF6FF; color: #0B4C6F; border: 1.5px solid #BFDBFE; border-radius: 8px; padding: 10px 14px; font-weight: 800; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+.btn-use-location:hover:not(:disabled) { background: #DBEAFE; border-color: #0B4C6F; }
+.btn-use-location:disabled { opacity: 0.65; cursor: not-allowed; }
 
 /* INPUT CON PREFIJO */
 .input-icon-wrap { position: relative; display: flex; align-items: center; }

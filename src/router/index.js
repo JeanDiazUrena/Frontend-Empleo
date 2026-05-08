@@ -29,6 +29,7 @@ import ConfiguracionProfessional from '../views/ConfiguractionProfessional.vue';
 import PublicClientProfile from '../views/PublicClientProfile.vue';
 import ConfiguracionCliente from '../views/ConfiguractioncClient.vue';
 
+const ServiceReceipt = () => import('../views/ServiceReceipt.vue');
 
 const routes = [
   // 1. RUTA PUBLICA NORMAL
@@ -58,7 +59,7 @@ const routes = [
       { path: 'review/:id', name: 'ClientReview', component: ClientReview },
       { path: 'settings', name: 'ClientSettings', component: ConfiguracionCliente },
       { path: 'professional-profile/:id', name: 'PublicProfessionalProfile', component: PublicProfessionalProfile },
-      { path: 'receipt/:id', name: 'ServiceReceipt', component: () => import('../views/ServiceReceipt.vue') },
+      { path: 'receipt/:id', name: 'ClientReceipt', component: ServiceReceipt },
     ]
   },
 
@@ -72,6 +73,7 @@ const routes = [
       { path: 'profile', name: 'ProfessionalProfile', component: ProfessionalProfile },
       { path: 'settings', name: 'ProfessionalSettings', component: ConfiguracionProfessional },
       { path: 'client-profile/:id', name: 'PublicClientProfile', component: PublicClientProfile },
+      { path: 'receipt/:id', name: 'ProfessionalReceipt', component: ServiceReceipt },
     ]
   },
 

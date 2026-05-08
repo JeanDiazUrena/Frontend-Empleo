@@ -5,6 +5,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
+import { normalizeMediaUrl } from '../utils/media.js';
 
 import ConfirmacionCliente from '../components/ConfirmacionCliente.vue';
 
@@ -47,6 +48,10 @@ const closeJobModal = () => { selectedJob.value = null; showJobModal.value = fal
 const goToExplore = () => router.push('/client/explore');
 const goToProfile = () => router.push('/client/profile');
 const closeWarning = () => showIncompleteProfileModal.value = false;
+const viewProfessionalProfile = (req) => {
+  const professionalId = req?.profesional_usuario_id || req?.profesional_id;
+  if (professionalId) router.push(`/client/professional-profile/${professionalId}`);
+};
 
 // --- ACCIONES SOLICITUDES ---
 const cancelarSolicitud = async (id) => {
@@ -140,7 +145,7 @@ onMounted(async () => {
           name: data.nombre,
           phone: data.telefono,
           location: data.direccion,
-          avatar: data.avatar
+          avatar: normalizeMediaUrl(data.avatar || '')
         });
 
         // Verificamos si falta información CRÍTICA para mostrar el modal
@@ -156,7 +161,10 @@ onMounted(async () => {
       // 2. CARGAR SOLICITUDES (Puerto 3001)
       try {
         const requestsRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes/cliente/${userId}`);
-        activeRequests.value = requestsRes.data;
+        activeRequests.value = (requestsRes.data || []).map(req => ({
+          ...req,
+          profesional_avatar: normalizeMediaUrl(req.profesional_avatar || '')
+        }));
       } catch (reqError) {
         console.log("El usuario no tiene solicitudes o el servicio 3001 no responde.");
       }
@@ -167,7 +175,11 @@ onMounted(async () => {
         if (prosRes.data && prosRes.data.length > 0) {
           // Filtramos profesionales que tengan los datos mínimos (el backend ya filtra, pero reforzamos)
           const validPros = prosRes.data.filter(p => p.nombre && p.profesion);
-          featuredProfessionals.value = validPros.slice(0, 4);
+          featuredProfessionals.value = validPros.slice(0, 4).map(pro => ({
+            ...pro,
+            avatar_url: normalizeMediaUrl(pro.avatar_url || ''),
+            cover_url: normalizeMediaUrl(pro.cover_url || '')
+          }));
         }
       } catch (err) {
         console.log("No se pudieron cargar los profesionales destacados.");
@@ -364,7 +376,6 @@ const aceptarCotizacion = async (cotizacion) => {
     </div>
 
     <main class="feed-content">
-      
       <div class="welcome-banner">
         <div class="banner-content">
           <h2>Hola, {{ state.user.name }}</h2>
@@ -379,52 +390,71 @@ const aceptarCotizacion = async (cotizacion) => {
         <h3 class="section-title" v-if="activeRequests.length > 0">Tus Solicitudes Activas</h3>
 
         <div v-if="activeRequests.length > 0" class="ongoing-list">
-          <div v-for="req in activeRequests" :key="req.id" class="ongoing-card">
-            <div class="card-left">
-              <div class="status-indicator" :class="req.estado === 'completado' ? 'green' : 'orange'"></div>
-              <div class="req-details">
-                <h4>{{ req.title || req.titulo }}</h4>
-                <span class="req-status">
-                  {{ req.status || req.estado || 'Pendiente' }} • {{ new Date(req.created_at || req.fecha_creacion || Date.now()).toLocaleDateString() }}
-                </span>
+          <div v-for="req in activeRequests" :key="req.id" class="ongoing-card solicitation-card">
+            <div class="card-main-content">
+              <div class="solicitation-info">
+                <div class="solicitation-header">
+                  <div class="status-dot" :class="req.estado === 'por_confirmar' ? 'dot-waiting' : 'dot-active'"></div>
+                  <h4>{{ req.title || req.titulo }}</h4>
+                </div>
+                <div class="solicitation-meta">
+                  <span class="meta-tag"><i class="fa-solid fa-calendar-day"></i> {{ new Date(req.created_at || req.fecha_creacion || Date.now()).toLocaleDateString() }}</span>
+                  <span class="meta-tag category-tag">{{ req.categoria || 'Servicio' }}</span>
+                </div>
+                
+                <div class="solicitation-actions-basic">
+                   <button class="btn-text" @click="router.push(`/client/request/edit/${req.id}`)">
+                     <i class="fa-solid fa-pen"></i> Editar
+                   </button>
+                   <button class="btn-text text-red" @click="cancelarSolicitud(req.id)">
+                     <i class="fa-solid fa-trash"></i> Cancelar
+                   </button>
+                </div>
               </div>
-            </div>
-            
-            <div class="card-actions-row">
-              <button class="btn-action-outline" @click="router.push(`/client/request/edit/${req.id}`)">
-                <i class="fa-solid fa-pen"></i> Editar
-              </button>
-              <button class="btn-action-outline text-red-600" @click="cancelarSolicitud(req.id)">
-                <i class="fa-solid fa-trash"></i> Cancelar
-              </button>
-              
-              <!-- Si un profesional aceptó y espera confirmación -->
-              <div v-if="req.estado === 'POR_CONFIRMAR' || req.estado === 'por_confirmar'" class="pro-confirmation-box">
-                <div class="pro-mini-profile">
-                  <img :src="req.profesional_avatar || '/default-avatar.png'" class="pro-mini-avatar" />
-                  <div class="pro-mini-info">
-                    <span class="pro-name">{{ req.profesional_nombre || 'Profesional interesado' }}</span>
-                    <span class="pro-label">Interesado en tu solicitud</span>
+
+              <!-- Interés de Profesional -->
+              <div v-if="req.estado === 'POR_CONFIRMAR' || req.estado === 'por_confirmar'" class="pro-interest-panel">
+                <div class="pro-interest-header">
+                  <i class="fa-solid fa-bell"></i>
+                  <span>¡Profesional interesado!</span>
+                </div>
+                
+                <div class="pro-profile-summary">
+                  <div class="avatar-wrapper">
+                    <img :src="req.profesional_avatar || '/default-avatar.png'" class="pro-avatar-img" />
+                  </div>
+                  <div class="pro-info">
+                    <span class="pro-name">{{ req.profesional_nombre || 'Especialista' }}</span>
+                    <span class="pro-subtitle">Listo para comenzar</span>
                   </div>
                 </div>
-                <button 
-                  class="btn-confirm-pro" 
-                  @click="confirmarProfesional(req)"
-                  :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
-                >
-                  <i v-if="isConfirmingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
-                  <i v-else class="fa-solid fa-handshake"></i>
-                  {{ isConfirmingPro === req.id ? 'Confirmando...' : 'Aceptar profesional' }}
-                </button>
-                <button
-                  class="btn-action-outline text-red-600"
-                  @click="rechazarProfesional(req)"
-                  :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
-                >
-                  <i v-if="isRejectingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
-                  <i v-else class="fa-solid fa-xmark"></i>
-                  {{ isRejectingPro === req.id ? 'Rechazando...' : 'Rechazar' }}
-                </button>
+
+                <div class="pro-actions-grid">
+                  <button 
+                    class="btn-accept-main" 
+                    @click="confirmarProfesional(req)"
+                    :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
+                  >
+                    <i v-if="isConfirmingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
+                    <i v-else class="fa-solid fa-check"></i>
+                    {{ isConfirmingPro === req.id ? 'Confirmando...' : 'Aceptar' }}
+                  </button>
+                  <button
+                    class="btn-view-secondary"
+                    @click="viewProfessionalProfile(req)"
+                    :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
+                  >
+                    <i class="fa-solid fa-user"></i> Ver Perfil
+                  </button>
+                  <button
+                    class="btn-reject-secondary"
+                    @click="rechazarProfesional(req)"
+                    :disabled="isConfirmingPro === req.id || isRejectingPro === req.id"
+                  >
+                    <i v-if="isRejectingPro === req.id" class="fa-solid fa-spinner fa-spin"></i>
+                    <i v-else class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -440,7 +470,10 @@ const aceptarCotizacion = async (cotizacion) => {
         <div v-if="clientJobs.length > 0" class="ongoing-list">
           <div v-for="job in clientJobs" :key="job.id" class="ongoing-card" :class="{ 'card-finalizado': job.estado === 'FINALIZADO_PROFESIONAL' }" style="flex-direction: column; align-items: stretch; gap: 14px;">
             <div class="card-left">
-              <div class="status-indicator" :class="job.estado === 'FINALIZADO_PROFESIONAL' ? 'orange animate-pulse' : 'green'"></div>
+              <div class="status-indicator" :class="{
+                'green': job.estado === 'EN_PROGRESO',
+                'orange animate-pulse': job.estado === 'FINALIZADO_PROFESIONAL' || job.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA'
+              }"></div>
               <div class="req-details">
                 <h4>{{ job.titulo || 'Contratación Directa' }}</h4>
                 <p v-if="job.descripcion" class="job-desc-preview">{{ job.descripcion.slice(0, 80) }}{{ job.descripcion.length > 80 ? '...' : '' }}</p>
@@ -514,7 +547,7 @@ const aceptarCotizacion = async (cotizacion) => {
                   'badge-finalizado': selectedJob.estado === 'FINALIZADO_PROFESIONAL',
                   'badge-pendiente-confirmacion': selectedJob.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA'
                 }">
-                  {{ selectedJob.estado === 'EN_PROGRESO' ? '🟢 En progreso' : selectedJob.estado === 'FINALIZADO_PROFESIONAL' ? '🟠 Listo para confirmar' : selectedJob.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA' ? '🔴 Pago en verificación' : selectedJob.estado }}
+                  {{ selectedJob.estado === 'EN_PROGRESO' ? '🟢 En progreso' : selectedJob.estado === 'FINALIZADO_PROFESIONAL' ? '🟠 Listo para confirmar' : selectedJob.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA' ? '🟠 Pago en verificación (Pendiente de Profesional)' : selectedJob.estado }}
                 </span>
                 <h3>{{ selectedJob.titulo || 'Contratación Directa' }}</h3>
               </div>
@@ -528,7 +561,7 @@ const aceptarCotizacion = async (cotizacion) => {
                   <span class="jm-value">{{ selectedJob.horario || 'A coordinar' }}</span>
                 </div>
                 <div class="jm-meta-item">
-                  <span class="jm-label"><i class="fa-solid fa-money-bill-wave"></i> Presupuesto</span>
+                  <span class="jm-label"><i class="fa-solid fa-money-bill-wave"></i> Monto total:</span>
                   <span class="jm-value">{{ formatMoney(getJobAmount(selectedJob)) }}</span>
                 </div>
                 <div class="jm-meta-item">
@@ -759,6 +792,7 @@ const aceptarCotizacion = async (cotizacion) => {
 .estado-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
 .badge-progreso  { background: #ECFDF5; color: #059669; }
 .badge-finalizado { background: #FFF7ED; color: #D97706; box-shadow: 0 0 0 1px #FED7AA; }
+.badge-pendiente-confirmacion { background: #FEF3C7; color: #92400E; box-shadow: 0 0 0 1px #FDE68A; }
 
 /* --- JOB DETAIL MODAL --- */
 .modal-overlay {
@@ -1028,7 +1062,7 @@ const aceptarCotizacion = async (cotizacion) => {
 .btn-action-outline:hover { background: #F8FAFC; border-color: #CBD5E1; }
 .btn-confirm-pro {
   padding: 6px 14px;
-  background: #3B82F6;
+  background: #0B4C6F;
   border: none;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -1039,10 +1073,27 @@ const aceptarCotizacion = async (cotizacion) => {
   align-items: center;
   gap: 6px;
   transition: .2s;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 10px rgba(11, 76, 111, 0.2);
 }
-.btn-confirm-pro:hover { background: #2563EB; transform: translateY(-1px); }
+.btn-confirm-pro:hover:not(:disabled) { background: #083A55; transform: translateY(-1px); }
 .btn-confirm-pro:disabled { opacity: 0.7; cursor: not-allowed; }
+.btn-view-pro {
+  padding: 6px 12px;
+  background: #EFF6FF;
+  border: 1.5px solid #BFDBFE;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0B4C6F;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: .2s;
+}
+.btn-view-pro:hover:not(:disabled) { background: #DBEAFE; border-color: #0B4C6F; }
+.btn-view-pro:disabled { opacity: 0.6; cursor: not-allowed; }
 .text-red-600 { color: #EF4444 !important; border-color: #FEE2E2 !important; }
 .text-red-600:hover { background: #FEF2F2 !important; }
 
@@ -1090,8 +1141,8 @@ const aceptarCotizacion = async (cotizacion) => {
 
 /* ===== COTIZACIÓN INLINE BANNER ===== */
 .cotizacion-inline-banner {
-  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
-  border: 1.5px solid #86EFAC;
+  background: linear-gradient(135deg, #EFF6FF, #E0F2FE);
+  border: 1.5px solid #BAE6FD;
   border-radius: 12px;
   overflow: hidden;
   animation: slideIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -1101,7 +1152,7 @@ const aceptarCotizacion = async (cotizacion) => {
   to { opacity: 1; transform: translateY(0); }
 }
 .cib-header {
-  background: linear-gradient(90deg, #16A34A, #15803D);
+  background: linear-gradient(90deg, #0B4C6F, #1D6FA8);
   color: white;
   padding: 8px 14px;
   font-size: 0.82rem;
@@ -1123,14 +1174,14 @@ const aceptarCotizacion = async (cotizacion) => {
 @keyframes pulse-badge { 0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.4)}50%{box-shadow:0 0 0 5px rgba(250,204,21,0)} }
 .cib-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .cib-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.cib-label { font-size: 0.72rem; font-weight: 700; color: #15803D; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
-.cib-value { font-size: 0.88rem; color: #166534; font-weight: 500; text-align: right; }
-.cib-amount { font-size: 1.4rem; font-weight: 900; color: #14532D; letter-spacing: -0.5px; }
+.cib-label { font-size: 0.72rem; font-weight: 700; color: #0B4C6F; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
+.cib-value { font-size: 0.88rem; color: #164E63; font-weight: 500; text-align: right; }
+.cib-amount { font-size: 1.4rem; font-weight: 900; color: #0B4C6F; letter-spacing: -0.5px; }
 .cib-actions { margin-top: 8px; }
 .cib-btn-accept {
   width: 100%;
   padding: 10px 16px;
-  background: linear-gradient(135deg, #16A34A, #15803D);
+  background: linear-gradient(135deg, #0B4C6F, #1D6FA8);
   color: white;
   border: none;
   border-radius: 10px;
@@ -1142,12 +1193,12 @@ const aceptarCotizacion = async (cotizacion) => {
   justify-content: center;
   gap: 8px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+  box-shadow: 0 4px 12px rgba(11, 76, 111, 0.25);
 }
 .cib-btn-accept:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.4);
-  background: linear-gradient(135deg, #15803D, #166534);
+  box-shadow: 0 8px 20px rgba(11, 76, 111, 0.32);
+  background: linear-gradient(135deg, #083A55, #0B4C6F);
 }
 .cib-btn-accept:disabled { background: #D1D5DB; cursor: not-allowed; box-shadow: none; }
 .pro-confirmation-box {
@@ -1187,7 +1238,7 @@ const aceptarCotizacion = async (cotizacion) => {
    color: #64748b;
  }
  .btn-confirm-pro {
-   background: #2563eb;
+   background: #0B4C6F;
    color: white;
    border: none;
    padding: 10px;
@@ -1200,6 +1251,204 @@ const aceptarCotizacion = async (cotizacion) => {
    gap: 8px;
    transition: all 0.2s;
  }
- .btn-confirm-pro:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
+ .btn-confirm-pro:hover:not(:disabled) { background: #083A55; transform: translateY(-1px); }
  .btn-confirm-pro:disabled { opacity: 0.7; cursor: not-allowed; }
+ .solicitation-card {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-left: none;
+}
+
+.card-main-content {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.solicitation-info {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.solicitation-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-active { background: #3b82f6; box-shadow: 0 0 0 4px #dbeafe; }
+.dot-waiting { background: #f59e0b; box-shadow: 0 0 0 4px #fef3c7; }
+
+.solicitation-header h4 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.solicitation-meta {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.meta-tag {
+  font-size: 0.85rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.category-tag {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.solicitation-actions-basic {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.btn-text:hover { color: #0b4c6f; }
+.btn-text.text-red:hover { color: #ef4444; }
+
+/* Interest Panel */
+.pro-interest-panel {
+  width: 320px;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pro-interest-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #f59e0b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pro-profile-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid white;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.pro-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pro-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pro-name {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.pro-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.pro-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 44px;
+  gap: 8px;
+}
+
+.btn-accept-main {
+  background: #0b4c6f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-accept-main:hover { background: #083a55; transform: translateY(-1px); }
+
+.btn-view-secondary {
+  background: white;
+  color: #0b4c6f;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-view-secondary:hover { background: #f1f5f9; }
+
+.btn-reject-secondary {
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btn-reject-secondary:hover { background: #fecaca; }
+
+@media (max-width: 768px) {
+  .card-main-content { flex-direction: column; }
+  .pro-interest-panel { width: 100%; border-left: none; border-top: 1px solid #e2e8f0; }
+}
  </style>

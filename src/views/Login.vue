@@ -1,11 +1,10 @@
 <script setup>
-import { API_URLS, SOCKET_URL, GOOGLE_CLIENT_ID } from '../config.js';
+import { API_URLS, SOCKET_URL } from '../config.js';
 
 import { ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
-import { GoogleLogin, googleSdkLoaded } from 'vue3-google-login';
 
 const router = useRouter();
 const { login } = useUserSession();
@@ -87,16 +86,6 @@ async function handleLogin() {
     isLoading.value = false;
   }
 }
-
-const loginWithGoogle = () => {
-  googleSdkLoaded((google) => {
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCallback
-    });
-    google.accounts.id.prompt();
-  });
-};
 
 async function handleGoogleCallback(response) {
   if (!response.credential) return;
@@ -182,12 +171,7 @@ async function handleGoogleCallback(response) {
           <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
 
           <form @submit.prevent="handleLogin">
-            <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper">
-              <button type="button" class="btn-google">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G">
-                Continuar con Google
-              </button>
-            </GoogleLogin>
+            <GoogleLogin :callback="handleGoogleCallback" class="google-btn-wrapper" />
 
             <div class="separator"><span>o ingresa con tu email</span></div>
 

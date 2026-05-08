@@ -108,16 +108,59 @@ export const accountApi = {
     }
   },
 
-  // --- PAYMENTS (MOCK / OTHER SERVICE) ---
+  // --- PAYMENTS ---
   async getCards() {
-    // Si tienes un servicio de pagos, llámalo aquí. Por ahora mockeamos si no existe.
-    return [
-      { id: 1, type: 'visa', last4: '4242', exp: '12/25', name: 'JUAN PEREZ' }
-    ];
+    try {
+      const auth = getAuthHeaders();
+      const userId = localStorage.getItem('usuario_id');
+      const res = await axios.get(`${PAYMENTS_URL}/payments/${userId}`, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al obtener tarjetas");
+    }
   },
   
-  async addCard(cardData) { return { success: true }; },
-  async removeCard(id) { return { success: true }; },
-  async getTwofaStatus() { return { enabled: false }; },
-  async toggleTwofa(enabled, method) { return { enabled }; }
+  async addCard(cardData) {
+    try {
+      const auth = getAuthHeaders();
+      const userId = localStorage.getItem('usuario_id');
+      const res = await axios.post(`${PAYMENTS_URL}/payments`, {
+        ...cardData,
+        usuario_id: userId
+      }, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al agregar tarjeta");
+    }
+  },
+
+  async removeCard(id) {
+    try {
+      const auth = getAuthHeaders();
+      const res = await axios.delete(`${PAYMENTS_URL}/payments/${id}`, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al eliminar tarjeta");
+    }
+  },
+
+  async getTwofaStatus() {
+    try {
+      const auth = getAuthHeaders();
+      const res = await axios.get(`${PAYMENTS_URL}/twofa`, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      return { enabled: false };
+    }
+  },
+
+  async toggleTwofa(enabled, method) {
+    try {
+      const auth = getAuthHeaders();
+      const res = await axios.post(`${PAYMENTS_URL}/twofa`, { enabled, method }, { headers: auth.headers });
+      return res.data;
+    } catch (err) {
+      throw new Error(err.response?.data?.message || "Error al actualizar 2FA");
+    }
+  }
 };

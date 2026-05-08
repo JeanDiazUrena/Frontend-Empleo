@@ -1,13 +1,26 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { accountApi } from '../services/accountSettingsService';
+import { useUserSession } from '../composables/useUserSession.js';
 
 const route = useRoute();
 const router = useRouter();
+const { state } = useUserSession();
 const receipt = ref(null);
 const loading = ref(true);
 const error = ref('');
+
+const dashboardPath = computed(() => {
+  if (route.path.startsWith('/professional') || state.user.role === 'profesional') {
+    return '/professional/dashboard';
+  }
+  return '/client/dashboard';
+});
+
+const goToDashboard = () => {
+  router.push(dashboardPath.value);
+};
 
 onMounted(async () => {
   try {
@@ -99,7 +112,7 @@ const formatDate = (date) => {
         <div class="table-row" v-if="receipt.cotizacion_monto && receipt.cotizacion_monto != (receipt.presupuesto_max || receipt.presupuesto_min)">
           <div class="service-info">
             <span class="service-title">Ajuste de Cotización Profesional</span>
-            <span class="service-desc">{{ receipt.cotizacion_desc || 'Presupuesto ajustado por el profesional' }}</span>
+            <span class="service-desc">{{ receipt.cotizacion_desc || 'Monto total ajustado por el profesional' }}</span>
           </div>
           <span class="service-amount">{{ formatCurrency(receipt.cotizacion_monto) }}</span>
         </div>
@@ -133,7 +146,7 @@ const formatDate = (date) => {
         <button @click="printReceipt" class="btn-print">
           <i class="fa-solid fa-print"></i> Imprimir o Guardar PDF
         </button>
-        <button @click="router.back()" class="btn-back-text">Volver al Dashboard</button>
+        <button @click="goToDashboard" class="btn-back-text">Volver al Dashboard</button>
       </div>
     </div>
   </div>

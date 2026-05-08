@@ -3,7 +3,7 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import axios from 'axios'
-import vue3GoogleLogin from 'vue3-google-login'
+import GoogleLoginPlugin from './plugins/googleLogin'
 import { GOOGLE_CLIENT_ID } from './config'
 
 // --- Configuración Global de Axios ---
@@ -35,7 +35,7 @@ axios.interceptors.response.use(
 const app = createApp(App)
 
 app.use(router)
-app.use(vue3GoogleLogin, {
+app.use(GoogleLoginPlugin, {
   clientId: GOOGLE_CLIENT_ID
 })
 
