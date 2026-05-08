@@ -121,7 +121,7 @@ const goToExplore = () => router.push('/client/explore');
         <div class="header-content">
           <div class="avatar-wrapper">
             <div class="avatar-circle">
-              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar">
+              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar" @error="user.avatar = ''">
               <div v-else class="avatar-initials">{{ userInitials }}</div>
             </div>
             <span v-if="user.phone" class="status-dot" title="Contactable"></span>

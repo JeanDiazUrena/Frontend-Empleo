@@ -357,7 +357,7 @@ const categoryStyle = computed(() => {
         <div class="header-content">
           <div class="avatar-wrapper">
             <div class="avatar-circle">
-              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar" />
+              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar" @error="user.avatar = ''" />
               <div v-else class="avatar-initials">
                 {{ user.name?.charAt(0).toUpperCase() || 'P' }}
               </div>

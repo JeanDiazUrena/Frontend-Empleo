@@ -20,6 +20,10 @@ export function normalizeMediaUrl(value) {
     if ((parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') && localServiceUrl) {
       return `${localServiceUrl}${parsed.pathname}`;
     }
+    const gatewayOrigin = new URL(API_URLS.PERFILES).origin;
+    if (parsed.origin === gatewayOrigin && parsed.pathname.startsWith('/uploads/')) {
+      return `${API_URLS.PERFILES}${parsed.pathname}${parsed.search}`;
+    }
     return url;
   } catch {}
 
