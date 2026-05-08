@@ -98,4 +98,18 @@ const router = createRouter({
   }
 });
 
+router.onError((error) => {
+  const isStaleChunk = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(error?.message || '');
+  if (!isStaleChunk) return;
+
+  const retryKey = 'servihub:chunk-reload';
+  if (sessionStorage.getItem(retryKey) === '1') {
+    sessionStorage.removeItem(retryKey);
+    return;
+  }
+
+  sessionStorage.setItem(retryKey, '1');
+  window.location.reload();
+});
+
 export default router;

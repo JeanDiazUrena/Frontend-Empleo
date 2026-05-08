@@ -20,6 +20,8 @@ const hasActiveJob = ref(false);
 const isSharingLocation = ref(false);
 const showAttachmentMenu = ref(false);
 const fileInput = ref(null);
+const pendingAttachment = ref(null);
+const isSendingAttachment = ref(false);
 const lightbox = ref({ show: false, url: '' });
 const acceptingQuoteId = ref(null);
 
@@ -44,12 +46,25 @@ const downloadImage = async (url) => {
 const triggerFileSelect = (type) => {
   showAttachmentMenu.value = false;
   if (fileInput.value) {
-    fileInput.value.setAttribute('accept', type === 'image' ? 'image/*' : '*/*');
+    fileInput.value.setAttribute('accept', type === 'image' ? 'image/*' : '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,image/*,application/*');
     fileInput.value.click();
   }
 };
 
-const onFileChange = async (e) => {
+const formatFileSize = (bytes = 0) => {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const closeAttachmentPreview = () => {
+  if (pendingAttachment.value?.previewUrl) URL.revokeObjectURL(pendingAttachment.value.previewUrl);
+  pendingAttachment.value = null;
+  if (fileInput.value) fileInput.value.value = '';
+};
+
+const onFileChange = (e) => {
   const file = e.target.files[0];
   if (!file || !activeConv.value) return;
 
@@ -60,10 +75,23 @@ const onFileChange = async (e) => {
     return;
   }
 
+  if (pendingAttachment.value?.previewUrl) URL.revokeObjectURL(pendingAttachment.value.previewUrl);
+  pendingAttachment.value = {
+    file,
+    isImage: file.type.startsWith('image/'),
+    previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+    caption: ''
+  };
+};
+
+const sendPendingAttachment = async () => {
+  if (!pendingAttachment.value || !activeConv.value || isSendingAttachment.value) return;
+  const { file, caption } = pendingAttachment.value;
   const formData = new FormData();
   formData.append('file', file);
 
   try {
+    isSendingAttachment.value = true;
     showToast('Subiendo archivo...', 'success');
     const { data } = await axios.post(`${API_URLS.PERFILES}/api/chat/upload`, formData);
     const tipo = file.type.startsWith('image/') ? 'imagen' : 'archivo';
@@ -71,15 +99,22 @@ const onFileChange = async (e) => {
     socket.emit('send_message', {
       conversacion_id: activeConv.value.id,
       remitente_id: myId.value,
-      contenido: data.url,
+      contenido: normalizeMediaUrl(data.url),
       tipo: tipo,
-      nombre_archivo: file.name
+      nombre_archivo: data.filename || file.name,
+      metadata: {
+        mimetype: data.mimetype || file.type,
+        size: data.size || file.size,
+        caption: caption?.trim() || ''
+      }
     });
+    closeAttachmentPreview();
   } catch (err) {
     console.error("Error uploading file:", err);
     showToast('Error al subir el archivo', 'error');
+  } finally {
+    isSendingAttachment.value = false;
   }
-  e.target.value = ''; // Reset input
 };
 
 const checkActiveJob = async (profesionalUsuarioId) => {
@@ -105,12 +140,14 @@ const shareLocation = () => {
     (position) => {
       const { latitude, longitude } = position.coords;
       const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      const content = `📍 Mi ubicación: ${mapUrl}`;
+      const content = JSON.stringify({ latitude, longitude, url: mapUrl, label: 'Mi ubicacion' });
       
       socket.emit('send_message', {
         conversacion_id: activeConv.value.id,
         remitente_id: myId.value,
-        contenido: content
+        contenido: content,
+        tipo: 'ubicacion',
+        metadata: { accuracy: position.coords.accuracy }
       });
       
       showToast('Ubicación compartida', 'success');
@@ -131,6 +168,17 @@ const parseQuote = (content) => {
   } catch (error) {
     return null;
   }
+};
+
+const parseLocation = (content) => {
+  try {
+    const location = JSON.parse(content);
+    if (location?.latitude && location?.longitude) return location;
+  } catch {
+    const match = String(content || '').match(/https:\/\/www\.google\.com\/maps\?q=([-0-9.]+),([-0-9.]+)/);
+    if (match) return { latitude: match[1], longitude: match[2], url: match[0], label: 'Ubicacion compartida' };
+  }
+  return null;
 };
 
 const formatMoney = (value) => {
@@ -420,6 +468,35 @@ onMounted(async () => {
       </Transition>
     </Teleport>
 
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="pendingAttachment" class="attachment-preview-overlay" @click="closeAttachmentPreview">
+          <div class="attachment-preview-card" @click.stop>
+            <div class="attachment-preview-header">
+              <h3>{{ pendingAttachment.isImage ? 'Enviar foto' : 'Enviar documento' }}</h3>
+              <button @click="closeAttachmentPreview">x</button>
+            </div>
+            <div class="attachment-preview-body">
+              <img v-if="pendingAttachment.isImage" :src="pendingAttachment.previewUrl" class="attachment-preview-image" alt="Vista previa" />
+              <div v-else class="attachment-preview-file">
+                <i class="fa-solid fa-file-lines"></i>
+                <strong>{{ pendingAttachment.file.name }}</strong>
+                <span>{{ formatFileSize(pendingAttachment.file.size) }}</span>
+              </div>
+              <textarea v-model="pendingAttachment.caption" class="attachment-caption" placeholder="Agregar comentario..." rows="2"></textarea>
+            </div>
+            <div class="attachment-preview-actions">
+              <button class="preview-cancel" @click="closeAttachmentPreview">Cancelar</button>
+              <button class="preview-send" @click="sendPendingAttachment" :disabled="isSendingAttachment">
+                <i class="fa-solid fa-paper-plane"></i>
+                {{ isSendingAttachment ? 'Enviando...' : 'Enviar' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- ===== TOAST ===== -->
     <Teleport to="body">
       <Transition name="toast-slide">
@@ -571,23 +648,34 @@ onMounted(async () => {
                   <!-- RENDER SEGÚN TIPO -->
                   <template v-if="msg.tipo === 'imagen'">
                     <div class="image-bubble-wrap">
-                      <img :src="msg.contenido" class="msg-image" @click="openLightbox(msg.contenido)" />
-                      <button class="img-hover-dl" @click.stop="downloadImage(msg.contenido)">
+                      <img :src="normalizeMediaUrl(msg.contenido)" class="msg-image" @click="openLightbox(normalizeMediaUrl(msg.contenido))" />
+                      <button class="img-hover-dl" @click.stop="downloadImage(normalizeMediaUrl(msg.contenido))">
                         <i class="fa-solid fa-download"></i>
                       </button>
                     </div>
                   </template>
                   
                   <template v-else-if="msg.tipo === 'archivo'">
-                    <a :href="msg.contenido" target="_blank" class="msg-file" :title="msg.nombre_archivo || 'Descargar archivo'">
+                    <a :href="normalizeMediaUrl(msg.contenido)" target="_blank" class="msg-file" :title="msg.nombre_archivo || 'Descargar archivo'">
                       <div class="file-icon-wrap">
                         <i class="fa-solid fa-file-lines"></i>
                       </div>
                       <div class="file-info-wrap">
                         <span class="file-name-text">{{ msg.nombre_archivo || 'Archivo Adjunto' }}</span>
-                        <span class="file-action-text">Haga clic para descargar</span>
+                        <span class="file-action-text">{{ msg.metadata?.size ? formatFileSize(msg.metadata.size) : 'Haga clic para descargar' }}</span>
                       </div>
                     </a>
+                  </template>
+
+                  <template v-else-if="msg.tipo === 'ubicacion' || parseLocation(msg.contenido)">
+                    <div class="location-card">
+                      <i class="fa-solid fa-map-location-dot"></i>
+                      <div>
+                        <strong>{{ parseLocation(msg.contenido)?.label || 'Ubicacion compartida' }}</strong>
+                        <a :href="parseLocation(msg.contenido)?.url" target="_blank">Ver en Google Maps</a>
+                      </div>
+                    </div>
+                    <p v-if="msg.metadata?.caption" class="media-caption">{{ msg.metadata.caption }}</p>
                   </template>
 
                   <template v-else-if="msg.tipo === 'cotizacion'">
@@ -615,6 +703,7 @@ onMounted(async () => {
                     <a :href="'https://' + msg.contenido.split('https://')[1]" target="_blank" class="location-link">
                       <i class="fa-solid fa-map-location-dot"></i> Ver en Google Maps
                     </a>
+                    <p v-if="msg.metadata?.caption" class="media-caption">{{ msg.metadata.caption }}</p>
                   </template>
 
                   <p v-else>{{ msg.contenido }}</p>
@@ -623,7 +712,7 @@ onMounted(async () => {
                     <span v-if="msg.remitente_id === myId" class="read-tick" :class="{ read: msg.leido }">
                       <i class="fa-solid fa-check-double"></i>
                     </span>
-                    <button v-if="!msg.tipo || msg.tipo === 'texto' || !['imagen','archivo','cotizacion'].includes(msg.tipo)" 
+                    <button v-if="!msg.tipo || msg.tipo === 'texto' || !['imagen','archivo','cotizacion','ubicacion'].includes(msg.tipo)" 
                             class="msg-copy-btn" 
                             @click="copyToClipboard(msg.contenido)" 
                             title="Copiar mensaje">
@@ -1274,6 +1363,65 @@ onMounted(async () => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.attachment-preview-overlay {
+  position: fixed; inset: 0; z-index: 999999;
+  background: rgba(15, 23, 42, 0.62);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(5px);
+}
+.attachment-preview-card {
+  width: min(520px, 100%);
+  max-height: 92vh;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+.attachment-preview-header, .attachment-preview-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid #E2E8F0;
+}
+.attachment-preview-header h3 { margin: 0; font-size: 1rem; color: #0F172A; }
+.attachment-preview-header button {
+  width: 34px; height: 34px; border-radius: 50%; border: none;
+  background: #F1F5F9; color: #475569; cursor: pointer;
+}
+.attachment-preview-body { padding: 18px; display: grid; gap: 14px; }
+.attachment-preview-image {
+  width: 100%; max-height: 58vh; object-fit: contain;
+  background: #0F172A; border-radius: 12px;
+}
+.attachment-preview-file {
+  display: grid; gap: 8px; justify-items: center;
+  padding: 34px 18px; border: 1.5px dashed #CBD5E1; border-radius: 12px;
+  color: #334155; text-align: center;
+}
+.attachment-preview-file i { font-size: 2.4rem; color: #3B82F6; }
+.attachment-preview-file span { color: #64748B; font-weight: 700; }
+.attachment-caption {
+  width: 100%; border: 1.5px solid #E2E8F0; border-radius: 12px;
+  padding: 12px; resize: vertical; font: inherit; outline: none;
+}
+.attachment-caption:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+.attachment-preview-actions { border-top: 1px solid #E2E8F0; border-bottom: none; gap: 10px; }
+.preview-cancel, .preview-send {
+  flex: 1; border-radius: 10px; padding: 12px; font-weight: 800; cursor: pointer; border: none;
+}
+.preview-cancel { background: white; color: #64748B; border: 1.5px solid #E2E8F0; }
+.preview-send { background: #0B4C6F; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.preview-send:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.location-card {
+  display: flex; gap: 12px; align-items: center;
+  min-width: 220px; padding: 12px; border-radius: 12px;
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.16);
+}
+.bubble-theirs .location-card { background: #EFF6FF; border-color: #BFDBFE; }
+.location-card i { font-size: 1.35rem; }
+.location-card div { display: flex; flex-direction: column; gap: 3px; }
+.location-card a { color: inherit; font-size: 0.8rem; font-weight: 800; }
+.media-caption { margin-top: 6px !important; }
 
 .quote-card {
   width: 270px; background: white; color: #0F172A; border-radius: 14px;

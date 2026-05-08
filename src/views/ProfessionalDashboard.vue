@@ -57,7 +57,10 @@ const isConfirmingTransfer = ref(false);
 const transferTargetJob = ref(null);
 
 const openTransferModal = (job) => {
-  transferTargetJob.value = job;
+  transferTargetJob.value = {
+    ...job,
+    comprobante_url: normalizeMediaUrl(job?.comprobante_url || '', API_URLS.TRABAJOS)
+  };
   showTransferModal.value = true;
 };
 
