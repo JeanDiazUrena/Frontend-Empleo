@@ -289,7 +289,7 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
         <div class="header-content">
           <div class="avatar-wrapper" @click="openEditModal">
             <div class="avatar-circle">
-              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar" @error="user.avatar = ''">
+              <img v-if="user.avatar" :src="user.avatar" class="avatar-img" alt="avatar">
               <div v-else class="avatar-initials">{{ userInitials }}</div>
             </div>
             <!-- Dot solo si hay número -->
