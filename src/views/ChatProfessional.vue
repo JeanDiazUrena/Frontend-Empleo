@@ -204,7 +204,12 @@ const unreadTotal = computed(() => {
 const onlineUsers = ref([]);
 
 const connectSocket = () => {
-  socket = io(SOCKET_URL, { query: { userId: myId.value } });
+  socket = io(SOCKET_URL, {
+    query: { userId: myId.value },
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 8,
+    reconnectionDelay: 1200
+  });
 };
 
 onUnmounted(() => {
@@ -307,6 +312,10 @@ const getInitials = (name) => {
 
 onMounted(async () => {
   connectSocket();
+
+  socket.on('connect_error', (error) => {
+    console.error('Error conectando al chat:', error.message);
+  });
 
   // Cargar datos bancarios reales del profesional
   try {
@@ -1064,10 +1073,10 @@ onMounted(async () => {
 .attachment-container { position: relative; }
 .btn-plus {
   width: 40px; height: 40px; border-radius: 50%; border: none;
-  background: #F1F5F9; color: #64748B; cursor: pointer; transition: 0.2s;
+  background: #0F172A; color: #F97316; cursor: pointer; transition: 0.2s;
   display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
 }
-.btn-plus:hover { background: #E2E8F0; color: #1E293B; }
+.btn-plus:hover { background: #1D4ED8; color: white; }
 
 .attachment-menu {
   position: absolute; bottom: 65px; left: 0; background: white;

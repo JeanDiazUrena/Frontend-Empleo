@@ -273,7 +273,12 @@ const onlineUsers = ref([]);
 
 // Conectar socket
 const connectSocket = () => {
-  socket = io(SOCKET_URL, { query: { userId: myId.value } });
+  socket = io(SOCKET_URL, {
+    query: { userId: myId.value },
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 8,
+    reconnectionDelay: 1200
+  });
 };
 
 // Desconectar
@@ -411,6 +416,11 @@ const getInitials = (name) => {
 
 onMounted(async () => {
   connectSocket();
+
+  socket.on('connect_error', (error) => {
+    console.error('Error conectando al chat:', error.message);
+    showToast('Reconectando chat...', 'error');
+  });
 
   socket.on('online_users', (users) => {
     onlineUsers.value = users;
@@ -601,7 +611,7 @@ onMounted(async () => {
             </div>
           </div>
           <div class="header-status">
-            <button v-if="hasActiveJob" class="btn-location" @click="shareLocation" :disabled="isSharingLocation">
+            <button class="btn-location" @click="shareLocation" :disabled="isSharingLocation">
               <i class="fa-solid fa-location-crosshairs"></i>
               {{ isSharingLocation ? 'Obteniendo...' : 'Compartir Ubicación' }}
             </button>
@@ -743,7 +753,7 @@ onMounted(async () => {
                   <div class="menu-icon file-icon"><i class="fa-solid fa-file-lines"></i></div>
                   <span>Documento</span>
                 </button>
-                <button v-if="hasActiveJob" @click="shareLocation">
+                <button @click="shareLocation">
                   <div class="menu-icon loc-icon"><i class="fa-solid fa-location-dot"></i></div>
                   <span>Ubicación</span>
                 </button>
@@ -1181,9 +1191,9 @@ onMounted(async () => {
 
 
 .btn-location {
-  background: #EFF6FF;
-  color: #3B82F6;
-  border: 1.5px solid #BFDBFE;
+  background: #0F172A;
+  color: #F97316;
+  border: 1.5px solid #1D4ED8;
   border-radius: 8px;
   padding: 8px 14px;
   font-weight: 700;
@@ -1196,8 +1206,8 @@ onMounted(async () => {
   transition: 0.2s;
 }
 .btn-location:hover:not(:disabled) {
-  background: #DBEAFE;
-  border-color: #3B82F6;
+  background: #111827;
+  border-color: #F97316;
   transform: translateY(-1px);
 }
 .btn-location:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -1314,9 +1324,9 @@ onMounted(async () => {
   width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem;
 }
-.img-icon { background: #9333EA; }
+.img-icon { background: #F97316; }
 .file-icon { background: #2563EB; }
-.loc-icon { background: #16A34A; }
+.loc-icon { background: #0F172A; color: #F97316; }
 
 .menu-pop-enter-active, .menu-pop-leave-active { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .menu-pop-enter-from, .menu-pop-leave-to { opacity: 0; transform: scale(0.5) translateY(20px); transform-origin: bottom left; }
@@ -1397,19 +1407,19 @@ onMounted(async () => {
   padding: 34px 18px; border: 1.5px dashed #CBD5E1; border-radius: 12px;
   color: #334155; text-align: center;
 }
-.attachment-preview-file i { font-size: 2.4rem; color: #3B82F6; }
+.attachment-preview-file i { font-size: 2.4rem; color: #F97316; }
 .attachment-preview-file span { color: #64748B; font-weight: 700; }
 .attachment-caption {
   width: 100%; border: 1.5px solid #E2E8F0; border-radius: 12px;
   padding: 12px; resize: vertical; font: inherit; outline: none;
 }
-.attachment-caption:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+.attachment-caption:focus { border-color: #F97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.14); }
 .attachment-preview-actions { border-top: 1px solid #E2E8F0; border-bottom: none; gap: 10px; }
 .preview-cancel, .preview-send {
   flex: 1; border-radius: 10px; padding: 12px; font-weight: 800; cursor: pointer; border: none;
 }
 .preview-cancel { background: white; color: #64748B; border: 1.5px solid #E2E8F0; }
-.preview-send { background: #0B4C6F; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.preview-send { background: linear-gradient(135deg, #0F172A, #1D4ED8); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .preview-send:disabled { opacity: 0.65; cursor: not-allowed; }
 
 .location-card {
@@ -1417,7 +1427,7 @@ onMounted(async () => {
   min-width: 220px; padding: 12px; border-radius: 12px;
   background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.16);
 }
-.bubble-theirs .location-card { background: #EFF6FF; border-color: #BFDBFE; }
+.bubble-theirs .location-card { background: #EFF6FF; border-color: #F97316; }
 .location-card i { font-size: 1.35rem; }
 .location-card div { display: flex; flex-direction: column; gap: 3px; }
 .location-card a { color: inherit; font-size: 0.8rem; font-weight: 800; }
