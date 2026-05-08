@@ -31,7 +31,7 @@ function initializeGoogleIdentity(google) {
 
   google.accounts.id.initialize({
     client_id: state.clientId,
-    auto_select: false, // Evita que aparezca automáticamente la cuenta
+    auto_select: false,
     callback: (response) => {
       const currentState = getState();
 
@@ -44,8 +44,10 @@ function initializeGoogleIdentity(google) {
         currentState.activeError(response);
       }
     },
-    use_fedcm_for_prompt: true
+    use_fedcm_for_prompt: false
   });
+
+  google.accounts.id.disableAutoSelect();
 
   state.initialized = true;
 }
@@ -139,7 +141,7 @@ export async function renderGoogleLoginButton(container, buttonConfig = {}) {
     type: 'standard',
     theme: 'outline',
     size: 'large',
-    text: 'signin_with',
+    text: 'continue_with',
     shape: 'rectangular',
     logo_alignment: 'left',
     locale: 'es',

@@ -78,10 +78,12 @@ onBeforeUnmount(() => {
   display: flex;
   width: 100%;
   justify-content: center;
+  min-height: 44px;
 }
 
 .google-login-button :deep(div),
 .google-login-button :deep(iframe) {
+  width: 100% !important;
   max-width: 100% !important;
   border-radius: 10px !important;
   overflow: hidden;
