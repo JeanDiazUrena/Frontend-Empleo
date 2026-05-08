@@ -176,7 +176,7 @@ const submitReview = async () => {
       <h2>¡Gracias por tu reseña!</h2>
       <p>Has ayudado a construir una comunidad más confiable. El pago ha sido completado y liberado al profesional.</p>
       <div class="success-actions">
-        <button class="btn-view-receipt" @click="router.push(`/client/receipt/${trabajoInfo.solicitud_id}`)">
+        <button class="btn-view-receipt" @click="router.push(`/client/receipt/${trabajoInfo.id}`)">
           <i class="fa-solid fa-file-invoice"></i> Ver Recibo de Pago
         </button>
         <button class="btn-go-dashboard" @click="router.push('/client/dashboard')">
