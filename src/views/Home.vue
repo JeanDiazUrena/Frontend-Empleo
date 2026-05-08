@@ -70,7 +70,7 @@ const stats = [
       
       <div class="container hero-content-v2 reveal">
         <div class="hero-text-area">
-          <span class="badge-premium">🚀 El futuro del trabajo está aquí</span>
+          <span class="badge-premium"> El futuro del trabajo está aquí</span>
           <h1>Encuentra el <span class="text-gradient">talento ideal</span> para cualquier proyecto</h1>
           <p class="hero-subtitle">Conectamos a profesionales de élite con clientes visionarios. Calidad, rapidez y seguridad garantizada en cada servicio.</p>
           
@@ -198,7 +198,6 @@ const stats = [
 .home-v2 {
   font-family: 'Outfit', sans-serif;
   color: #1e293b;
-  overflow-x: hidden;
 }
 
 .container {
@@ -232,12 +231,12 @@ const stats = [
 /* HERO SECTION CON VIDEO */
 .hero-premium {
   position: relative;
-  height: 90vh;
-  min-height: 700px;
+  min-height: 90vh;
   display: flex;
   align-items: center;
   background: #0B4C6F;
   overflow: hidden;
+  padding: 80px 0;
 }
 
 .video-bg {
@@ -361,6 +360,7 @@ const stats = [
   gap: 12px;
   color: #e2e8f0;
   font-size: 0.9rem;
+  flex-wrap: wrap;
 }
 
 .label-chip {
@@ -633,13 +633,34 @@ const stats = [
 @media (max-width: 1024px) {
   .hero-text-area h1 { font-size: 3.5rem; }
   .features-grid-v2 { grid-template-columns: 1fr; gap: 60px; }
-  .stats-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 40px; }
 }
 
 @media (max-width: 768px) {
+  .hero-premium { min-height: 100vh; padding: 100px 0 60px; }
   .hero-text-area h1 { font-size: 2.8rem; }
-  .cta-inner h2 { font-size: 2.5rem; }
-  .search-glass-container { flex-direction: column; }
-  .cta-btns { flex-direction: column; }
+  .hero-subtitle { font-size: 1.1rem; }
+  .cta-inner h2 { font-size: 2.2rem; }
+  .cta-box-v2 { padding: 40px 20px; border-radius: 20px; }
+  .search-glass-container { 
+    flex-direction: column; 
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .search-input-wrapper { padding: 0 10px; }
+  .btn-primary-v2 { width: 100%; height: 50px; }
+  .cta-btns { flex-direction: column; width: 100%; }
+  .cta-btns button { width: 100%; }
+  .categories-v2 { padding: 60px 0; }
+  .features-premium { padding: 60px 0; }
+  .stats-bar { padding: 40px 0; }
+}
+
+@media (max-width: 480px) {
+  .hero-text-area h1 { font-size: 2.2rem; }
+  .stats-grid { grid-template-columns: 1fr; gap: 30px; }
+  .section-header h2 { font-size: 1.8rem; }
+  .cat-img-wrapper { height: 200px; }
+  .hero-labels { display: none; }
 }
 </style>
