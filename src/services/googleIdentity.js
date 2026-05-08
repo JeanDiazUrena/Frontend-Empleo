@@ -31,6 +31,7 @@ function initializeGoogleIdentity(google) {
 
   google.accounts.id.initialize({
     client_id: state.clientId,
+    auto_select: false, // Evita que aparezca automáticamente la cuenta
     callback: (response) => {
       const currentState = getState();
 
@@ -136,9 +137,9 @@ export async function renderGoogleLoginButton(container, buttonConfig = {}) {
 
   google.accounts.id.renderButton(container, {
     type: 'standard',
-    theme: 'filled_blue',
+    theme: 'outline',
     size: 'large',
-    text: 'continue_with',
+    text: 'signin_with',
     shape: 'rectangular',
     logo_alignment: 'left',
     locale: 'es',
