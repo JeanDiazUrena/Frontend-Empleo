@@ -421,12 +421,6 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
             </div>
           </div>
 
-          <LocationMap
-            :location-text="user.location"
-            title="Ubicación del cliente"
-            height="240px"
-          />
-
           <!-- CTA si incompleto -->
           <div v-if="isProfileIncomplete" class="incomplete-cta">
             <div class="incomplete-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>

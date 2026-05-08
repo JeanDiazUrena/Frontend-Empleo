@@ -264,10 +264,13 @@ const confirmarFinalizacion = async () => {
         showToast('¡Trabajo finalizado con éxito!', 'success');
       }
       
-      // Cerramos el modal y dejamos que la vista padre decida el siguiente paso.
-      // Evita que una redirección global mate rutas como /client/receipt/:id.
+      // Cerramos y recargamos el dashboard tras un breve delay
       setTimeout(() => {
-        emit('success', { trabajoId: props.trabajo_id, estado: res.data.estado });
+        emit('success');
+        // Redirección forzada para asegurar que sale de cualquier sub-modal o estado
+        const role = localStorage.getItem('usuario_rol');
+        if (role === 'cliente') window.location.href = '/client/dashboard';
+        else if (role === 'profesional') window.location.href = '/professional/dashboard';
       }, 2500);
     }
   } catch (error) {

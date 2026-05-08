@@ -5,7 +5,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { normalizeMediaUrl } from '../utils/media.js';
-import LocationMap from '../components/LocationMap.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -386,11 +385,6 @@ const categoryStyle = computed(() => {
               </div>
             </div>
           </div>
-          <LocationMap
-            :location-text="[user.city, user.sector].filter(Boolean).join(', ')"
-            title="Ubicación del profesional"
-            height="240px"
-          />
         </div>
 
         <!-- Habilidades -->

@@ -5,7 +5,6 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { normalizeMediaUrl } from '../utils/media.js';
-import LocationMap from '../components/LocationMap.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -224,12 +223,6 @@ const goToExplore = () => router.push('/client/explore');
               </div>
             </div>
           </div>
-
-          <LocationMap
-            :location-text="user.location"
-            title="Ubicación del cliente"
-            height="240px"
-          />
         </div>
       </div>
 

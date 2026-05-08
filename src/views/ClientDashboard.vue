@@ -286,15 +286,10 @@ const formatPaymentMethod = (method) => {
     return labels[String(method || '').toUpperCase()] || 'No especificado';
 };
 
-const handlePaymentSuccess = (payload = {}) => {
+const handlePaymentSuccess = () => {
     showPaymentModal.value = false;
-    const paidJob = jobToPay.value;
-    if (payload.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA') {
-        showToast('Comprobante enviado. Podrás ver el recibo cuando el profesional confirme la transferencia.', 'success');
-        return;
-    }
-    if (paidJob) {
-        router.push(`/client/review/${paidJob.id}?ref=${paidJob.profesional_id}`);
+    if (jobToPay.value) {
+        router.push(`/client/review/${jobToPay.value.id}?ref=${jobToPay.value.profesional_id}`);
     }
 };
 
