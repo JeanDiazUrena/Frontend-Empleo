@@ -7,7 +7,7 @@ import GoogleLoginPlugin from './plugins/googleLogin'
 import { GOOGLE_CLIENT_ID } from './config'
 
 // --- Configuración Global de Axios ---
-axios.defaults.baseURL = 'http://localhost:4000';
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
