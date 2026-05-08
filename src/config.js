@@ -1,4 +1,4 @@
-const GATEWAY_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+export const GATEWAY_URL = 'https://servihub-gateway.onrender.com';
 
 export const API_URLS = {
     AUTH: `${GATEWAY_URL}/auth-service`,
