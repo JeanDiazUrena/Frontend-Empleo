@@ -15,6 +15,8 @@ const errorMessage = ref('');
 const isLoading = ref(false);
 
 async function handleLogin() {
+  if (isLoading.value) return;
+
   errorMessage.value = '';
   
   if (!email.value || !password.value) {
@@ -75,7 +77,9 @@ async function handleLogin() {
   } catch (error) {
     console.error("Error de autenticación:", error);
 
-    if (error.response) {
+    if (error.response?.status === 429) {
+      errorMessage.value = "Render está limitando temporalmente el servicio. Espera un minuto y vuelve a intentar.";
+    } else if (error.response) {
       errorMessage.value = error.response.data.message || "Credenciales incorrectas.";
     } else if (error.request) {
       errorMessage.value = "Error de conexión: El servidor no responde.";
@@ -88,6 +92,8 @@ async function handleLogin() {
 }
 
 async function handleGoogleCallback(response) {
+  if (isLoading.value) return;
+
   if (!response.credential) return;
   errorMessage.value = '';
   isLoading.value = true;
