@@ -13,7 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true
   },
-  base: './',
+  base: '/',
   server: {
     headers: crossOriginHeaders
   },
