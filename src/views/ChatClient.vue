@@ -53,10 +53,18 @@ const onFileChange = async (e) => {
   const file = e.target.files[0];
   if (!file || !activeConv.value) return;
 
+  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+  if (file.size > MAX_SIZE) {
+    showToast('Archivo demasiado pesado (Máximo 50MB)', 'error');
+    e.target.value = '';
+    return;
+  }
+
   const formData = new FormData();
   formData.append('file', file);
 
   try {
+    showToast('Subiendo archivo...', 'success');
     const { data } = await axios.post(`${API_URLS.PERFILES}/api/chat/upload`, formData);
     const tipo = file.type.startsWith('image/') ? 'imagen' : 'archivo';
     
@@ -64,7 +72,8 @@ const onFileChange = async (e) => {
       conversacion_id: activeConv.value.id,
       remitente_id: myId.value,
       contenido: data.url,
-      tipo: tipo
+      tipo: tipo,
+      nombre_archivo: file.name
     });
   } catch (err) {
     console.error("Error uploading file:", err);
@@ -570,9 +579,14 @@ onMounted(async () => {
                   </template>
                   
                   <template v-else-if="msg.tipo === 'archivo'">
-                    <a :href="msg.contenido" target="_blank" class="msg-file">
-                      <i class="fa-solid fa-file-arrow-down"></i>
-                      <span>Archivo Adjunto</span>
+                    <a :href="msg.contenido" target="_blank" class="msg-file" :title="msg.nombre_archivo || 'Descargar archivo'">
+                      <div class="file-icon-wrap">
+                        <i class="fa-solid fa-file-lines"></i>
+                      </div>
+                      <div class="file-info-wrap">
+                        <span class="file-name-text">{{ msg.nombre_archivo || 'Archivo Adjunto' }}</span>
+                        <span class="file-action-text">Haga clic para descargar</span>
+                      </div>
                     </a>
                   </template>
 
@@ -1133,6 +1147,59 @@ onMounted(async () => {
 .bubble-meta { display: flex; align-items: center; gap: 6px; }
 /* --- ATTACHMENT PANEL --- */
 .attachment-container { position: relative; }
+
+/* Mensajes de Archivo */
+.msg-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,0.9);
+  padding: 10px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  min-width: 200px;
+}
+.msg-file:hover {
+  background: #FFFFFF;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.file-icon-wrap {
+  width: 36px;
+  height: 36px;
+  background: #F1F5F9;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  font-size: 1.1rem;
+}
+.file-info-wrap {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.file-name-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.file-action-text {
+  font-size: 0.7rem;
+  color: #94A3B8;
+}
+.bubble-mine .msg-file { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); color: white; }
+.bubble-mine .file-icon-wrap { background: rgba(255,255,255,0.2); color: white; }
+.bubble-mine .file-name-text { color: white; }
+.bubble-mine .file-action-text { color: rgba(255,255,255,0.7); }
+
 .btn-plus {
   width: 40px; height: 40px; border-radius: 50%; border: none;
   background: #F1F5F9; color: #64748B; cursor: pointer; transition: 0.2s;
