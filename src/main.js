@@ -22,7 +22,10 @@ axios.interceptors.request.use((config) => {
 axios.interceptors.response.use(
   response => response,
   error => {
-    if (error.response && error.response.status === 401) {
+    // 🛡️ NO redirigir si el error 401 viene del login o registro
+    const isAuthRoute = error.config?.url?.includes('/api/login') || error.config?.url?.includes('/api/register');
+    
+    if (error.response && error.response.status === 401 && !isAuthRoute) {
       console.warn("Sesión expirada o inválida. Redirigiendo...");
       localStorage.removeItem('token');
       localStorage.removeItem('usuario_id');

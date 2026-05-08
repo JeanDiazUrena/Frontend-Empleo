@@ -7,6 +7,7 @@ import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
 import { normalizeMediaUrl } from '../utils/media.js';
 import { getCurrentBrowserLocation } from '../utils/location.js';
+import LocationMap from '../components/LocationMap.vue';
 
 const router = useRouter();
 const { state, updateProfile } = useUserSession();

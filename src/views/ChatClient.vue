@@ -7,6 +7,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useUserSession } from '../composables/useUserSession.js';
 import { normalizeMediaUrl } from '../utils/media.js';
+import LocationMap from '../components/LocationMap.vue';
 
 const route = useRoute();
 const router = useRouter();
