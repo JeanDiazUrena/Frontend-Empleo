@@ -4,10 +4,10 @@ import App from './App.vue'
 import router from './router'
 import axios from 'axios'
 import GoogleLoginPlugin from './plugins/googleLogin'
-import { GOOGLE_CLIENT_ID } from './config'
+import { GATEWAY_URL, GOOGLE_CLIENT_ID } from './config'
 
 // --- Configuración Global de Axios ---
-axios.defaults.baseURL = 'http://localhost:4000';
+axios.defaults.baseURL = GATEWAY_URL;
 
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
