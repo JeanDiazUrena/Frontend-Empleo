@@ -10,4 +10,5 @@ export const API_URLS = {
 
 export const SOCKET_URL = GATEWAY_URL;
 
-export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com';
+// 👇 ESTA ES LA LÍNEA QUE VERCEL TE ESTÁ PIDIENDO A GRITOS 👇
+export const GOOGLE_CLIENT_ID = '508703218994-7doqu36adap4tttlbln0vn7oib8jp1l0.apps.googleusercontent.com';
