@@ -183,7 +183,7 @@ async function handleRegistration() {
 </script>
 
 <template>
-  <div class="split-screen">
+  <div id="main-content" class="split-screen" tabindex="-1">
     
     <div class="brand-side">
       <div class="brand-overlay">

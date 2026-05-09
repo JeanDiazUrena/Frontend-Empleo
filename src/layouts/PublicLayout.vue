@@ -90,14 +90,14 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
     
     <header class="navbar">
       <div class="container nav-content">
-        <div class="brand" @click="router.push('/').then(() => window.scrollTo(0,0))" style="cursor: pointer;">
+        <div class="brand" role="button" tabindex="0" aria-label="Ir al inicio" @keydown.enter.prevent="router.push('/').then(() => window.scrollTo(0,0))" @keydown.space.prevent="router.push('/').then(() => window.scrollTo(0,0))" @click="router.push('/').then(() => window.scrollTo(0,0))" style="cursor: pointer;">
           <img src="/fotos/logo-servihub.png" alt="Logo" class="logo-icon">
           <span class="logo-text">ServiHub<span class="dot">.</span></span>
         </div>
         
         <nav class="nav-links">
           
-          <a @click.prevent="handleExplore" class="link">Explorar</a>
+          <a href="#explorar-seccion" @click.prevent="handleExplore" class="link">Explorar</a>
 
           <template v-if="!isLoggedIn">
             <RouterLink to="/login" class="link">Iniciar Sesión</RouterLink>
@@ -110,7 +110,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
             </button>
             
             <div class="user-menu-container" ref="menuRef">
-              <div class="user-trigger" @click="toggleMenu">
+              <button type="button" class="user-trigger" :aria-expanded="isMenuOpen" aria-haspopup="menu" @click="toggleMenu">
                 <span class="user-name">{{ state.user.name }}</span>
                 <div class="avatar-circle">
                   {{ userInitials }}
@@ -118,7 +118,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
                 <svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" :class="{ 'rotate': isMenuOpen }" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                 </svg>
-              </div>
+              </button>
 
               <transition name="fade">
                 <div v-if="isMenuOpen" class="dropdown-menu">
@@ -160,7 +160,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
       </div>
     </header>
 
-    <main class="page-content">
+    <main id="main-content" class="page-content" tabindex="-1">
       <RouterView />
     </main>
 
@@ -191,7 +191,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
 
 /* MENÚ DE USUARIO */
 .user-menu-container { position: relative; }
-.user-trigger { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 30px; transition: background 0.2s; border: 1px solid transparent; }
+.user-trigger { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 30px; transition: background 0.2s; border: 1px solid transparent; background: transparent; font: inherit; }
 .user-trigger:hover { background-color: #f3f4f6; border-color: #e5e7eb; }
 .user-name { font-weight: 600; color: #333; font-size: 0.9rem; }
 .avatar-circle { width: 34px; height: 34px; background: #F76B1C; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -266,5 +266,15 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside));
 
 .page-content { flex: 1; }
 .footer { border-top: 1px solid #e5e7eb; padding: 30px 0; text-align: center; color: #888; font-size: 0.9rem; margin-top: auto; }
-@media (max-width: 768px) { .nav-links { display: none; } }
+@media (max-width: 768px) {
+  .navbar { padding: 10px 0; }
+  .nav-content { gap: 12px; padding: 0 14px; }
+  .brand { font-size: 1.15rem; min-width: 0; }
+  .logo-icon { height: 28px; }
+  .nav-links { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .link { font-size: 0.85rem; }
+  .btn-join, .btn-dashboard { padding: 8px 12px; font-size: 0.85rem; }
+  .user-name { display: none; }
+  .dropdown-menu { right: 0; width: min(90vw, 260px); }
+}
 </style>

@@ -535,7 +535,7 @@ onMounted(async () => {
    
 
     <!-- PANEL IZQUIERDO: LISTA DE CONVERSACIONES -->
-    <aside class="chat-sidebar">
+    <aside class="chat-sidebar" :class="{ visible: !activeConv }">
       <div class="sidebar-header">
         <h3>Mensajes</h3>
         <span v-if="unreadTotal > 0" class="conv-count">{{ unreadTotal }}</span>
@@ -600,6 +600,9 @@ onMounted(async () => {
       <template v-else>
         <!-- HEADER DEL CHAT -->
         <div class="chat-header">
+          <button type="button" class="mobile-chat-back" @click="activeConv = null" aria-label="Volver a conversaciones">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
           <div class="chat-header-left" @click="openProfile(activeConv.profesional_usuario_id)" style="cursor: pointer;" title="Ver perfil">
             <div class="header-avatar" :class="activeConv.otro_avatar ? '' : 'initials-av'">
               <img v-if="activeConv.otro_avatar" :src="activeConv.otro_avatar" :alt="activeConv.otro_nombre" />
@@ -1149,6 +1152,12 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .chat-sidebar { width: 100%; display: none; }
   .chat-sidebar.visible { display: flex; position: absolute; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; }
+  .chat-shell { height: calc(100dvh - 150px); min-height: 520px; border-radius: 14px; }
+  .chat-header { padding: 12px; gap: 8px; align-items: flex-start; }
+  .header-status { flex-wrap: wrap; justify-content: flex-end; }
+  .message-bubble { max-width: 86%; }
+  .chat-input-area { padding: 10px; gap: 8px; }
+  .mobile-chat-back { display: inline-flex !important; }
 }
 
 /* --- TOAST --- */
@@ -1490,5 +1499,19 @@ onMounted(async () => {
   padding: 12px; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s;
 }
 .pm-btn-primary:hover { background: #083a55; }
+
+.mobile-chat-back {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  background: #F8FAFC;
+  color: #0B4C6F;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
 
 </style>

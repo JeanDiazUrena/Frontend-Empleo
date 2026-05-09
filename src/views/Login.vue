@@ -236,7 +236,7 @@ async function handleGoogleCallback(response) {
 </script>
 
 <template>
-  <div class="login-page-fullscreen">
+  <div id="main-content" class="login-page-fullscreen" tabindex="-1">
     
     <nav class="login-nav">
       <div class="nav-left">

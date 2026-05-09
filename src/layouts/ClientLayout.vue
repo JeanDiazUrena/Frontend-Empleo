@@ -426,7 +426,7 @@ onUnmounted(() => {
         </ul>
       </aside>
 
-      <main class="dash-content">
+      <main id="main-content" class="dash-content" tabindex="-1">
         <RouterView :key="`${state.user.id}:${route.fullPath}`" />
       </main>
 

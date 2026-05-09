@@ -256,7 +256,7 @@ const saveProfile = async () => {
 </script>
 
 <template>
-  <div class="setup-container">
+  <div id="main-content" class="setup-container" tabindex="-1">
     <!-- ===== TOAST NOTIFICATION ===== -->
     <Teleport to="body">
       <Transition name="toast-slide">

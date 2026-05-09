@@ -166,7 +166,7 @@ const closePost = () => {
 </script>
 
 <template>
-  <div class="modal-overlay">
+  <div id="main-content" class="modal-overlay" tabindex="-1">
     <!-- ===== TOAST NOTIFICATION ===== -->
     <Teleport to="body">
       <Transition name="toast-slide">

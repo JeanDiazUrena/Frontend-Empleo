@@ -43,3 +43,13 @@ app.use(GoogleLoginPlugin, {
 })
 
 app.mount('#app')
+
+const userWayAccountId = import.meta.env.VITE_USERWAY_ACCOUNT_ID;
+if (userWayAccountId && typeof document !== 'undefined' && !document.getElementById('a11yWidgetSrc')) {
+  const userWayScript = document.createElement('script');
+  userWayScript.id = 'a11yWidgetSrc';
+  userWayScript.src = 'https://cdn.userway.org/widget.js';
+  userWayScript.setAttribute('data-account', userWayAccountId);
+  userWayScript.async = true;
+  document.body.appendChild(userWayScript);
+}
