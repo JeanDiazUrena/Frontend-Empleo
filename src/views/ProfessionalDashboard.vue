@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
 import { normalizeMediaUrl } from '../utils/media.js';
+import LocationMap from '../components/LocationMap.vue';
 
 const router = useRouter();
 const { state } = useUserSession();
@@ -860,9 +861,14 @@ const confirmarTransferencia = async () => {
                         }}
                       </p>
                     </div>
-                    <div class="detail-meta-item" v-if="selectedRequest.ubicacion">
-                      <label><i class="fa-solid fa-location-dot"></i> Ubicación</label>
-                      <p class="detail-tag">{{ selectedRequest.ubicacion }}</p>
+                    <div class="detail-meta-item detail-location-item" v-if="selectedRequest.ubicacion">
+                      <label><i class="fa-solid fa-location-dot"></i> Ubicacion</label>
+                      <LocationMap
+                        :location-text="selectedRequest.ubicacion"
+                        title="Ubicacion del cliente"
+                        :height="170"
+                        compact
+                      />
                     </div>
                   </div>
 
@@ -1006,6 +1012,7 @@ const confirmarTransferencia = async () => {
 /* --- MODAL META GRID --- */
 .detail-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .detail-meta-item label { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+.detail-location-item { grid-column: 1 / -1; }
 .detail-budget { font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0; }
 .tag-urgente { background: #FEF2F2 !important; color: #DC2626 !important; }
 .tag-normal  { background: #FFFBEB !important; color: #D97706 !important; }

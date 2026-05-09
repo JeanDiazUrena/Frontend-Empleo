@@ -408,15 +408,20 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
               </div>
             </div>
 
-            <div class="contact-item">
+            <div class="contact-item contact-map-item">
               <div class="contact-icon loc-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clip-rule="evenodd" /></svg>
               </div>
-              <div class="contact-info">
-                <span class="contact-label">Dirección / Sector</span>
-                <span class="contact-val" :class="{ 'missing': !user.location }">
-                  {{ user.location || 'Sin dirección — Completa tu perfil' }}
-                </span>
+              <div class="contact-info contact-map-info">
+                <span class="contact-label">Direccion / Sector</span>
+                <LocationMap
+                  v-if="user.location"
+                  :location-text="user.location"
+                  title="Ubicacion del cliente"
+                  :height="180"
+                  compact
+                />
+                <span v-else class="contact-val missing">Sin direccion - Completa tu perfil</span>
               </div>
             </div>
           </div>
@@ -702,6 +707,7 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 /* Contacto Grid */
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
 .contact-item { display: flex; align-items: center; gap: 14px; }
+.contact-map-item { align-items: flex-start; grid-column: 1 / -1; }
 .contact-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F8FAFC; }
 .contact-icon svg { width: 20px; height: 20px; }
 .name-icon { background: #EFF6FF; color: #0B4C6F; }
@@ -709,6 +715,7 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 .phone-icon { background: #EFF6FF; color: #0B4C6F; }
 .loc-icon { background: #EFF6FF; color: #0B4C6F; }
 .contact-info { display: flex; flex-direction: column; min-width: 0; }
+.contact-map-info { width: 100%; gap: 8px; }
 .contact-label { font-size: 0.75rem; color: #9CA3AF; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 .contact-val { font-size: 0.95rem; color: #111; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-val.missing { color: #F59E0B; font-style: italic; font-weight: 500; }
