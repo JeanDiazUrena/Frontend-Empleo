@@ -59,14 +59,12 @@ async function sendRegisterCode() {
     const { data } = await axios.post(`${API_URLS.AUTH}/api/register/request-code`, {
       nombre: name.value,
       email: cleanEmail
-    }, { timeout: 20000 });
+    });
     successMessage.value = data.message || "Te enviamos un código a tu Gmail.";
     step.value = 2;
   } catch (error) {
     if (error.response?.status === 409) {
       errorMessage.value = "Ese Gmail ya tiene una cuenta en ServiHub. Inicia sesión o usa “Olvidaste tu contraseña”.";
-    } else if (error.code === 'ECONNABORTED') {
-      errorMessage.value = "El envío tardó demasiado. Revisa tu conexión e intenta otra vez.";
     } else {
       errorMessage.value = error.response?.data?.message || "No se pudo enviar el código.";
     }
@@ -229,8 +227,8 @@ async function handleRegistration() {
       <div class="form-wrapper">
         
         <div class="form-header">
-          <h2>{{ step === 1 ? 'Crear cuenta' : 'Verifica y personaliza' }}</h2>
-          <p>{{ step === 1 ? 'Empieza tu viaje en ServiHub gratis.' : 'Confirma tu Gmail y selecciona tu perfil.' }}</p>
+          <h2>{{ step === 1 ? 'Crear cuenta' : 'Verificación de correo' }}</h2>
+          <p>{{ step === 1 ? 'Empieza tu viaje en ServiHub gratis.' : 'Ingresa el código que enviamos a tu Gmail.' }}</p>
         </div>
 
         <div v-if="errorMessage" class="error-alert">{{ errorMessage }}</div>
@@ -270,7 +268,7 @@ async function handleRegistration() {
           </div>
 
           <button type="submit" class="primary-btn" :disabled="isLoading">
-            {{ isLoading ? 'Enviando código...' : 'Enviar código y continuar' }}
+            {{ isLoading ? 'Enviando...' : 'Continuar' }}
           </button>
 
           <p class="footer-text">
@@ -281,7 +279,7 @@ async function handleRegistration() {
         <div v-if="step === 2" class="step-content">
           <div v-if="!googleCredential" class="verification-box">
             <div class="input-group">
-              <label>Código enviado a tu Gmail</label>
+              <label>Verificación de correo</label>
               <input
                 type="text"
                 v-model="verificationCode"
