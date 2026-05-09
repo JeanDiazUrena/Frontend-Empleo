@@ -51,6 +51,34 @@ const showJobModal = ref(false);
 const openJobDetail = (job) => { selectedJob.value = job; showJobModal.value = true; };
 const closeJobModal = () => { selectedJob.value = null; showJobModal.value = false; };
 
+const getClientDisplayName = (item = {}) =>
+  item.cliente_nombre || item.nombre_cliente || state.user?.name || localStorage.getItem('usuario_nombre') || 'Cliente';
+
+const hasAssignedProfessional = (item = {}) =>
+  Boolean(item.profesional_nombre || item.nombre_profesional || item.profesional_name || item.professional_name || item.profesional_usuario_id || item.profesional_id);
+
+const getProfessionalDisplayName = (item = {}) =>
+  item.profesional_nombre ||
+  item.nombre_profesional ||
+  item.profesional_name ||
+  item.professional_name ||
+  (hasAssignedProfessional(item) ? 'Profesional asignado' : 'Pendiente de profesional');
+
+const mapClientRequest = (req) => ({
+  ...req,
+  cliente_nombre: getClientDisplayName(req),
+  profesional_nombre: req.profesional_nombre || req.nombre_profesional || req.profesional_name || '',
+  profesional_avatar: normalizeMediaUrl(req.profesional_avatar || '')
+});
+
+const mapClientJob = (job) => ({
+  ...job,
+  cliente_nombre: getClientDisplayName(job),
+  profesional_nombre: job.profesional_nombre || job.nombre_profesional || job.profesional_name || '',
+  cliente_avatar: normalizeMediaUrl(job.cliente_avatar || ''),
+  profesional_avatar: normalizeMediaUrl(job.profesional_avatar || '')
+});
+
 // --- NAVEGACIÓN ---
 const goToExplore = () => router.push('/client/explore');
 const goToProfile = () => router.push('/client/profile');
@@ -147,21 +175,18 @@ const refreshClientLiveData = async () => {
     if (requestId !== liveRefreshId || String(state.user.id) !== String(userId)) return;
 
     if (requestsRes.status === 'fulfilled') {
-      activeRequests.value = (requestsRes.value.data || []).map(req => ({
-        ...req,
-        profesional_avatar: normalizeMediaUrl(req.profesional_avatar || '')
-      }));
+      activeRequests.value = (requestsRes.value.data || []).map(mapClientRequest);
     }
 
     if (jobsRes.status === 'fulfilled') {
-      clientJobs.value = jobsRes.value.data || [];
+      clientJobs.value = (jobsRes.value.data || []).map(mapClientJob);
       const nextCotizaciones = await loadCotizacionesForClientJobs(clientJobs.value);
       if (requestId !== liveRefreshId || String(state.user.id) !== String(userId)) return;
       jobCotizaciones.value = nextCotizaciones;
     }
 
     if (historyRes.status === 'fulfilled') {
-      pastJobs.value = historyRes.value.data || [];
+      pastJobs.value = (historyRes.value.data || []).map(mapClientJob);
     }
   } catch (error) {
     if (!isRequestAborted(error)) console.error('Error refrescando dashboard del cliente:', error);
@@ -209,6 +234,7 @@ const confirmarProfesional = async (req) => {
       monto_acordado: req.monto_acordado || req.presupuesto_max || req.presupuesto_min || 0,
       metodo_pago: req.metodo_pago || 'EFECTIVO',
       cliente_nombre: state.user.name,
+      profesional_nombre: req.profesional_nombre || req.nombre_profesional || req.profesional_name || '',
       categoria: req.categoria
     });
     
@@ -297,10 +323,7 @@ onMounted(async () => {
       try {
         const requestsRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes/cliente/${userId}`);
         if (!isCurrentSessionUser(userId)) return;
-        activeRequests.value = (requestsRes.data || []).map(req => ({
-          ...req,
-          profesional_avatar: normalizeMediaUrl(req.profesional_avatar || '')
-        }));
+        activeRequests.value = (requestsRes.data || []).map(mapClientRequest);
       } catch (reqError) {
         console.log("El usuario no tiene solicitudes o el servicio 3001 no responde.");
       }
@@ -325,7 +348,7 @@ onMounted(async () => {
       try {
           const trabajosRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}`);
           if (!isCurrentSessionUser(userId)) return;
-          clientJobs.value = trabajosRes.data;
+          clientJobs.value = (trabajosRes.data || []).map(mapClientJob);
       } catch (err) {
           console.log("El servicio de trabajos (3003) no está disponible o no hay trabajos.");
       }
@@ -334,7 +357,7 @@ onMounted(async () => {
       try {
           const histRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}/historial`);
           if (!isCurrentSessionUser(userId)) return;
-          pastJobs.value = histRes.data;
+          pastJobs.value = (histRes.data || []).map(mapClientJob);
       } catch (err) {
           console.log("No se pudo cargar el historial de trabajos.");
       }
@@ -385,6 +408,7 @@ const openPaymentModal = async (job) => {
     // Reload the job from backend to get the latest monto_acordado
     try {
         const res = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/${job.id}`);
+        if (res.data) Object.assign(job, mapClientJob({ ...job, ...res.data }));
         if (res.data && Number(res.data.monto_acordado) > 0) {
             job.monto_acordado = res.data.monto_acordado;
         }
@@ -559,6 +583,16 @@ const aceptarCotizacion = async (cotizacion) => {
                   <span class="meta-tag"><i class="fa-solid fa-calendar-day"></i> {{ new Date(req.created_at || req.fecha_creacion || Date.now()).toLocaleDateString() }}</span>
                   <span class="meta-tag category-tag">{{ req.categoria || 'Servicio' }}</span>
                 </div>
+                <div class="participant-strip">
+                  <span class="participant-pill">
+                    <i class="fa-solid fa-user"></i>
+                    <strong>Cliente:</strong> {{ getClientDisplayName(req) }}
+                  </span>
+                  <span class="participant-pill participant-pill-pro">
+                    <i class="fa-solid fa-user-tie"></i>
+                    <strong>Profesional:</strong> {{ getProfessionalDisplayName(req) }}
+                  </span>
+                </div>
                 
                 <div class="solicitation-actions-basic">
                    <button class="btn-text" @click="router.push(`/client/request/edit/${req.id}`)">
@@ -645,6 +679,16 @@ const aceptarCotizacion = async (cotizacion) => {
                   </span>
                   • {{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}
                 </span>
+                <div class="participant-strip">
+                  <span class="participant-pill">
+                    <i class="fa-solid fa-user"></i>
+                    <strong>Cliente:</strong> {{ getClientDisplayName(job) }}
+                  </span>
+                  <span class="participant-pill participant-pill-pro">
+                    <i class="fa-solid fa-user-tie"></i>
+                    <strong>Profesional:</strong> {{ getProfessionalDisplayName(job) }}
+                  </span>
+                </div>
               </div>
             </div>
             
@@ -656,6 +700,14 @@ const aceptarCotizacion = async (cotizacion) => {
                 <span class="cib-badge">¡Revisa!</span>
               </div>
               <div class="cib-body">
+                <div class="cib-row">
+                  <span class="cib-label">Cliente</span>
+                  <span class="cib-value">{{ getClientDisplayName(job) }}</span>
+                </div>
+                <div class="cib-row">
+                  <span class="cib-label">Profesional</span>
+                  <span class="cib-value">{{ getProfessionalDisplayName(job) }}</span>
+                </div>
                 <div class="cib-row">
                   <span class="cib-label">Servicio</span>
                   <span class="cib-value">{{ getCotizacionForJob(job).titulo }}</span>
@@ -714,6 +766,14 @@ const aceptarCotizacion = async (cotizacion) => {
 
             <div class="job-modal-body">
               <div class="jm-meta-row">
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-user"></i> Cliente</span>
+                  <span class="jm-value">{{ getClientDisplayName(selectedJob) }}</span>
+                </div>
+                <div class="jm-meta-item">
+                  <span class="jm-label"><i class="fa-solid fa-user-tie"></i> Profesional</span>
+                  <span class="jm-value">{{ getProfessionalDisplayName(selectedJob) }}</span>
+                </div>
                 <div class="jm-meta-item">
                   <span class="jm-label"><i class="fa-solid fa-clock"></i> Horario</span>
                   <span class="jm-value">{{ selectedJob.horario || 'A coordinar' }}</span>
@@ -789,6 +849,16 @@ const aceptarCotizacion = async (cotizacion) => {
                   <h4>{{ job.titulo || 'Contratación Directa' }}</h4>
                   <p v-if="job.descripcion" class="past-job-desc">{{ job.descripcion.slice(0, 60) }}{{ job.descripcion.length > 60 ? '...' : '' }}</p>
                   <span class="past-job-date">Completado el {{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString('es-DO', { day:'2-digit', month:'long', year:'numeric' }) }}</span>
+                  <div class="participant-strip compact">
+                    <span class="participant-pill">
+                      <i class="fa-solid fa-user"></i>
+                      <strong>Cliente:</strong> {{ getClientDisplayName(job) }}
+                    </span>
+                    <span class="participant-pill participant-pill-pro">
+                      <i class="fa-solid fa-user-tie"></i>
+                      <strong>Profesional:</strong> {{ getProfessionalDisplayName(job) }}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div class="card-actions">
@@ -997,6 +1067,32 @@ const aceptarCotizacion = async (cotizacion) => {
 
 .req-details h4 { margin: 0 0 4px 0; font-size: 1.1rem; color: #333; font-weight: 600; }
 .req-status { font-size: 0.9rem; color: #666; text-transform: capitalize; }
+.participant-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+.participant-strip.compact {
+  margin-top: 8px;
+}
+.participant-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #E2E8F0;
+  border-radius: 999px;
+  background: #F8FAFC;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.participant-pill i { color: #0B4C6F; flex-shrink: 0; }
+.participant-pill-pro i { color: #F76B1C; }
+.participant-pill strong { color: #0F172A; }
 
 .btn-view-details { 
   background: white; 
@@ -1270,6 +1366,8 @@ const aceptarCotizacion = async (cotizacion) => {
   .ongoing-card { flex-direction: column; align-items: stretch; gap: 15px; }
   .card-left { align-items: flex-start; }
   .btn-view-details { width: 100%; justify-content: center; }
+  .participant-strip { flex-direction: column; align-items: stretch; }
+  .participant-pill { justify-content: flex-start; white-space: normal; }
   
   .empty-state-container { padding: 40px 20px; }
   .services-grid { grid-template-columns: 1fr; }

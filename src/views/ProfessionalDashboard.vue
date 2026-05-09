@@ -72,6 +72,12 @@ const openTransferModal = (job) => {
 
 const getCotizacionForJob = (jobId) => jobCotizaciones.value[String(jobId)] || null;
 
+const getProfessionalDisplayName = (item = {}) =>
+  item.profesional_nombre || item.nombre_profesional || userDisplayName.value || state.user?.name || localStorage.getItem('usuario_nombre') || 'Profesional';
+
+const getClientDisplayName = (item = {}) =>
+  item.cliente_nombre || item.nombre_cliente || 'Cliente';
+
 const loadCotizacionesForJobs = async (jobs) => {
   const activeJobs = jobs.filter(j => j.estado === 'EN_PROGRESO');
   const nextCotizaciones = {};
@@ -89,14 +95,17 @@ const loadCotizacionesForJobs = async (jobs) => {
 const mapProfessionalRequest = (request) => ({
   ...request,
   cliente_avatar: normalizeMediaUrl(request.cliente_avatar || ''),
-  cliente_nombre: request.cliente_nombre || 'Cliente',
+  cliente_nombre: getClientDisplayName(request),
+  profesional_nombre: getProfessionalDisplayName(request),
   categoria: request.categoria || 'Servicio'
 });
 
 const mapProfessionalJob = (job) => ({
   ...job,
   cliente_avatar: normalizeMediaUrl(job.cliente_avatar || ''),
-  cliente_nombre: job.cliente_nombre || 'Cliente',
+  profesional_avatar: normalizeMediaUrl(job.profesional_avatar || ''),
+  cliente_nombre: getClientDisplayName(job),
+  profesional_nombre: getProfessionalDisplayName(job),
   categoria: job.categoria || 'Servicio'
 });
 
@@ -163,6 +172,8 @@ const enviarCotizacion = async () => {
       // EDIT existing
       const { data } = await axios.put(`${API_URLS.TRABAJOS}/api/cotizaciones/${existing.id}`, {
         profesional_id: userId,
+        profesional_nombre: getProfessionalDisplayName(job),
+        cliente_nombre: getClientDisplayName(job),
         solicitud_id: existing.solicitud_id || null,
         titulo: quoteForm.value.titulo || 'Cotización de servicio',
         descripcion: quoteForm.value.descripcion,
@@ -178,6 +189,8 @@ const enviarCotizacion = async () => {
         solicitud_id: job.solicitud_id || null,
         cliente_id: job.cliente_id,
         profesional_id: userId,
+        profesional_nombre: getProfessionalDisplayName(job),
+        cliente_nombre: getClientDisplayName(job),
         titulo: quoteForm.value.titulo || 'Cotización de servicio',
         descripcion: quoteForm.value.descripcion,
         monto_total: monto,
@@ -208,7 +221,8 @@ const formatMoney = (value) => {
 const openDetail = (req) => {
   selectedRequest.value = {
     ...req,
-    cliente_nombre: req.cliente_nombre || 'Cliente',
+    cliente_nombre: getClientDisplayName(req),
+    profesional_nombre: getProfessionalDisplayName(req),
     categoria: req.categoria || 'Servicio'
   };
   showDetailModal.value = true;
@@ -218,7 +232,8 @@ const openJobDetail = (job) => {
   // Para profesional, usamos la misma lógica que openDetail pero adaptada si es necesario
   selectedRequest.value = {
     ...job,
-    cliente_nombre: job.cliente_nombre || 'Cliente',
+    cliente_nombre: getClientDisplayName(job),
+    profesional_nombre: getProfessionalDisplayName(job),
     categoria: job.categoria || 'Servicio',
     titulo: job.titulo,
     descripcion: job.descripcion,
@@ -523,7 +538,7 @@ const confirmarTransferencia = async () => {
                 <h3 style="margin: 0; font-size: 1.1rem; font-weight: 900;">
                   {{ quoteTargetJob && getCotizacionForJob(quoteTargetJob.id) ? 'Editar Cotización' : 'Enviar Cotización' }}
                 </h3>
-                <p style="margin: 4px 0 0; font-size: 0.78rem; opacity: 0.85;">Para: <strong>{{ quoteTargetJob?.cliente_nombre || 'Cliente' }}</strong> • {{ quoteTargetJob?.titulo || 'Trabajo' }}</p>
+                <p style="margin: 4px 0 0; font-size: 0.78rem; opacity: 0.85;">Cliente: <strong>{{ getClientDisplayName(quoteTargetJob) }}</strong> • Profesional: <strong>{{ getProfessionalDisplayName(quoteTargetJob) }}</strong> • {{ quoteTargetJob?.titulo || 'Trabajo' }}</p>
               </div>
               <button @click="showQuoteModal = false" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.1rem;">×</button>
             </div>
@@ -695,6 +710,16 @@ const confirmarTransferencia = async () => {
                     </span>
                     <span style="font-size: 0.8rem; color: #64748B;"><i class="fa-solid fa-user"></i> {{ job.cliente_nombre }}</span>
                   </div>
+                  <div class="participant-strip">
+                    <span class="participant-pill">
+                      <i class="fa-solid fa-user"></i>
+                      <strong>Cliente:</strong> {{ getClientDisplayName(job) }}
+                    </span>
+                    <span class="participant-pill participant-pill-pro">
+                      <i class="fa-solid fa-user-tie"></i>
+                      <strong>Profesional:</strong> {{ getProfessionalDisplayName(job) }}
+                    </span>
+                  </div>
                 </div>
                 <span class="job-category" style="background: #FEF3C7; color: #92400E;">PENDIENTE DE VERIFICACIÓN</span>
               </div>
@@ -725,7 +750,11 @@ const confirmarTransferencia = async () => {
                   </div>
                   <div style="display: flex; justify-content: space-between;">
                     <span style="font-size: 0.85rem; color: #64748B;">Cliente:</span>
-                    <strong style="color: #0F172A;">{{ transferTargetJob?.cliente_nombre }}</strong>
+                    <strong style="color: #0F172A;">{{ getClientDisplayName(transferTargetJob) }}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                    <span style="font-size: 0.85rem; color: #64748B;">Profesional:</span>
+                    <strong style="color: #0F172A;">{{ getProfessionalDisplayName(transferTargetJob) }}</strong>
                   </div>
                 </div>
 
@@ -768,6 +797,16 @@ const confirmarTransferencia = async () => {
                   <div style="display: flex; gap: 15px; margin-bottom: 8px;">
                     <span v-if="job.presupuesto" style="font-size: 0.8rem; color: #475569;"><i class="fa-solid fa-money-bill-wave"></i> {{ job.presupuesto }}</span>
                     <span v-if="job.horario" style="font-size: 0.8rem; color: #475569;"><i class="fa-solid fa-clock"></i> {{ job.horario }}</span>
+                  </div>
+                  <div class="participant-strip">
+                    <span class="participant-pill">
+                      <i class="fa-solid fa-user"></i>
+                      <strong>Cliente:</strong> {{ getClientDisplayName(job) }}
+                    </span>
+                    <span class="participant-pill participant-pill-pro">
+                      <i class="fa-solid fa-user-tie"></i>
+                      <strong>Profesional:</strong> {{ getProfessionalDisplayName(job) }}
+                    </span>
                   </div>
                   <span style="font-size: 0.85rem; font-weight:600; color:#F76B1C;" v-if="job.estado === 'EN_PROGRESO'">EN PROGRESO</span>
                   <span style="font-size: 0.85rem; font-weight:600; color:#22C55E;" v-else-if="job.estado === 'FINALIZADO_PROFESIONAL'">ESPERANDO CLIENTE</span>
@@ -819,6 +858,16 @@ const confirmarTransferencia = async () => {
                   <h4 style="margin:0 0 4px; font-size:1rem; color:#1E293B;">{{ job.titulo || 'Contratación Directa' }}</h4>
                   <span style="font-size: 0.8rem; color:#22C55E; font-weight:700;" v-if="job.estado === 'CONFIRMADO_CLIENTE'">COMPLETADO</span>
                   <span style="font-size: 0.8rem; color:#F59E0B; font-weight:700;" v-else>ESPERANDO CLIENTE</span>
+                  <div class="participant-strip compact">
+                    <span class="participant-pill">
+                      <i class="fa-solid fa-user"></i>
+                      <strong>Cliente:</strong> {{ getClientDisplayName(job) }}
+                    </span>
+                    <span class="participant-pill participant-pill-pro">
+                      <i class="fa-solid fa-user-tie"></i>
+                      <strong>Profesional:</strong> {{ getProfessionalDisplayName(job) }}
+                    </span>
+                  </div>
                 </div>
                 <span class="job-category">{{ new Date(job.created_at || job.fecha_creacion).toLocaleDateString() }}</span>
               </div>
@@ -866,6 +915,16 @@ const confirmarTransferencia = async () => {
               </div>
               <h3 class="job-title">{{ req.titulo }}</h3>
               <p class="job-desc">{{ req.descripcion }}</p>
+              <div class="participant-strip">
+                <span class="participant-pill">
+                  <i class="fa-solid fa-user"></i>
+                  <strong>Cliente:</strong> {{ getClientDisplayName(req) }}
+                </span>
+                <span class="participant-pill participant-pill-pro">
+                  <i class="fa-solid fa-user-tie"></i>
+                  <strong>Profesional:</strong> {{ getProfessionalDisplayName(req) }}
+                </span>
+              </div>
 
               <div v-if="req.imagen_url" class="job-image">
                 <img :src="req.imagen_url" alt="Referencia" />
@@ -909,6 +968,16 @@ const confirmarTransferencia = async () => {
                     <strong>{{ selectedRequest.cliente_nombre || 'Cliente' }}</strong>
                     <span>Publicado el {{ new Date(selectedRequest.created_at || selectedRequest.fecha_creacion).toLocaleDateString() }}</span>
                   </div>
+                </div>
+                <div class="participant-strip modal-participants">
+                  <span class="participant-pill">
+                    <i class="fa-solid fa-user"></i>
+                    <strong>Cliente:</strong> {{ getClientDisplayName(selectedRequest) }}
+                  </span>
+                  <span class="participant-pill participant-pill-pro">
+                    <i class="fa-solid fa-user-tie"></i>
+                    <strong>Profesional:</strong> {{ getProfessionalDisplayName(selectedRequest) }}
+                  </span>
                 </div>
 
                 <div class="detail-info">
@@ -1342,6 +1411,36 @@ const confirmarTransferencia = async () => {
 .job-card { border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; transition: box-shadow 0.2s; }
 .job-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
 .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.participant-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 10px 0 8px;
+}
+.participant-strip.compact {
+  margin-top: 8px;
+}
+.modal-participants {
+  margin-top: -12px;
+  margin-bottom: 20px;
+}
+.participant-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #E2E8F0;
+  border-radius: 999px;
+  background: #F8FAFC;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.participant-pill i { color: #0B4C6F; flex-shrink: 0; }
+.participant-pill-pro i { color: #F76B1C; }
+.participant-pill strong { color: #0F172A; }
 .client-info { display: flex; align-items: center; gap: 12px; }
 .client-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
 .client-avatar-initial { width: 44px; height: 44px; border-radius: 50%; background: #334155; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; }
@@ -1368,6 +1467,8 @@ const confirmarTransferencia = async () => {
   .job-category { align-self: flex-start; }
   .job-footer { flex-direction: column; gap: 8px; }
   .job-action-btn { width: 100%; justify-content: center; margin-right: 0 !important; }
+  .participant-strip { flex-direction: column; align-items: stretch; }
+  .participant-pill { justify-content: flex-start; white-space: normal; }
 }
 
 @media (max-width: 480px) {
