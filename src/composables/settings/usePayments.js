@@ -1,7 +1,9 @@
 import { ref, onMounted } from 'vue';
 import { accountApi } from '../../services/accountSettingsService';
+import { useAppFeedback } from '../useAppFeedback';
 
 export function usePayments() {
+  const { confirmAction, showToast } = useAppFeedback();
   const cards = ref([]);
   const showAddCard = ref(false);
   const newCard = ref({ number: '', name: '', exp: '', cvv: '' });
@@ -22,12 +24,22 @@ export function usePayments() {
   });
 
   async function removeCard(id) {
-    if(!confirm("¿Seguro que deseas eliminar esta tarjeta?")) return;
+    const confirmed = await confirmAction({
+      title: 'Eliminar tarjeta',
+      message: '¿Seguro que deseas eliminar esta tarjeta?',
+      confirmText: 'Eliminar',
+      cancelText: 'Conservar',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
+
     try {
       await accountApi.removeCard(id);
       cards.value = cards.value.filter(c => c.id !== id);
+      showToast('Tarjeta eliminada correctamente.', 'success');
     } catch (err) {
       console.error(err);
+      showToast('No se pudo eliminar la tarjeta.', 'error');
     }
   }
 

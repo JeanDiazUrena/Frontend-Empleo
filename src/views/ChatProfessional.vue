@@ -6,11 +6,13 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useUserSession } from '../composables/useUserSession.js';
+import { useAppFeedback } from '../composables/useAppFeedback.js';
 import { normalizeMediaUrl } from '../utils/media.js';
 import LocationMap from '../components/LocationMap.vue';
 
 const router = useRouter();
 const { state } = useUserSession();
+const { showToast } = useAppFeedback();
 
 const myId = computed(() => state.user?.id || localStorage.getItem('usuario_id'));
 
@@ -284,9 +286,10 @@ watch(messages, () => {
 const copyToClipboardText = (text) => {
   if (!text) return;
   navigator.clipboard.writeText(text).then(() => {
-    alert('Mensaje copiado');
+    showToast('Mensaje copiado.', 'success');
   }).catch(err => {
     console.error('Error al copiar: ', err);
+    showToast('No se pudo copiar el mensaje.', 'error');
   });
 };
 

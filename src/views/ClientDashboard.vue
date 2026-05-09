@@ -5,6 +5,7 @@ import { nextTick, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
+import { useAppFeedback } from '../composables/useAppFeedback.js';
 import { normalizeMediaUrl } from '../utils/media.js';
 
 import ConfirmacionCliente from '../components/ConfirmacionCliente.vue';
@@ -12,6 +13,7 @@ import ConfirmacionCliente from '../components/ConfirmacionCliente.vue';
 const router = useRouter();
 const route = useRoute();
 const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
+const { confirmAction } = useAppFeedback();
 
 const isRequestAborted = (error) => {
   return error?.code === 'ERR_CANCELED' || error?.message === 'Request aborted';
@@ -112,7 +114,15 @@ const handleNotificationFocus = async () => {
 
 // --- ACCIONES SOLICITUDES ---
 const cancelarSolicitud = async (id) => {
-  if (!confirm('¿Seguro que deseas cancelar esta solicitud?')) return;
+  const confirmed = await confirmAction({
+    title: 'Cancelar solicitud',
+    message: '¿Seguro que deseas cancelar esta solicitud?',
+    confirmText: 'Cancelar solicitud',
+    cancelText: 'Volver',
+    tone: 'danger'
+  });
+  if (!confirmed) return;
+
   try {
     await axios.delete(`${API_URLS.PERFILES}/api/solicitudes/${id}`);
     activeRequests.value = activeRequests.value.filter(r => r.id !== id);
@@ -159,7 +169,14 @@ const confirmarProfesional = async (req) => {
 const isRejectingPro = ref(null);
 const rechazarProfesional = async (req) => {
   if (!req?.profesional_usuario_id || isRejectingPro.value) return;
-  if (!confirm(`¿Rechazar a ${req.profesional_nombre || 'este profesional'} para esta solicitud? La solicitud volverá a estar disponible para otros profesionales.`)) return;
+  const confirmed = await confirmAction({
+    title: 'Rechazar profesional',
+    message: `¿Rechazar a ${req.profesional_nombre || 'este profesional'} para esta solicitud? La solicitud volverá a estar disponible para otros profesionales.`,
+    confirmText: 'Rechazar',
+    cancelText: 'Volver',
+    tone: 'danger'
+  });
+  if (!confirmed) return;
 
   isRejectingPro.value = req.id;
   try {

@@ -1,7 +1,9 @@
 import { ref, onMounted } from 'vue';
 import { accountApi } from '../../services/accountSettingsService';
+import { useAppFeedback } from '../useAppFeedback';
 
 export function useSessions() {
+  const { confirmAction, showToast } = useAppFeedback();
   const sessions = ref([]);
   const isUpdating = ref(false);
 
@@ -41,19 +43,28 @@ export function useSessions() {
   });
 
   async function closeSession(id) {
-    if(!confirm("¿Cerrar esta sesión?")) return;
+    const confirmed = await confirmAction({
+      title: 'Cerrar sesión',
+      message: '¿Deseas cerrar esta sesión?',
+      confirmText: 'Cerrar sesión',
+      cancelText: 'Cancelar',
+      tone: 'warning'
+    });
+    if (!confirmed) return;
+
     try {
       await accountApi.closeSession(id);
       sessions.value = sessions.value.filter(s => s.id !== id);
+      showToast('Sesión cerrada correctamente.', 'success');
     } catch(err) {
       console.error("Error al cerrar sesión:", err);
-      alert("No se pudo cerrar la sesión.");
+      showToast('No se pudo cerrar la sesión.', 'error');
     }
   }
 
   async function closeOtherSessions() {
     // Implementación simplificada: cerrar todas menos la actual
-    alert("Función para cerrar todas las sesiones disponible en próxima actualización.");
+    showToast('Cerrar todas las demás sesiones estará disponible en una próxima actualización.', 'info');
   }
 
   return { sessions, isUpdating, closeSession, closeOtherSessions };
