@@ -1,14 +1,15 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
 
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { nextTick, ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
 import { normalizeMediaUrl } from '../utils/media.js';
 import LocationMap from '../components/LocationMap.vue';
 
 const router = useRouter();
+const route = useRoute();
 const { state } = useUserSession();
 
 const jobRequests = ref([]);
@@ -183,6 +184,44 @@ const goToProfile = () => router.push('/professional/profile');
 const goToPost = () => router.push('/create-first-post');
 const goToPayments = () => router.push('/professional/settings?tab=payments');
 
+const clearNotificationFocus = () => {
+  if (!route.query.focus) return;
+  const { focus, trabajo_id, ...rest } = route.query;
+  router.replace({ path: route.path, query: rest });
+};
+
+const handleNotificationFocus = async () => {
+  const focus = route.query.focus;
+  if (!focus) return;
+
+  await nextTick();
+
+  if (focus === 'confirm_transfer') {
+    const trabajoId = route.query.trabajo_id;
+    const job = trabajoId
+      ? professionalJobs.value.find((item) => String(item.id) === String(trabajoId))
+      : professionalJobs.value.find((item) => item.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA');
+
+    if (job && job.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA') {
+      openTransferModal(job);
+    } else {
+      showToast('Notificacion caducada', 'error');
+    }
+  }
+
+  if (focus === 'job') {
+    const trabajoId = route.query.trabajo_id;
+    const job = trabajoId
+      ? professionalJobs.value.find((item) => String(item.id) === String(trabajoId))
+      : professionalJobs.value.find((item) => item.estado === 'EN_PROGRESO');
+
+    if (job) openJobDetail(job);
+    else showToast('Notificacion caducada', 'error');
+  }
+
+  clearNotificationFocus();
+};
+
 const contactClient = async (clienteId) => {
   try {
     const userId = state.user?.id || localStorage.getItem('usuario_id');
@@ -284,6 +323,7 @@ onMounted(async () => {
       }));
       // Load cotizaciones for active jobs
       await loadCotizacionesForJobs(professionalJobs.value);
+      await handleNotificationFocus();
     } catch(e) { console.error("Error cargando trabajos", e); }
     
   } catch {

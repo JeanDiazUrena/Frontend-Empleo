@@ -7,6 +7,7 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
 import { normalizeMediaUrl } from '../utils/media.js';
+import { EXPIRED_NOTIFICATION_MESSAGE, resolveNotificationTarget } from '../utils/smartNotifications.js';
 
 
 const router = useRouter();
@@ -30,8 +31,11 @@ const notifications = ref([]);
 const unreadNotifCount = ref(0);
 const isNotifOpen = ref(false);
 const notifRef = ref(null);
+const notifNotice = ref({ show: false, message: '', type: 'info' });
+const resolvingNotifId = ref(null);
 
 let notifInterval = null;
+let notifNoticeTimer = null;
 
 const isRequestAborted = (error) => {
   return error?.code === 'ERR_CANCELED' || error?.message === 'Request aborted';
@@ -64,14 +68,43 @@ const markAsRead = async (id) => {
   }
 };
 
+const showNotifNotice = (message, type = 'info') => {
+  if (notifNoticeTimer) clearTimeout(notifNoticeTimer);
+  notifNotice.value = { show: true, message, type };
+  notifNoticeTimer = setTimeout(() => {
+    notifNotice.value.show = false;
+  }, 3500);
+};
+
 const handleNotifClick = async (notif) => {
+  if (resolvingNotifId.value) return;
+  resolvingNotifId.value = notif.id;
+
   if (!notif.is_read) {
     await markAsRead(notif.id);
   }
-  isNotifOpen.value = false;
-  
-  if (notif.metadata?.url) {
-    router.push(notif.metadata.url);
+
+  try {
+    const target = await resolveNotificationTarget(notif, 'professional');
+
+    if (target.expired) {
+      const currentNotif = notifications.value.find((item) => item.id === notif.id) || notif;
+      currentNotif._statusMessage = EXPIRED_NOTIFICATION_MESSAGE;
+      currentNotif._statusType = 'expired';
+      showNotifNotice(EXPIRED_NOTIFICATION_MESSAGE, 'warning');
+      return;
+    }
+
+    isNotifOpen.value = false;
+    if (target.to) router.push(target.to);
+    else router.push(target);
+  } catch (error) {
+    const currentNotif = notifications.value.find((item) => item.id === notif.id) || notif;
+    currentNotif._statusMessage = 'No se pudo abrir esta notificacion';
+    currentNotif._statusType = 'expired';
+    showNotifNotice('No se pudo abrir esta notificacion', 'warning');
+  } finally {
+    resolvingNotifId.value = null;
   }
 };
 
@@ -213,6 +246,7 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   if (socket) socket.disconnect();
   if (notifInterval) clearInterval(notifInterval);
+  if (notifNoticeTimer) clearTimeout(notifNoticeTimer);
 });
 
 // NAVEGACIÓN
@@ -246,13 +280,18 @@ const isActive = (path) => {
                 <strong>Notificaciones</strong>
               </div>
               <div class="notif-body">
+                <div v-if="notifNotice.show" class="notif-notice" :class="notifNotice.type">
+                  {{ notifNotice.message }}
+                </div>
                 <div v-if="notifications.length === 0" class="no-notifs">
                   No tienes notificaciones
                 </div>
-                <div v-for="notif in notifications" :key="notif.id" class="notif-item" :class="{ unread: !notif.is_read }" @click="handleNotifClick(notif)">
+                <div v-for="notif in notifications" :key="notif.id" class="notif-item" :class="{ unread: !notif.is_read, resolving: resolvingNotifId === notif.id }" @click="handleNotifClick(notif)">
                   <div class="notif-content">
                     <strong>{{ notif.title }}</strong>
                     <p>{{ notif.message }}</p>
+                    <small v-if="resolvingNotifId === notif.id" class="notif-status">Revisando destino...</small>
+                    <small v-if="notif._statusMessage" class="notif-status" :class="notif._statusType">{{ notif._statusMessage }}</small>
                     <small>{{ new Date(notif.created_at).toLocaleString() }}</small>
                   </div>
                   <div v-if="!notif.is_read" class="unread-dot"></div>
@@ -529,9 +568,14 @@ const isActive = (path) => {
 .notif-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s; }
 .notif-item:hover { background: #f8fafc; }
 .notif-item.unread { background: #eff6ff; }
+.notif-item.resolving { opacity: 0.72; pointer-events: none; }
+.notif-notice { margin: 10px 12px 0; padding: 9px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; }
+.notif-notice.warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
 .notif-content strong { display: block; font-size: 0.9rem; color: #1e293b; margin-bottom: 2px; }
 .notif-content p { margin: 0 0 4px 0; font-size: 0.8rem; color: #64748b; line-height: 1.3; }
-.notif-content small { font-size: 0.7rem; color: #94a3b8; }
+.notif-content small { display: block; font-size: 0.7rem; color: #94a3b8; }
+.notif-status { margin-bottom: 4px; color: #0b4c6f !important; font-weight: 800; }
+.notif-status.expired { color: #b45309 !important; }
 .unread-dot { width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; flex-shrink: 0; }
 
 /* --- RESTO DEL DASHBOARD (Sidebar, etc) --- */

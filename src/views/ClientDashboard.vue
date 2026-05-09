@@ -1,8 +1,8 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
 
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { nextTick, ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
 import { normalizeMediaUrl } from '../utils/media.js';
@@ -10,6 +10,7 @@ import { normalizeMediaUrl } from '../utils/media.js';
 import ConfirmacionCliente from '../components/ConfirmacionCliente.vue';
 
 const router = useRouter();
+const route = useRoute();
 const { state, updateProfile } = useUserSession(); // 2. USAR ESTADO GLOBAL
 
 const isRequestAborted = (error) => {
@@ -51,6 +52,62 @@ const closeWarning = () => showIncompleteProfileModal.value = false;
 const viewProfessionalProfile = (req) => {
   const professionalId = req?.profesional_usuario_id || req?.profesional_id;
   if (professionalId) router.push(`/client/professional-profile/${professionalId}`);
+};
+
+const clearNotificationFocus = () => {
+  if (!route.query.focus) return;
+  const { focus, trabajo_id, cotizacion_id, ...rest } = route.query;
+  router.replace({ path: route.path, query: rest });
+};
+
+const handleNotificationFocus = async () => {
+  const focus = route.query.focus;
+  if (!focus) return;
+
+  await nextTick();
+
+  if (focus === 'confirm_job') {
+    const trabajoId = route.query.trabajo_id;
+    const job = trabajoId
+      ? clientJobs.value.find((item) => String(item.id) === String(trabajoId))
+      : clientJobs.value.find((item) => ['FINALIZADO_PROFESIONAL', 'ESPERANDO_CONFIRMACION_TRANSFERENCIA'].includes(item.estado));
+
+    if (!job) {
+      showToast('Notificacion caducada', 'error');
+    } else if (job.estado === 'FINALIZADO_PROFESIONAL') {
+      await openPaymentModal(job);
+    } else {
+      openJobDetail(job);
+      showToast('Este pago ya esta en verificacion.', 'success');
+    }
+  }
+
+  if (focus === 'quote') {
+    const cotizacionId = route.query.cotizacion_id;
+    const job = clientJobs.value.find((item) => {
+      const quote = getCotizacionForJob(item);
+      if (!quote || quote.estado !== 'PENDIENTE') return false;
+      return !cotizacionId || String(quote.id) === String(cotizacionId);
+    });
+
+    if (!job) {
+      showToast('Notificacion caducada', 'error');
+    } else {
+      showToast('Cotizacion lista para revisar.', 'success');
+      setTimeout(() => {
+        document.querySelector('.cotizacion-inline-banner')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }
+
+  if (focus === 'job') {
+    const trabajoId = route.query.trabajo_id;
+    const job = [...clientJobs.value, ...pastJobs.value].find((item) => String(item.id) === String(trabajoId));
+    if (job) openJobDetail(job);
+    else showToast('Notificacion caducada', 'error');
+  }
+
+  clearNotificationFocus();
 };
 
 // --- ACCIONES SOLICITUDES ---
@@ -216,6 +273,8 @@ onMounted(async () => {
       } catch (err) {
           console.log("Error cargando cotizaciones por trabajo.");
       }
+
+      await handleNotificationFocus();
 
     } catch (error) {
       if (isRequestAborted(error)) return;
