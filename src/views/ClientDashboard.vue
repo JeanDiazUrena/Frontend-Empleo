@@ -1,7 +1,7 @@
 <script setup>
-import { API_URLS, SOCKET_URL } from '../config.js';
+import { API_URLS } from '../config.js';
 
-import { nextTick, ref, onMounted } from 'vue';
+import { nextTick, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
@@ -19,6 +19,8 @@ const isRequestAborted = (error) => {
   return error?.code === 'ERR_CANCELED' || error?.message === 'Request aborted';
 };
 
+const isCurrentSessionUser = (userId) => String(state.user.id) === String(userId);
+
 const loading = ref(true);
 const activeRequests = ref([]); 
 const featuredProfessionals = ref([]); 
@@ -28,6 +30,8 @@ const showPastJobs = ref(false);
 // Map of trabajo_id -> cotizacion (null = loaded but none, undefined = not loaded)
 const jobCotizaciones = ref({});
 const isAcceptingQuote = ref(null);
+let liveRefreshTimer = null;
+let liveRefreshId = 0;
 
 // Control del Modal
 const showIncompleteProfileModal = ref(false);
@@ -112,6 +116,62 @@ const handleNotificationFocus = async () => {
   clearNotificationFocus();
 };
 
+const loadCotizacionesForClientJobs = async (jobs) => {
+  const activeJobs = (jobs || []).filter(j => j.estado === 'EN_PROGRESO' || j.estado === 'FINALIZADO_PROFESIONAL');
+  const nextCotizaciones = {};
+
+  for (const job of activeJobs) {
+    try {
+      const cotRes = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${job.id}`);
+      nextCotizaciones[String(job.id)] = cotRes.data || null;
+    } catch {
+      nextCotizaciones[String(job.id)] = null;
+    }
+  }
+
+  return nextCotizaciones;
+};
+
+const refreshClientLiveData = async () => {
+  const userId = state.user.id;
+  if (!userId) return;
+
+  const requestId = ++liveRefreshId;
+  try {
+    const [requestsRes, jobsRes, historyRes] = await Promise.allSettled([
+      axios.get(`${API_URLS.PERFILES}/api/solicitudes/cliente/${userId}`),
+      axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}`),
+      axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}/historial`)
+    ]);
+
+    if (requestId !== liveRefreshId || String(state.user.id) !== String(userId)) return;
+
+    if (requestsRes.status === 'fulfilled') {
+      activeRequests.value = (requestsRes.value.data || []).map(req => ({
+        ...req,
+        profesional_avatar: normalizeMediaUrl(req.profesional_avatar || '')
+      }));
+    }
+
+    if (jobsRes.status === 'fulfilled') {
+      clientJobs.value = jobsRes.value.data || [];
+      const nextCotizaciones = await loadCotizacionesForClientJobs(clientJobs.value);
+      if (requestId !== liveRefreshId || String(state.user.id) !== String(userId)) return;
+      jobCotizaciones.value = nextCotizaciones;
+    }
+
+    if (historyRes.status === 'fulfilled') {
+      pastJobs.value = historyRes.value.data || [];
+    }
+  } catch (error) {
+    if (!isRequestAborted(error)) console.error('Error refrescando dashboard del cliente:', error);
+  }
+};
+
+const handleVisibilityRefresh = () => {
+  if (!document.hidden) refreshClientLiveData();
+};
+
 // --- ACCIONES SOLICITUDES ---
 const cancelarSolicitud = async (id) => {
   const confirmed = await confirmAction({
@@ -125,7 +185,8 @@ const cancelarSolicitud = async (id) => {
 
   try {
     await axios.delete(`${API_URLS.PERFILES}/api/solicitudes/${id}`);
-    activeRequests.value = activeRequests.value.filter(r => r.id !== id);
+    activeRequests.value = activeRequests.value.filter(r => String(r.id) !== String(id));
+    refreshClientLiveData();
     showToast('Solicitud cancelada con éxito', 'success');
   } catch (err) {
     showToast('No se pudo cancelar la solicitud', 'error');
@@ -153,10 +214,8 @@ const confirmarProfesional = async (req) => {
     
     if (res.data.success) {
       showToast(res.data.alreadyExists ? 'Este trabajo ya estaba formalizado.' : '¡Trabajo formalizado con éxito!', 'success');
-      activeRequests.value = activeRequests.value.filter(r => r.id !== req.id);
-      // Recargar trabajos
-      const trabajosRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${state.user.id}`);
-      clientJobs.value = trabajosRes.data;
+      activeRequests.value = activeRequests.value.filter(r => String(r.id) !== String(req.id));
+      await refreshClientLiveData();
     }
   } catch (error) {
     console.error(error);
@@ -188,10 +247,11 @@ const rechazarProfesional = async (req) => {
     if (data.success) {
       const updated = data.solicitud || { ...req, estado: 'pendiente', profesional_id: null };
       activeRequests.value = activeRequests.value.map(r =>
-        r.id === req.id
+        String(r.id) === String(req.id)
           ? { ...r, ...updated, profesional_nombre: null, profesional_avatar: null, profesional_usuario_id: null }
           : r
       );
+      refreshClientLiveData();
       showToast('Profesional rechazado. La solicitud vuelve a estar disponible.', 'success');
     }
   } catch (error) {
@@ -212,6 +272,7 @@ onMounted(async () => {
       // 1. SINCRONIZAR PERFIL (Puerto 3001)
       // Pedimos los datos más recientes a la base de datos
       const { data } = await axios.get(`${API_URLS.PERFILES}/api/clientes/${userId}`);
+      if (!isCurrentSessionUser(userId)) return;
       
       if (data) {
         // Actualizamos el cerebro con la información fresca
@@ -235,6 +296,7 @@ onMounted(async () => {
       // 2. CARGAR SOLICITUDES (Puerto 3001)
       try {
         const requestsRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes/cliente/${userId}`);
+        if (!isCurrentSessionUser(userId)) return;
         activeRequests.value = (requestsRes.data || []).map(req => ({
           ...req,
           profesional_avatar: normalizeMediaUrl(req.profesional_avatar || '')
@@ -262,6 +324,7 @@ onMounted(async () => {
       // 4. CARGAR TRABAJOS ACTIVOS (Puerto 3003)
       try {
           const trabajosRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}`);
+          if (!isCurrentSessionUser(userId)) return;
           clientJobs.value = trabajosRes.data;
       } catch (err) {
           console.log("El servicio de trabajos (3003) no está disponible o no hay trabajos.");
@@ -270,6 +333,7 @@ onMounted(async () => {
       // 5. CARGAR HISTORIAL DE TRABAJOS COMPLETADOS (Puerto 3003)
       try {
           const histRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/cliente/${userId}/historial`);
+          if (!isCurrentSessionUser(userId)) return;
           pastJobs.value = histRes.data;
       } catch (err) {
           console.log("No se pudo cargar el historial de trabajos.");
@@ -277,16 +341,8 @@ onMounted(async () => {
 
       // 6. CARGAR COTIZACIONES POR TRABAJO (Porto 3003)
       try {
-          // Load cotizaciones for each active job individually
-          const activeJobs = clientJobs.value.filter(j => j.estado === 'EN_PROGRESO' || j.estado === 'FINALIZADO_PROFESIONAL');
-          for (const job of activeJobs) {
-              try {
-                  const cotRes = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${job.id}`);
-                  jobCotizaciones.value[String(job.id)] = cotRes.data || null;
-              } catch(e) {
-                  jobCotizaciones.value[String(job.id)] = null;
-              }
-          }
+          jobCotizaciones.value = await loadCotizacionesForClientJobs(clientJobs.value);
+          if (!isCurrentSessionUser(userId)) return;
       } catch (err) {
           console.log("Error cargando cotizaciones por trabajo.");
       }
@@ -303,10 +359,22 @@ onMounted(async () => {
     } finally {
       loading.value = false;
     }
+
+    liveRefreshTimer = setInterval(refreshClientLiveData, 3500);
+    window.addEventListener('focus', refreshClientLiveData);
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
   } else {
     // Si no hay ID, mandamos al login
     router.push('/login');
   }
+});
+
+onUnmounted(() => {
+  liveRefreshId++;
+  if (liveRefreshTimer) clearInterval(liveRefreshTimer);
+  window.removeEventListener('focus', refreshClientLiveData);
+  document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+  if (toastTimer) clearTimeout(toastTimer);
 });
 
 // --- PAGO Y CONFIRMACIÓN ---
@@ -368,10 +436,12 @@ const handlePaymentSuccess = (result) => {
     // Si el estado es esperando confirmación, no redirigimos a reseña
     if (result && result.estado === 'ESPERANDO_CONFIRMACION_TRANSFERENCIA') {
         showToast('Comprobante enviado. Esperando que el profesional confirme la recepción', 'success');
-        // Recargar datos para ver el cambio de estado
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000);
+        if (jobToPay.value) {
+            jobToPay.value.estado = result.estado;
+            const job = clientJobs.value.find(j => String(j.id) === String(jobToPay.value.id));
+            if (job) job.estado = result.estado;
+        }
+        refreshClientLiveData();
         return;
     }
 
@@ -408,6 +478,7 @@ const aceptarCotizacion = async (cotizacion) => {
             // Update job monto_acordado in local state
             const job = clientJobs.value.find(j => String(j.id) === String(cotizacion.trabajo_id));
             if (job) job.monto_acordado = cotizacion.monto_total;
+            refreshClientLiveData();
         }
     } catch (error) {
         showToast(error.response?.data?.error || 'No se pudo aceptar la cotización.', 'error');

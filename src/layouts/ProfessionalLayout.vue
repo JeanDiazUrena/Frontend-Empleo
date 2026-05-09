@@ -1,7 +1,7 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
 
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { io } from 'socket.io-client';
 import axios from 'axios';
@@ -46,8 +46,8 @@ const hasValidToken = () => {
   return !!token && token !== 'dummy-token';
 };
 
-const fetchNotifications = async () => {
-  const userId = localStorage.getItem('usuario_id');
+const fetchNotifications = async (targetUserId = state.user.id) => {
+  const userId = targetUserId;
   if (!userId || !hasValidToken()) return;
   try {
     const { data } = await axios.get(`${API_URLS.NOTIFICACIONES}/notificaciones/${userId}`);
@@ -115,8 +115,8 @@ const toggleNotif = () => {
   }
 };
 
-const fetchUnreadCount = async () => {
-  const userId = localStorage.getItem('usuario_id');
+const fetchUnreadCount = async (targetUserId = state.user.id) => {
+  const userId = targetUserId;
   if (!userId) return;
   try {
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/unread-count/${userId}`);
@@ -147,7 +147,7 @@ const handleLogout = () => {
 };
 
 const handleSwitch = (id) => {
-  if (id === state.user.id) return;
+  if (String(id) === String(state.user.id)) return;
   switchAccount(id);
   isMenuOpen.value = false;
   // Redirigir según el nuevo rol
@@ -166,6 +166,45 @@ const goToProfile = () => {
 const addAccount = () => {
   isMenuOpen.value = false;
   router.push('/login');
+};
+
+const syncUserFromSession = () => {
+  user.value.name = state.user.name || localStorage.getItem('usuario_nombre') || localStorage.getItem('user_name') || 'Profesional';
+  user.value.role = 'Profesional Verificado';
+  user.value.avatar = normalizeMediaUrl(state.user?.avatar || localStorage.getItem('usuario_avatar') || localStorage.getItem('user_avatar') || '');
+};
+
+const resetLayoutRealtime = (userId) => {
+  if (notifInterval) clearInterval(notifInterval);
+  notifInterval = null;
+  if (socket) socket.disconnect();
+  socket = null;
+
+  if (!userId) return;
+
+  fetchUnreadCount(userId);
+  fetchNotifications(userId);
+  notifInterval = setInterval(() => fetchNotifications(userId), 15000);
+
+  socket = io(SOCKET_URL, {
+    query: { userId },
+    reconnectionAttempts: 5,
+    reconnectionDelay: 5000,
+    reconnectionDelayMax: 10000,
+    randomizationFactor: 0.5
+  });
+
+  socket.on('notification_new_message', (msg) => {
+    if (String(state.user.id) === String(userId) && msg.remitente_id !== userId) {
+      unreadCount.value++;
+    }
+  });
+
+  socket.on('update_unread_count', (data) => {
+    if (String(state.user.id) === String(userId) && data.usuarioId === userId) {
+      fetchUnreadCount(userId);
+    }
+  });
 };
 
 // Cerrar al hacer clic fuera
@@ -223,6 +262,7 @@ onMounted(async () => {
       const res = await fetch(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
       if (res.ok) {
         const data = await res.json();
+        if (String(state.user.id) !== String(userId)) return;
         const avatar = normalizeMediaUrl(data?.avatar_url || '');
         user.value.avatar = avatar;
         avatar ? localStorage.setItem('usuario_avatar', avatar) : localStorage.removeItem('usuario_avatar');
@@ -241,6 +281,19 @@ onMounted(async () => {
     } catch (_) { /* silencioso si la petición falla */ }
   }
 });
+
+watch(() => state.user.id, (userId, previousId) => {
+  if (userId === previousId) return;
+  isMenuOpen.value = false;
+  isNotifOpen.value = false;
+  notifications.value = [];
+  unreadNotifCount.value = 0;
+  unreadCount.value = 0;
+  syncUserFromSession();
+  resetLayoutRealtime(userId);
+});
+
+watch(() => [state.user.name, state.user.avatar], syncUserFromSession);
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
@@ -399,7 +452,7 @@ const isActive = (path) => {
       </aside>
 
       <main class="dash-content">
-        <RouterView />
+        <RouterView :key="`${state.user.id}:${route.fullPath}`" />
       </main>
 
       <!-- BOTTOM NAV PARA MÓVIL (PROFESIONAL) -->

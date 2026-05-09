@@ -1,7 +1,7 @@
 <script setup>
-import { API_URLS, SOCKET_URL } from '../config.js';
+import { API_URLS } from '../config.js';
 
-import { nextTick, ref, onMounted } from 'vue';
+import { nextTick, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
@@ -11,6 +11,8 @@ import LocationMap from '../components/LocationMap.vue';
 const router = useRouter();
 const route = useRoute();
 const { state } = useUserSession();
+
+const isCurrentSessionUser = (userId) => String(state.user.id) === String(userId);
 
 const jobRequests = ref([]);
 const professionalJobs = ref([]);
@@ -52,6 +54,8 @@ const quoteTargetJob = ref(null);
 const quoteForm = ref({ titulo: '', descripcion: '', monto_total: '', metodo_pago: 'EFECTIVO' });
 // Map of trabajo_id -> cotizacion object
 const jobCotizaciones = ref({});
+let liveRefreshTimer = null;
+let liveRefreshId = 0;
 
 // --- TRANSFERENCIA MODAL ---
 const showTransferModal = ref(false);
@@ -70,12 +74,62 @@ const getCotizacionForJob = (jobId) => jobCotizaciones.value[String(jobId)] || n
 
 const loadCotizacionesForJobs = async (jobs) => {
   const activeJobs = jobs.filter(j => j.estado === 'EN_PROGRESO');
+  const nextCotizaciones = {};
+
   for (const job of activeJobs) {
     try {
       const { data } = await axios.get(`${API_URLS.TRABAJOS}/api/cotizaciones/trabajo/${job.id}`);
-      if (data) jobCotizaciones.value[String(job.id)] = data;
+      nextCotizaciones[String(job.id)] = data || null;
     } catch(e) { /* no cotizacion yet */ }
   }
+
+  return nextCotizaciones;
+};
+
+const mapProfessionalRequest = (request) => ({
+  ...request,
+  cliente_avatar: normalizeMediaUrl(request.cliente_avatar || ''),
+  cliente_nombre: request.cliente_nombre || 'Cliente',
+  categoria: request.categoria || 'Servicio'
+});
+
+const mapProfessionalJob = (job) => ({
+  ...job,
+  cliente_avatar: normalizeMediaUrl(job.cliente_avatar || ''),
+  cliente_nombre: job.cliente_nombre || 'Cliente',
+  categoria: job.categoria || 'Servicio'
+});
+
+const refreshProfessionalLiveData = async () => {
+  const userId = state.user?.id || localStorage.getItem('usuario_id');
+  if (!userId) return;
+
+  const requestId = ++liveRefreshId;
+  try {
+    const [requestsRes, jobsRes] = await Promise.allSettled([
+      axios.get(`${API_URLS.PERFILES}/api/solicitudes?profesional_id=${userId}`),
+      axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`)
+    ]);
+
+    if (requestId !== liveRefreshId || !isCurrentSessionUser(userId)) return;
+
+    if (requestsRes.status === 'fulfilled') {
+      jobRequests.value = (requestsRes.value.data || []).map(mapProfessionalRequest);
+    }
+
+    if (jobsRes.status === 'fulfilled') {
+      professionalJobs.value = (jobsRes.value.data || []).map(mapProfessionalJob);
+      const nextCotizaciones = await loadCotizacionesForJobs(professionalJobs.value);
+      if (requestId !== liveRefreshId || !isCurrentSessionUser(userId)) return;
+      jobCotizaciones.value = nextCotizaciones;
+    }
+  } catch (error) {
+    console.error('Error refrescando dashboard profesional:', error);
+  }
+};
+
+const handleVisibilityRefresh = () => {
+  if (!document.hidden) refreshProfessionalLiveData();
 };
 
 const openQuoteModal = (job) => {
@@ -136,6 +190,7 @@ const enviarCotizacion = async () => {
     // Update local state
     if (savedCot) jobCotizaciones.value[String(job.id)] = savedCot;
     showQuoteModal.value = false;
+    refreshProfessionalLiveData();
   } catch (error) {
     showToast(error.response?.data?.error || 'No se pudo enviar la cotización.', 'error');
   } finally {
@@ -255,8 +310,11 @@ const acceptJobRequest = async (req) => {
     if (res.data) {
       showToast('¡Interés enviado! Esperando confirmación del cliente.', 'success');
       
-      // Refrescamos la lista local eliminando la que ya aceptamos
-      jobRequests.value = jobRequests.value.filter(r => r.id !== req.id);
+      jobRequests.value = jobRequests.value.map(r =>
+        String(r.id) === String(req.id)
+          ? mapProfessionalRequest({ ...r, ...(res.data.solicitud || {}), estado: 'POR_CONFIRMAR' })
+          : r
+      );
 
       // Crear chat automático con mensaje de postulación
       try {
@@ -269,6 +327,7 @@ const acceptJobRequest = async (req) => {
       } catch (err) { console.error("Error al iniciar chat:", err); }
 
       closeDetail();
+      refreshProfessionalLiveData();
     }
   } catch(e) {
     console.error(e);
@@ -286,6 +345,7 @@ onMounted(async () => {
 
   try {
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${userId}`);
+    if (!isCurrentSessionUser(userId)) return;
     profileStatus.value = !!data;
     // Si el perfil tiene avatar, actualizarlo
     const avatar = normalizeMediaUrl(data?.avatar_url || '');
@@ -295,12 +355,8 @@ onMounted(async () => {
 
     try {
       const solRes = await axios.get(`${API_URLS.PERFILES}/api/solicitudes?profesional_id=${userId}`);
-      jobRequests.value = solRes.data.map(s => ({
-        ...s,
-        cliente_avatar: normalizeMediaUrl(s.cliente_avatar || ''),
-        cliente_nombre: s.cliente_nombre || 'Cliente',
-        categoria: s.categoria || 'Servicio'
-      }));
+      if (!isCurrentSessionUser(userId)) return;
+      jobRequests.value = solRes.data.map(mapProfessionalRequest);
     } catch(e) { console.error("Error cargando solicitudes", e); }
 
     // Check financial status
@@ -315,14 +371,11 @@ onMounted(async () => {
 
     try {
       const trabRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`);
-      professionalJobs.value = trabRes.data.map(j => ({
-        ...j,
-        cliente_avatar: normalizeMediaUrl(j.cliente_avatar || ''),
-        cliente_nombre: j.cliente_nombre || 'Cliente',
-        categoria: j.categoria || 'Servicio'
-      }));
+      if (!isCurrentSessionUser(userId)) return;
+      professionalJobs.value = trabRes.data.map(mapProfessionalJob);
       // Load cotizaciones for active jobs
-      await loadCotizacionesForJobs(professionalJobs.value);
+      jobCotizaciones.value = await loadCotizacionesForJobs(professionalJobs.value);
+      if (!isCurrentSessionUser(userId)) return;
       await handleNotificationFocus();
     } catch(e) { console.error("Error cargando trabajos", e); }
     
@@ -331,6 +384,18 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
   }
+
+  liveRefreshTimer = setInterval(refreshProfessionalLiveData, 3500);
+  window.addEventListener('focus', refreshProfessionalLiveData);
+  document.addEventListener('visibilitychange', handleVisibilityRefresh);
+});
+
+onUnmounted(() => {
+  liveRefreshId++;
+  if (liveRefreshTimer) clearInterval(liveRefreshTimer);
+  window.removeEventListener('focus', refreshProfessionalLiveData);
+  document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+  if (toastTimer) clearTimeout(toastTimer);
 });
 
 const finalizarTrabajo = async (trabajoId) => {
@@ -353,8 +418,9 @@ const finalizarTrabajo = async (trabajoId) => {
         });
         if (res.data.success) {
             showToast('¡Trabajo marcado como terminado! El cliente debe confirmar para liberar el pago.', 'success');
-            const job = professionalJobs.value.find(j => j.id === trabajoId);
+            const job = professionalJobs.value.find(j => String(j.id) === String(trabajoId));
             if (job) job.estado = 'FINALIZADO_PROFESIONAL';
+            refreshProfessionalLiveData();
         }
     } catch(e) {
         showToast('Error al finalizar el trabajo. Intenta de nuevo.', 'error');
@@ -375,9 +441,7 @@ const confirmarTransferencia = async () => {
     if (data.success) {
       showToast('¡Pago confirmado con éxito! El trabajo ha sido finalizado.', 'success');
       showTransferModal.value = false;
-      // Refrescamos la lista
-      const trabRes = await axios.get(`${API_URLS.TRABAJOS}/api/trabajos/profesional/${userId}`);
-      professionalJobs.value = trabRes.data;
+      await refreshProfessionalLiveData();
     }
   } catch (error) {
     showToast(error.response?.data?.error || 'Error al confirmar la transferencia.', 'error');

@@ -1,7 +1,7 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { io } from 'socket.io-client';
 import axios from 'axios';
@@ -40,8 +40,8 @@ const hasValidToken = () => {
   return !!token && token !== 'dummy-token';
 };
 
-const fetchNotifications = async () => {
-  const userId = localStorage.getItem('usuario_id');
+const fetchNotifications = async (targetUserId = state.user.id) => {
+  const userId = targetUserId;
   if (!userId || !hasValidToken()) return;
   try {
     const { data } = await axios.get(`${API_URLS.NOTIFICACIONES}/notificaciones/${userId}`);
@@ -109,8 +109,8 @@ const toggleNotif = () => {
   }
 };
 
-const fetchUnreadCount = async () => {
-  const userId = localStorage.getItem('usuario_id');
+const fetchUnreadCount = async (targetUserId = state.user.id) => {
+  const userId = targetUserId;
   if (!userId) return;
   try {
     const { data } = await axios.get(`${API_URLS.PERFILES}/api/chat/unread-count/${userId}`);
@@ -138,7 +138,7 @@ const handleLogout = () => {
 };
 
 const handleSwitch = (id) => {
-  if (id === state.user.id) return;
+  if (String(id) === String(state.user.id)) return;
   switchAccount(id);
   isMenuOpen.value = false;
   // Redirigir según el nuevo rol
@@ -179,6 +179,43 @@ const syncLocalUser = (name, avatar = '') => {
   user.value.avatar = normalizeMediaUrl(avatar);
 };
 
+const syncUserFromSession = () => {
+  syncLocalUser(state.user.name || 'Cliente', state.user.avatar || '');
+};
+
+const resetLayoutRealtime = (userId) => {
+  if (notifInterval) clearInterval(notifInterval);
+  notifInterval = null;
+  if (socket) socket.disconnect();
+  socket = null;
+
+  if (!userId) return;
+
+  fetchUnreadCount(userId);
+  fetchNotifications(userId);
+  notifInterval = setInterval(() => fetchNotifications(userId), 15000);
+
+  socket = io(SOCKET_URL, {
+    query: { userId },
+    reconnectionAttempts: 5,
+    reconnectionDelay: 5000,
+    reconnectionDelayMax: 10000,
+    randomizationFactor: 0.5
+  });
+
+  socket.on('notification_new_message', (msg) => {
+    if (String(state.user.id) === String(userId) && msg.remitente_id !== userId) {
+      unreadCount.value++;
+    }
+  });
+
+  socket.on('update_unread_count', (data) => {
+    if (String(state.user.id) === String(userId) && data.usuarioId === userId) {
+      fetchUnreadCount(userId);
+    }
+  });
+};
+
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside);
 
@@ -216,6 +253,7 @@ onMounted(async () => {
 
     try {
       const { data } = await axios.get(`${API_URLS.PERFILES}/api/clientes/${userId}`);
+      if (String(state.user.id) !== String(userId)) return;
       if (data) {
         const avatar = normalizeMediaUrl(data.avatar || '');
         syncLocalUser(data.nombre || storedName, avatar);
@@ -232,6 +270,19 @@ onMounted(async () => {
     }
   }
 });
+
+watch(() => state.user.id, (userId, previousId) => {
+  if (userId === previousId) return;
+  isMenuOpen.value = false;
+  isNotifOpen.value = false;
+  notifications.value = [];
+  unreadNotifCount.value = 0;
+  unreadCount.value = 0;
+  syncUserFromSession();
+  resetLayoutRealtime(userId);
+});
+
+watch(() => [state.user.name, state.user.avatar], syncUserFromSession);
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
@@ -376,7 +427,7 @@ onUnmounted(() => {
       </aside>
 
       <main class="dash-content">
-        <RouterView />
+        <RouterView :key="`${state.user.id}:${route.fullPath}`" />
       </main>
 
       <!-- BOTON FLOTANTE MÓVIL (Petición rápida) -->

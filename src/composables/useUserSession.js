@@ -7,6 +7,7 @@ const getSavedAccounts = () => {
     return JSON.parse(localStorage.getItem('saved_accounts') || '[]')
       .map(account => ({
         ...account,
+        id: account.id != null ? String(account.id) : '',
         avatar: normalizeMediaUrl(account.avatar || account.avatar_url || '')
       }));
   } catch {
@@ -51,7 +52,7 @@ export function useUserSession() {
   // ACCIÓN: Iniciar Sesión (Login o Registro)
   const login = (userData, token) => {
     const newUser = {
-      id: userData.id,
+      id: userData.id != null ? String(userData.id) : '',
       name: userData.nombre || userData.name,
       email: userData.email,
       role: userData.rol || userData.role,
@@ -82,7 +83,7 @@ export function useUserSession() {
     state.user.avatar ? localStorage.setItem('usuario_avatar', state.user.avatar) : localStorage.removeItem('usuario_avatar');
 
     // 3. Agregar a la lista de cuentas si no existe
-    const index = state.accounts.findIndex(acc => acc.id === newUser.id);
+    const index = state.accounts.findIndex(acc => String(acc.id) === newUser.id);
     if (index === -1) {
       state.accounts.push(newUser);
     } else {
@@ -93,7 +94,7 @@ export function useUserSession() {
 
   // ACCIÓN: Cambiar de cuenta
   const switchAccount = (userId) => {
-    const target = state.accounts.find(acc => acc.id === userId);
+    const target = state.accounts.find(acc => String(acc.id) === String(userId));
     if (target) {
       login(target, target.token);
       return true;
@@ -119,7 +120,7 @@ export function useUserSession() {
     }
     
     // Actualizar también en la lista de cuentas
-    const index = state.accounts.findIndex(acc => acc.id === state.user.id);
+    const index = state.accounts.findIndex(acc => String(acc.id) === String(state.user.id));
     if (index !== -1) {
       state.accounts[index] = { ...state.accounts[index], ...state.user };
       persistAccounts();
@@ -134,10 +135,10 @@ export function useUserSession() {
       return;
     }
 
-    state.accounts = state.accounts.filter(acc => acc.id !== targetId);
+    state.accounts = state.accounts.filter(acc => String(acc.id) !== String(targetId));
     persistAccounts();
     
-    if (state.user.id === targetId) {
+    if (String(state.user.id) === String(targetId)) {
       if (state.accounts.length > 0) {
         switchAccount(state.accounts[0].id);
       } else {
