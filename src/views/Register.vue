@@ -15,6 +15,8 @@ const password = ref('');
 const confirmPassword = ref('');
 const selectedRole = ref(null);
 const errorMessage = ref('');
+const successMessage = ref('');
+const verificationCode = ref('');
 const googleCredential = ref('');
 const isLoading = ref(false);
 
@@ -23,9 +25,18 @@ onMounted(() => {
   logout();
 });
 
-function handleStep1Submit() {
+const isGmailEmail = (value) => /^[a-z0-9._%+-]+@(gmail\.com|googlemail\.com)$/i.test(String(value || '').trim());
+
+async function sendRegisterCode() {
   if (isLoading.value) return;
+  errorMessage.value = '';
+  successMessage.value = '';
   if (!name.value || !email.value || !password.value) return;
+
+  if (!isGmailEmail(email.value)) {
+    errorMessage.value = "Debes usar una cuenta de Gmail válida.";
+    return;
+  }
   
   if (password.value.length < 8) {
     errorMessage.value = "La contraseña debe tener al menos 8 caracteres.";
@@ -37,7 +48,23 @@ function handleStep1Submit() {
     return;
   }
 
-  step.value = 2;
+  isLoading.value = true;
+  try {
+    const { data } = await axios.post(`${API_URLS.AUTH}/api/register/request-code`, {
+      nombre: name.value,
+      email: email.value
+    });
+    successMessage.value = data.message || "Te enviamos un código a tu Gmail.";
+    step.value = 2;
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || "No se pudo enviar el código.";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function handleStep1Submit() {
+  sendRegisterCode();
 }
 
 const handleGoogleCallback = async (response) => {
@@ -81,7 +108,12 @@ async function handleRegistration() {
   if (isLoading.value) return;
   console.log("Finalizing registration with role:", selectedRole.value);
   errorMessage.value = '';
+  successMessage.value = '';
   if (!selectedRole.value) { errorMessage.value = "Selecciona un rol."; return; }
+  if (!googleCredential.value && !verificationCode.value) {
+    errorMessage.value = "Ingresa el código que enviamos a tu Gmail.";
+    return;
+  }
 
   isLoading.value = true;
   try {
@@ -96,7 +128,8 @@ async function handleRegistration() {
         nombre: name.value,
         email: email.value,
         password: password.value,
-        rol: selectedRole.value
+        rol: selectedRole.value,
+        verification_code: verificationCode.value
       });
     }
 
@@ -184,11 +217,12 @@ async function handleRegistration() {
       <div class="form-wrapper">
         
         <div class="form-header">
-          <h2>{{ step === 1 ? 'Crear cuenta' : 'Personaliza tu experiencia' }}</h2>
-          <p>{{ step === 1 ? 'Empieza tu viaje en ServiHub gratis.' : 'Selecciona tu perfil para continuar.' }}</p>
+          <h2>{{ step === 1 ? 'Crear cuenta' : 'Verifica y personaliza' }}</h2>
+          <p>{{ step === 1 ? 'Empieza tu viaje en ServiHub gratis.' : 'Confirma tu Gmail y selecciona tu perfil.' }}</p>
         </div>
 
         <div v-if="errorMessage" class="error-alert">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="success-alert">{{ successMessage }}</div>
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
           <div class="social-registration">
@@ -206,7 +240,7 @@ async function handleRegistration() {
           
           <div class="input-group">
             <label>Correo Electrónico</label>
-            <input type="email" v-model="email" placeholder="nombre@ejemplo.com">
+            <input type="email" v-model="email" placeholder="nombre@gmail.com">
           </div>
           
           <div class="row-inputs">
@@ -221,7 +255,7 @@ async function handleRegistration() {
           </div>
 
           <button type="submit" class="primary-btn" :disabled="isLoading">
-            {{ isLoading ? 'Procesando...' : 'Continuar' }}
+            {{ isLoading ? 'Enviando código...' : 'Enviar código y continuar' }}
           </button>
 
           <p class="footer-text">
@@ -230,6 +264,22 @@ async function handleRegistration() {
         </form>
 
         <div v-if="step === 2" class="step-content">
+          <div v-if="!googleCredential" class="verification-box">
+            <div class="input-group">
+              <label>Código enviado a tu Gmail</label>
+              <input
+                type="text"
+                v-model="verificationCode"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="123456"
+              >
+            </div>
+            <button @click="sendRegisterCode" class="text-btn resend-btn" :disabled="isLoading">
+              Reenviar código
+            </button>
+          </div>
+
           <div class="role-selector">
             
             <div 
@@ -437,6 +487,10 @@ async function handleRegistration() {
 .role-card.active .role-check::after { content: ""; width: 10px; height: 10px; background: white; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
 
 .error-alert { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+.success-alert { color: #047857; background: #ECFDF5; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px solid #A7F3D0; font-weight: 600; }
+.verification-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 20px; }
+.verification-box input { text-align: center; letter-spacing: 0.45em; font-size: 1.35rem; font-weight: 800; color: #0B4C6F; }
+.resend-btn { margin-top: 10px; }
 .footer-text { text-align: center; font-size: 1rem; color: #666; margin-top: 24px; }
 .link { color: #0B4C6F; font-weight: 700; text-decoration: none; }
 

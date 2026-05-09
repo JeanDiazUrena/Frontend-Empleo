@@ -12,12 +12,105 @@ const { login } = useUserSession();
 const email = ref('');
 const password = ref('');
 const errorMessage = ref('');
+const successMessage = ref('');
 const isLoading = ref(false);
+const showForgotModal = ref(false);
+const forgotStep = ref(1);
+const forgotEmail = ref('');
+const forgotCode = ref('');
+const forgotPassword = ref('');
+const forgotConfirmPassword = ref('');
+
+const isGmailEmail = (value) => /^[a-z0-9._%+-]+@(gmail\.com|googlemail\.com)$/i.test(String(value || '').trim());
+
+const openForgotModal = () => {
+  showForgotModal.value = true;
+  forgotStep.value = 1;
+  forgotEmail.value = email.value || '';
+  forgotCode.value = '';
+  forgotPassword.value = '';
+  forgotConfirmPassword.value = '';
+  errorMessage.value = '';
+  successMessage.value = '';
+};
+
+const closeForgotModal = () => {
+  if (isLoading.value) return;
+  showForgotModal.value = false;
+};
+
+async function sendForgotCode() {
+  if (isLoading.value) return;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  if (!forgotEmail.value) {
+    errorMessage.value = "Ingresa tu Gmail.";
+    return;
+  }
+
+  if (!isGmailEmail(forgotEmail.value)) {
+    errorMessage.value = "Debes usar una cuenta de Gmail válida.";
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    const { data } = await axios.post(`${API_URLS.AUTH}/api/password/forgot-code`, {
+      email: forgotEmail.value
+    });
+    successMessage.value = data.message || "Te enviamos un código a tu Gmail.";
+    forgotStep.value = 2;
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || "No se pudo enviar el código.";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function resetPassword() {
+  if (isLoading.value) return;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  if (!forgotCode.value || !forgotPassword.value || !forgotConfirmPassword.value) {
+    errorMessage.value = "Completa el código y la nueva contraseña.";
+    return;
+  }
+
+  if (forgotPassword.value.length < 8) {
+    errorMessage.value = "La contraseña debe tener al menos 8 caracteres.";
+    return;
+  }
+
+  if (forgotPassword.value !== forgotConfirmPassword.value) {
+    errorMessage.value = "Las contraseñas no coinciden.";
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    const { data } = await axios.post(`${API_URLS.AUTH}/api/password/reset`, {
+      email: forgotEmail.value,
+      code: forgotCode.value,
+      password: forgotPassword.value
+    });
+    successMessage.value = data.message || "Contraseña actualizada correctamente.";
+    email.value = forgotEmail.value;
+    password.value = '';
+    showForgotModal.value = false;
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || "No se pudo cambiar la contraseña.";
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 async function handleLogin() {
   if (isLoading.value) return;
 
   errorMessage.value = '';
+  successMessage.value = '';
   
   if (!email.value || !password.value) {
     errorMessage.value = "Por favor completa todos los campos.";
@@ -175,6 +268,7 @@ async function handleGoogleCallback(response) {
           </div>
 
           <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
+          <div v-if="successMessage" class="success-msg">{{ successMessage }}</div>
 
           <form @submit.prevent="handleLogin">
           <div class="social-login">
@@ -196,7 +290,7 @@ async function handleGoogleCallback(response) {
             </div>
 
             <div class="forgot">
-              <a href="#">¿Olvidaste tu contraseña?</a>
+              <button type="button" @click="openForgotModal">¿Olvidaste tu contraseña?</button>
             </div>
 
             <button type="submit" class="btn-submit" :disabled="isLoading">
@@ -206,6 +300,55 @@ async function handleGoogleCallback(response) {
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="showForgotModal" class="forgot-backdrop" @click.self="closeForgotModal">
+        <div class="forgot-card">
+          <button class="forgot-close" @click="closeForgotModal">×</button>
+          <div class="forgot-icon">
+            <i class="fa-solid fa-envelope-open-text"></i>
+          </div>
+          <h3>Recuperar contraseña</h3>
+          <p v-if="forgotStep === 1">Escribe tu Gmail y te enviaremos un código para validar que la cuenta existe y te pertenece.</p>
+          <p v-else>Ingresa el código que recibiste y define una contraseña nueva.</p>
+
+          <div v-if="errorMessage" class="error-msg forgot-alert">{{ errorMessage }}</div>
+          <div v-if="successMessage" class="success-msg forgot-alert">{{ successMessage }}</div>
+
+          <div class="field" v-if="forgotStep === 1">
+            <label>Correo Gmail</label>
+            <input type="email" v-model="forgotEmail" placeholder="nombre@gmail.com">
+          </div>
+
+          <template v-else>
+            <div class="field">
+              <label>Código</label>
+              <input class="code-input" type="text" v-model="forgotCode" inputmode="numeric" maxlength="6" placeholder="123456">
+            </div>
+            <div class="field">
+              <label>Nueva contraseña</label>
+              <input type="password" v-model="forgotPassword" placeholder="Mín. 8 caracteres">
+            </div>
+            <div class="field">
+              <label>Confirmar contraseña</label>
+              <input type="password" v-model="forgotConfirmPassword" placeholder="Repetir contraseña">
+            </div>
+          </template>
+
+          <button
+            class="btn-submit forgot-submit"
+            :disabled="isLoading"
+            @click="forgotStep === 1 ? sendForgotCode() : resetPassword()"
+          >
+            {{ isLoading ? 'Procesando...' : forgotStep === 1 ? 'Enviar código' : 'Cambiar contraseña' }}
+          </button>
+
+          <button v-if="forgotStep === 2" class="forgot-resend" :disabled="isLoading" @click="sendForgotCode">
+            Reenviar código
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -305,6 +448,17 @@ async function handleGoogleCallback(response) {
   animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
+.success-msg {
+  background-color: #ECFDF5;
+  color: #047857;
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  text-align: center;
+  border: 1px solid #A7F3D0;
+  font-weight: 600;
+}
+
 @keyframes shake {
   10%, 90% { transform: translate3d(-1px, 0, 0); }
   20%, 80% { transform: translate3d(2px, 0, 0); }
@@ -317,11 +471,105 @@ async function handleGoogleCallback(response) {
   margin-bottom: 10px;
 }
 
-.forgot a {
+.forgot button {
+  background: none;
+  border: none;
+  padding: 0;
   color: #0B4C6F;
   font-weight: 600;
   text-decoration: none;
   font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.forgot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.forgot-card {
+  width: 100%;
+  max-width: 440px;
+  position: relative;
+  background: white;
+  border-radius: 22px;
+  padding: 34px;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.28);
+  border: 1px solid #E2E8F0;
+}
+
+.forgot-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  background: none;
+  border: none;
+  color: #94A3B8;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.forgot-icon {
+  width: 58px;
+  height: 58px;
+  background: #E0F2FE;
+  color: #0B4C6F;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 18px;
+}
+
+.forgot-card h3 {
+  margin: 0 0 8px;
+  color: #0F172A;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.forgot-card p {
+  margin: 0 0 22px;
+  color: #64748B;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+.forgot-alert {
+  margin-bottom: 18px;
+}
+
+.code-input {
+  text-align: center;
+  letter-spacing: 0.45em;
+  font-size: 1.25rem !important;
+  font-weight: 800;
+  color: #0B4C6F;
+}
+
+.forgot-submit {
+  margin-top: 8px;
+}
+
+.forgot-resend {
+  width: 100%;
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: #0B4C6F;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 @media (max-width: 1000px) {
