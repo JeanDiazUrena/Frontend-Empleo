@@ -58,6 +58,17 @@ const markAsRead = async (id) => {
   }
 };
 
+const handleNotifClick = async (notif) => {
+  if (!notif.is_read) {
+    await markAsRead(notif.id);
+  }
+  isNotifOpen.value = false;
+  
+  if (notif.metadata?.url) {
+    router.push(notif.metadata.url);
+  }
+};
+
 const toggleNotif = () => {
   isNotifOpen.value = !isNotifOpen.value;
   if (isNotifOpen.value) {
@@ -222,7 +233,7 @@ onUnmounted(() => {
                 <div v-if="notifications.length === 0" class="no-notifs">
                   No tienes notificaciones
                 </div>
-                <div v-for="notif in notifications" :key="notif.id" class="notif-item" :class="{ unread: !notif.is_read }" @click="markAsRead(notif.id)">
+                <div v-for="notif in notifications" :key="notif.id" class="notif-item" :class="{ unread: !notif.is_read }" @click="handleNotifClick(notif)">
                   <div class="notif-content">
                     <strong>{{ notif.title }}</strong>
                     <p>{{ notif.message }}</p>
