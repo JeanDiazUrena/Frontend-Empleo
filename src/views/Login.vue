@@ -1,10 +1,11 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js'; // 1. IMPORTAR CEREBRO
+import { getPasswordStatus } from '../utils/passwordRules.js';
 
 const router = useRouter();
 const { login } = useUserSession();
@@ -22,6 +23,11 @@ const forgotPassword = ref('');
 const forgotConfirmPassword = ref('');
 
 const isGmailEmail = (value) => /^[a-z0-9._%+-]+@(gmail\.com|googlemail\.com)$/i.test(String(value || '').trim());
+const forgotPasswordStatus = computed(() => getPasswordStatus(forgotPassword.value));
+const forgotPasswordChecks = computed(() => forgotPasswordStatus.value.checks);
+const forgotPasswordHint = computed(() => (
+  forgotPassword.value && !forgotPasswordStatus.value.isValid ? forgotPasswordStatus.value.missingMessage : ''
+));
 
 const openForgotModal = () => {
   showForgotModal.value = true;
@@ -78,8 +84,8 @@ async function resetPassword() {
     return;
   }
 
-  if (forgotPassword.value.length < 8) {
-    errorMessage.value = "La contraseña debe tener al menos 8 caracteres.";
+  if (!forgotPasswordStatus.value.isValid) {
+    errorMessage.value = forgotPasswordStatus.value.missingMessage;
     return;
   }
 
@@ -329,6 +335,14 @@ async function handleGoogleCallback(response) {
               <label>Nueva contraseña</label>
               <input type="password" v-model="forgotPassword" placeholder="Mín. 8 caracteres">
             </div>
+            <div v-if="forgotPassword" class="password-feedback">
+              <ul class="password-rules">
+                <li v-for="check in forgotPasswordChecks" :key="check.id" :class="{ met: check.met }">
+                  {{ check.label }}
+                </li>
+              </ul>
+              <p v-if="forgotPasswordHint" class="password-hint">{{ forgotPasswordHint }}</p>
+            </div>
             <div class="field">
               <label>Confirmar contraseña</label>
               <input type="password" v-model="forgotConfirmPassword" placeholder="Repetir contraseña">
@@ -376,6 +390,13 @@ async function handleGoogleCallback(response) {
 .field label { display: block; font-weight: 700; margin-bottom: 8px; color: #374151; }
 .field input { width: 100%; padding: 16px; border: 1px solid #D1D5DB; border-radius: 10px; font-size: 1rem; background: #F9FAFB; }
 .field input:focus { border-color: #0B4C6F; background: white; outline: none; }
+.password-feedback { margin: -10px 0 18px; }
+.password-rules { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.password-rules li { font-size: 0.76rem; color: #94A3B8; display: flex; align-items: center; gap: 4px; font-weight: 700; }
+.password-rules li::before { content: '○'; font-size: 0.68rem; }
+.password-rules li.met { color: #16A34A; }
+.password-rules li.met::before { content: '●'; }
+.password-hint { margin: 8px 0 0; color: #DC2626; font-size: 0.82rem; font-weight: 800; }
 .social-login {
   margin-bottom: 25px;
   width: 100%;

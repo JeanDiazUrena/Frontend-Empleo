@@ -22,7 +22,20 @@ const tabs = [
 ];
 
 // ─── ESTADO E INSTANCIAS DE COMPOSABLES ───────────────────────
-const { pwd, showPwd, pwdMsg, pwdSuccess, isUpdating: isPwdUpdating, strength, strengthLabel, strengthColor, updatePassword } = usePassword();
+const {
+  pwd,
+  showPwd,
+  pwdMsg,
+  pwdSuccess,
+  isUpdating: isPwdUpdating,
+  strength,
+  strengthLabel,
+  strengthColor,
+  passwordChecks,
+  passwordHint,
+  passwordRequirements,
+  updatePassword
+} = usePassword();
 const { currentEmail, newEmail, emailMsg, emailSuccess, isUpdating: isEmailUpdating, sendCode } = useEmail();
 const { cards, showAddCard, newCard, cardMsg, isUpdating: isCardUpdating, removeCard, addCard } = usePayments();
 const { twofa, isUpdating: isTwoFAUpdating, toggleTwoFA } = useTwoFA();
@@ -111,17 +124,17 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
             <div class="strength-bar">
               <div
                 class="strength-fill"
-                :style="{ width: (strength / 4 * 100) + '%', background: strengthColor }"
+                :style="{ width: (strength / passwordRequirements.length * 100) + '%', background: strengthColor }"
               ></div>
             </div>
             <span class="strength-label" :style="{ color: strengthColor }">{{ strengthLabel }}</span>
           </div>
           <ul v-if="pwd.next" class="strength-hints">
-            <li :class="{ met: pwd.next.length >= 8 }">Mínimo 8 caracteres</li>
-            <li :class="{ met: /[A-Z]/.test(pwd.next) }">Al menos 1 mayúscula</li>
-            <li :class="{ met: /[0-9]/.test(pwd.next) }">Al menos 1 número</li>
-            <li :class="{ met: /[^A-Za-z0-9]/.test(pwd.next) }">Al menos 1 símbolo</li>
+            <li v-for="check in passwordChecks" :key="check.id" :class="{ met: check.met }">
+              {{ check.label }}
+            </li>
           </ul>
+          <p v-if="passwordHint" class="password-hint">{{ passwordHint }}</p>
         </div>
 
         <!-- Confirmar -->
@@ -491,6 +504,7 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
 .strength-hints li::before { content: '○'; font-size: 0.7rem; }
 .strength-hints li.met { color: #22C55E; }
 .strength-hints li.met::before { content: '●'; }
+.password-hint { margin: 4px 0 0; color: #DC2626; font-size: 0.78rem; font-weight: 700; }
 
 /* ─── BUTTONS ──── */
 .btn-primary { display: inline-flex; align-items: center; gap: 6px; background: #1E293B; color: white; border: none; padding: 11px 22px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: 0.18s; }

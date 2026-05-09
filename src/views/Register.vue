@@ -1,9 +1,10 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from "axios";
 import { useUserSession } from '../composables/useUserSession.js';
+import { getPasswordStatus } from '../utils/passwordRules.js';
 
 const { login, logout } = useUserSession();
 const router = useRouter();
@@ -26,6 +27,11 @@ onMounted(() => {
 });
 
 const isGmailEmail = (value) => /^[a-z0-9._%+-]+@(gmail\.com|googlemail\.com)$/i.test(String(value || '').trim());
+const passwordStatus = computed(() => getPasswordStatus(password.value));
+const passwordChecks = computed(() => passwordStatus.value.checks);
+const passwordHint = computed(() => (
+  password.value && !passwordStatus.value.isValid ? passwordStatus.value.missingMessage : ''
+));
 
 async function sendRegisterCode() {
   if (isLoading.value) return;
@@ -43,8 +49,8 @@ async function sendRegisterCode() {
     return;
   }
   
-  if (password.value.length < 8) {
-    errorMessage.value = "La contraseña debe tener al menos 8 caracteres.";
+  if (!passwordStatus.value.isValid) {
+    errorMessage.value = passwordStatus.value.missingMessage;
     return;
   }
   
@@ -266,6 +272,14 @@ async function handleRegistration() {
               <input type="password" v-model="confirmPassword" placeholder="Repetir">
             </div>
           </div>
+          <div v-if="password" class="password-feedback">
+            <ul class="password-rules">
+              <li v-for="check in passwordChecks" :key="check.id" :class="{ met: check.met }">
+                {{ check.label }}
+              </li>
+            </ul>
+            <p v-if="passwordHint" class="password-hint">{{ passwordHint }}</p>
+          </div>
 
           <button type="submit" class="primary-btn" :disabled="isLoading">
             {{ isLoading ? 'Enviando...' : 'Continuar' }}
@@ -417,6 +431,13 @@ async function handleRegistration() {
 
 .row-inputs { display: flex; gap: 20px; }
 .half { flex: 1; }
+.password-feedback { margin-top: -8px; }
+.password-rules { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.password-rules li { font-size: 0.78rem; color: #94A3B8; display: flex; align-items: center; gap: 4px; font-weight: 700; }
+.password-rules li::before { content: '○'; font-size: 0.68rem; }
+.password-rules li.met { color: #16A34A; }
+.password-rules li.met::before { content: '●'; }
+.password-hint { margin: 8px 0 0; color: #DC2626; font-size: 0.82rem; font-weight: 800; }
 
 .social-registration {
   width: 100%;

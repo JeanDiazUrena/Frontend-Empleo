@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { accountApi } from '../../services/accountSettingsService';
+import { getPasswordStatus, passwordRequirements } from '../../utils/passwordRules';
 
 export function usePassword() {
   const pwd = ref({ current: '', next: '', confirm: '' });
@@ -8,19 +9,15 @@ export function usePassword() {
   const pwdSuccess = ref(false);
   const isUpdating = ref(false);
 
-  const strength = computed(() => {
-    const v = pwd.value.next;
-    if (!v) return 0;
-    let s = 0;
-    if (v.length >= 8) s++;
-    if (/[A-Z]/.test(v)) s++;
-    if (/[0-9]/.test(v)) s++;
-    if (/[^A-Za-z0-9]/.test(v)) s++;
-    return s;
-  });
+  const passwordStatus = computed(() => getPasswordStatus(pwd.value.next));
+  const passwordChecks = computed(() => passwordStatus.value.checks);
+  const passwordHint = computed(() => (
+    pwd.value.next && !passwordStatus.value.isValid ? passwordStatus.value.missingMessage : ''
+  ));
+  const strength = computed(() => passwordStatus.value.score);
 
-  const strengthLabel = computed(() => ['', 'Débil', 'Regular', 'Buena', 'Excelente'][strength.value]);
-  const strengthColor = computed(() => ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'][strength.value]);
+  const strengthLabel = computed(() => ['', 'Muy débil', 'Débil', 'Regular', 'Buena', 'Excelente'][strength.value]);
+  const strengthColor = computed(() => ['', '#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#22c55e'][strength.value]);
 
   async function updatePassword() {
     pwdMsg.value = '';
@@ -35,8 +32,8 @@ export function usePassword() {
       pwdSuccess.value = false; 
       return;
     }
-    if (strength.value < 2) {
-      pwdMsg.value = 'La contraseña es demasiado débil.'; 
+    if (!passwordStatus.value.isValid) {
+      pwdMsg.value = passwordStatus.value.missingMessage || 'La contraseña no cumple los requisitos.';
       pwdSuccess.value = false; 
       return;
     }
@@ -55,5 +52,18 @@ export function usePassword() {
     }
   }
 
-  return { pwd, showPwd, pwdMsg, pwdSuccess, isUpdating, strength, strengthLabel, strengthColor, updatePassword };
+  return {
+    pwd,
+    showPwd,
+    pwdMsg,
+    pwdSuccess,
+    isUpdating,
+    strength,
+    strengthLabel,
+    strengthColor,
+    passwordChecks,
+    passwordHint,
+    passwordRequirements,
+    updatePassword
+  };
 }
