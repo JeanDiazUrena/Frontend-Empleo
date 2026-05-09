@@ -31,9 +31,14 @@ async function sendRegisterCode() {
   if (isLoading.value) return;
   errorMessage.value = '';
   successMessage.value = '';
-  if (!name.value || !email.value || !password.value) return;
+  const cleanEmail = String(email.value || '').trim().toLowerCase();
 
-  if (!isGmailEmail(email.value)) {
+  if (!name.value || !cleanEmail || !password.value || !confirmPassword.value) {
+    errorMessage.value = "Completa todos los campos antes de continuar.";
+    return;
+  }
+
+  if (!isGmailEmail(cleanEmail)) {
     errorMessage.value = "Debes usar una cuenta de Gmail válida.";
     return;
   }
@@ -50,21 +55,28 @@ async function sendRegisterCode() {
 
   isLoading.value = true;
   try {
+    email.value = cleanEmail;
     const { data } = await axios.post(`${API_URLS.AUTH}/api/register/request-code`, {
       nombre: name.value,
-      email: email.value
-    });
+      email: cleanEmail
+    }, { timeout: 20000 });
     successMessage.value = data.message || "Te enviamos un código a tu Gmail.";
     step.value = 2;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || "No se pudo enviar el código.";
+    if (error.response?.status === 409) {
+      errorMessage.value = "Ese Gmail ya tiene una cuenta en ServiHub. Inicia sesión o usa “Olvidaste tu contraseña”.";
+    } else if (error.code === 'ECONNABORTED') {
+      errorMessage.value = "El envío tardó demasiado. Revisa tu conexión e intenta otra vez.";
+    } else {
+      errorMessage.value = error.response?.data?.message || "No se pudo enviar el código.";
+    }
   } finally {
     isLoading.value = false;
   }
 }
 
-function handleStep1Submit() {
-  sendRegisterCode();
+async function handleStep1Submit() {
+  await sendRegisterCode();
 }
 
 const handleGoogleCallback = async (response) => {
@@ -223,6 +235,9 @@ async function handleRegistration() {
 
         <div v-if="errorMessage" class="error-alert">{{ errorMessage }}</div>
         <div v-if="successMessage" class="success-alert">{{ successMessage }}</div>
+        <div v-if="errorMessage.includes('ya tiene una cuenta')" class="account-exists-actions">
+          <RouterLink to="/login" class="account-link">Ir a iniciar sesión</RouterLink>
+        </div>
 
         <form v-if="step === 1" @submit.prevent="handleStep1Submit" class="register-form">
           <div class="social-registration">
@@ -488,6 +503,9 @@ async function handleRegistration() {
 
 .error-alert { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
 .success-alert { color: #047857; background: #ECFDF5; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px solid #A7F3D0; font-weight: 600; }
+.account-exists-actions { margin: -10px 0 18px; text-align: center; }
+.account-link { display: inline-flex; align-items: center; justify-content: center; color: #0B4C6F; font-weight: 800; text-decoration: none; }
+.account-link:hover { text-decoration: underline; }
 .verification-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; margin-bottom: 20px; }
 .verification-box input { text-align: center; letter-spacing: 0.45em; font-size: 1.35rem; font-weight: 800; color: #0B4C6F; }
 .resend-btn { margin-top: 10px; }
