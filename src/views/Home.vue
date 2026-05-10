@@ -220,8 +220,8 @@ const stats = [
 .delay-1 { transition-delay: 0.2s; }
 
 .text-gradient {
-  color: #ff8a3d;
-  background: linear-gradient(135deg, #ff8a3d 0%, #ffd166 100%);
+  color: #ff7a1a;
+  background: linear-gradient(135deg, #ff6a00 0%, #ff7a1a 52%, #ff9a3d 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
