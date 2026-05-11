@@ -29,6 +29,11 @@ const forgotPasswordHint = computed(() => (
   forgotPassword.value && !forgotPasswordStatus.value.isValid ? forgotPasswordStatus.value.missingMessage : ''
 ));
 
+const goBack = () => {
+  if (window.history.length > 1) router.back();
+  else router.push('/');
+};
+
 const openForgotModal = () => {
   showForgotModal.value = true;
   forgotStep.value = 1;
@@ -244,6 +249,9 @@ async function handleGoogleCallback(response) {
           <img src="/fotos/logo-servihub.png" alt="Logo" class="nav-logo">
           <span>ServiHub.</span>
         </RouterLink>
+        <button type="button" class="nav-back" @click="goBack" aria-label="Volver a la pagina anterior">
+          &larr; Volver
+        </button>
       </div>
       <div class="nav-right">
         <span class="nav-text">¿No tienes cuenta?</span>
@@ -370,8 +378,26 @@ async function handleGoogleCallback(response) {
 /* TUS MISMOS ESTILOS */
 .login-page-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; z-index: 9999; display: flex; flex-direction: column; }
 .login-nav { position: absolute; top: 0; left: 0; width: 100%; height: 80px; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; z-index: 50; }
+.nav-left { display: flex; align-items: center; gap: 18px; min-width: 0; }
 .brand-link { display: flex; align-items: center; gap: 10px; text-decoration: none; font-size: 1.5rem; font-weight: 800; color: white; }
 .nav-logo { height: 35px; }
+.nav-back {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.nav-back:hover { background: rgba(255,255,255,0.2); transform: translateX(-2px); }
 .nav-right { display: flex; gap: 15px; align-items: center; }
 .nav-text { color: #666; font-size: 0.95rem; }
 .btn-nav-outline { text-decoration: none; border: 1px solid #0B4C6F; color: #0B4C6F; padding: 8px 20px; border-radius: 6px; font-weight: 600; }
@@ -599,10 +625,15 @@ async function handleGoogleCallback(response) {
   .image-panel { display: none; }
   .form-panel { width: 100%; padding: 80px 20px 40px; }
   .brand-link { color: #0B4C6F; }
+  .nav-back { border-color: #BFDBFE; background: #EFF6FF; color: #0B4C6F; }
   .nav-right { display: none; }
 }
 
 @media (max-width: 480px) {
+  .login-nav { height: 72px; }
+  .brand-link span { display: none; }
+  .nav-left { gap: 10px; }
+  .nav-back { height: 36px; padding: 0 12px; font-size: 0.86rem; }
   .form-header h2 { font-size: 1.8rem; }
   .btn-submit { font-size: 1rem; padding: 14px; }
   .field input { padding: 12px; }

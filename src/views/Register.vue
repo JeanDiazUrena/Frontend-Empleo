@@ -28,6 +28,11 @@ const passwordHint = computed(() => (
   password.value && !passwordStatus.value.isValid ? passwordStatus.value.missingMessage : ''
 ));
 
+const goBack = () => {
+  if (window.history.length > 1) router.back();
+  else router.push('/');
+};
+
 const hasUsableToken = (token) => {
   const cleanToken = String(token || '').trim();
   return cleanToken && cleanToken !== 'temp-token' && cleanToken !== 'dummy-token';
@@ -210,17 +215,26 @@ async function handleRegistration() {
 
 <template>
   <div id="main-content" class="split-screen" tabindex="-1">
+    <nav class="register-nav">
+      <div class="auth-nav-left">
+        <RouterLink to="/" class="auth-brand-link">
+          <img src="/fotos/logo-servihub.png" alt="Logo ServiHub" class="auth-nav-logo">
+          <span>ServiHub.</span>
+        </RouterLink>
+        <button type="button" class="auth-back-btn" @click="goBack" aria-label="Volver a la pagina anterior">
+          &larr; Volver
+        </button>
+      </div>
+      <div class="auth-nav-right">
+        <span>¿Ya tienes cuenta?</span>
+        <RouterLink to="/login" class="auth-nav-link">Iniciar sesión</RouterLink>
+      </div>
+    </nav>
     
     <div class="brand-side">
       <div class="brand-overlay">
         <div class="brand-content">
           
-          <RouterLink to="/" class="brand-header-link">
-            <div class="brand-header">
-              <img src="/fotos/logo-servihub.png" alt="Logo ServiHub" class="brand-logo-img">
-              <span class="brand-url">Servihub.com</span>
-            </div>
-          </RouterLink>
           
           <h1>Únete a la mayor red de servicios.</h1>
           <p>Conecta con profesionales de confianza o encuentra nuevos clientes hoy mismo.</p>
@@ -390,6 +404,72 @@ async function handleRegistration() {
   display: flex;
   min-height: 100vh;
   width: 100vw;
+  position: relative;
+}
+
+.register-nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 80px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+}
+
+.auth-nav-left,
+.auth-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.auth-brand-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  text-decoration: none;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.auth-nav-logo { height: 35px; }
+
+.auth-back-btn {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.auth-back-btn:hover { background: rgba(255,255,255,0.2); transform: translateX(-2px); }
+
+.auth-nav-right span {
+  color: #5F6B7A;
+  font-size: 0.95rem;
+}
+
+.auth-nav-link {
+  text-decoration: none;
+  border: 1px solid #0B4C6F;
+  color: #0B4C6F;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 700;
 }
 
 /* --- IZQUIERDA (AZUL) --- */
@@ -436,7 +516,7 @@ async function handleRegistration() {
   flex: 1.2;
   background: white;
   display: flex; align-items: center; justify-content: center;
-  padding: 40px;
+  padding: 96px 40px 40px;
 }
 
 .form-wrapper { width: 100%; max-width: 600px; display: flex; flex-direction: column; }
@@ -557,12 +637,22 @@ async function handleRegistration() {
 .footer-text { text-align: center; font-size: 1rem; color: #666; margin-top: 24px; }
 .link { color: #0B4C6F; font-weight: 700; text-decoration: none; }
 
+@media (max-width: 1023px) {
+  .auth-brand-link { color: #0B4C6F; }
+  .auth-back-btn { border-color: #BFDBFE; background: #EFF6FF; color: #0B4C6F; }
+}
+
 @media (max-width: 768px) {
+  .register-nav { height: 72px; padding: 0 20px; }
+  .auth-nav-right { display: none; }
   .form-side { padding: 80px 20px 40px; }
   .row-inputs { flex-direction: column; gap: 20px; }
 }
 
 @media (max-width: 480px) {
+  .auth-brand-link span { display: none; }
+  .auth-nav-left { gap: 10px; }
+  .auth-back-btn { height: 36px; padding: 0 12px; font-size: 0.86rem; }
   .form-header h2 { font-size: 1.5rem; }
   .role-card { padding: 16px; gap: 12px; }
   .role-icon { width: 44px; height: 44px; }
