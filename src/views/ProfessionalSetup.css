@@ -227,6 +227,17 @@
     background-color: #FFF;
 }
 
+.phone-meta {
+    margin: 0.45rem 0 0;
+    color: #0B4C6F;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.phone-meta.invalid {
+    color: #DC2626;
+}
+
 /* Botón Principal */
 .btn-primary {
     width: 100%;
@@ -246,4 +257,48 @@
 .btn-primary:hover {
     background-color: #e05a10; /* Naranja un poco más oscuro */
     transform: translateY(-2px);
+}
+
+@media (max-width: 560px) {
+    .setup-header {
+        padding: 0.85rem 1rem;
+    }
+
+    .form-wrapper {
+        padding: 1rem;
+    }
+
+    .form-card {
+        padding: 1.25rem;
+        border-radius: 10px;
+    }
+
+    .cover-upload {
+        height: 136px;
+        border-radius: 10px;
+    }
+
+    .cover-label {
+        max-width: calc(100% - 24px);
+        text-align: center;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .avatar-upload {
+        left: 50%;
+        bottom: -52px;
+        transform: translateX(-50%);
+    }
+
+    .avatar-preview {
+        width: 86px;
+        height: 86px;
+        font-size: 2rem;
+    }
+
+    .image-hint {
+        margin-top: 64px;
+        padding: 0 0.5rem;
+    }
 }

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
 import { normalizeMediaUrl } from '../utils/media.js';
 import { getCurrentBrowserLocation } from '../utils/location.js';
+import { formatPhoneInput, getPhoneInfo } from '../utils/phone.js';
 import LocationMap from '../components/LocationMap.vue';
 
 const router = useRouter();
@@ -40,6 +41,7 @@ const bannerInput = ref(null);
 // Edit modal
 const showEditModal = ref(false);
 const editForm = ref({ name: '', email: '', phone: '', location: '' });
+const editPhoneInfo = computed(() => getPhoneInfo(editForm.value.phone));
 
 // Locations dropdown
 const locationsDB = {
@@ -82,7 +84,7 @@ onMounted(async () => {
       user.value = {
         name: data.nombre || user.value.name,
         email: data.email || user.value.email,
-        phone: data.telefono || '',
+        phone: formatPhoneInput(data.telefono || ''),
         location: data.direccion || '',
         avatar: normalizeMediaUrl(data.avatar || ''),
         banner: normalizeMediaUrl(data.banner || ''),
@@ -134,7 +136,7 @@ const openEditModal = () => {
   editForm.value = {
     name: user.value.name,
     email: user.value.email,
-    phone: user.value.phone,
+    phone: formatPhoneInput(user.value.phone),
     location: user.value.location
   };
   avatarFile.value = null;
@@ -158,6 +160,10 @@ const openEditModal = () => {
 const closeEditModal = () => {
   showEditModal.value = false;
   saveError.value = '';
+};
+
+const handlePhoneInput = (event) => {
+  editForm.value.phone = formatPhoneInput(event.target.value);
 };
 
 const handleImageChange = (event, type) => {
@@ -194,6 +200,12 @@ const saveChanges = async () => {
     return;
   }
 
+  const phoneInfo = getPhoneInfo(editForm.value.phone);
+  if (!phoneInfo.isValid) {
+    saveError.value = phoneInfo.message;
+    return;
+  }
+
   isSaving.value = true;
   const locationString = selectedCity.value && selectedSector.value
     ? `${selectedCity.value}, ${selectedSector.value}`
@@ -210,7 +222,7 @@ const saveChanges = async () => {
     formData.append('usuario_id', user.value.id);
     formData.append('nombre', editForm.value.name);
     formData.append('email', editForm.value.email);
-    formData.append('phone', editForm.value.phone);
+    formData.append('phone', phoneInfo.formatted);
     formData.append('location', locationString);
     if (avatarFile.value) formData.append('avatar', avatarFile.value);
     if (bannerFile.value) formData.append('banner', bannerFile.value);
@@ -224,7 +236,7 @@ const saveChanges = async () => {
       const newData = {
         name: updatedClient.nombre,
         email: updatedClient.email,
-        phone: updatedClient.telefono,
+        phone: formatPhoneInput(updatedClient.telefono),
         location: updatedClient.direccion,
         avatar: normalizeMediaUrl(updatedClient.avatar || ''),
         banner: normalizeMediaUrl(updatedClient.banner || ''),
@@ -239,7 +251,7 @@ const saveChanges = async () => {
     setTimeout(() => { saveSuccess.value = false; }, 3000);
     closeEditModal();
   } catch (error) {
-    saveError.value = 'Error al conectar con el servidor. Intenta de nuevo.';
+    saveError.value = error.response?.data?.message || error.response?.data?.error || 'Error al conectar con el servidor. Intenta de nuevo.';
     console.error('Error al guardar:', error);
   } finally {
     isSaving.value = false;
@@ -579,8 +591,18 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
                 <label>Teléfono *</label>
                 <div class="field-icon-wrap">
                   <span class="field-prefix"><i class="fa-solid fa-phone"></i></span>
-                  <input type="tel" v-model="editForm.phone" placeholder="809-555-5555" />
+                  <input
+                    type="tel"
+                    v-model="editForm.phone"
+                    inputmode="tel"
+                    autocomplete="tel"
+                    placeholder="809-555-5555"
+                    @input="handlePhoneInput"
+                  />
                 </div>
+                <p v-if="editForm.phone" class="phone-meta" :class="{ invalid: !editPhoneInfo.isValid }">
+                  {{ editPhoneInfo.message }}
+                </p>
               </div>
 
               <div class="modal-field">
@@ -797,6 +819,8 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
 .field-prefix { position: absolute; left: 12px; font-size: 0.9rem; pointer-events: none; z-index: 1; }
 .field-icon-wrap input { padding: 10px 14px 10px 36px; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 0.9rem; font-family: inherit; background: #FAFAFA; width: 100%; transition: border-color 0.2s; }
 .field-icon-wrap input:focus { border-color: #0B4C6F; background: white; outline: none; box-shadow: 0 0 0 3px rgba(11,76,111,0.1); }
+.phone-meta { margin: 2px 0 0; color: #0B4C6F; font-size: 0.78rem; font-weight: 700; }
+.phone-meta.invalid { color: #DC2626; }
 
 .modal-field select { padding: 10px 14px; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 0.9rem; font-family: inherit; background: #FAFAFA; transition: border-color 0.2s; }
 .modal-field select:focus { border-color: #0B4C6F; outline: none; box-shadow: 0 0 0 3px rgba(11,76,111,0.1); background: white; }
@@ -821,5 +845,23 @@ const goToRequest = (id) => router.push(`/client/request/edit/${id}`);
   .modal-form-grid { grid-template-columns: 1fr; }
   .modal-field.full-field { grid-column: 1; }
   .meta-chips { gap: 6px; }
+}
+
+@media (max-width: 560px) {
+  .modal-backdrop { align-items: flex-start; padding: 10px; overflow-y: auto; }
+  .edit-modal { border-radius: 16px; max-height: none; }
+  .modal-header { padding: 16px 18px; }
+  .banner-upload { height: 122px; border-radius: 0; }
+  .images-section { margin-bottom: 64px; }
+  .avatar-upload-wrap {
+    left: 50%;
+    bottom: -54px;
+    transform: translateX(-50%);
+  }
+  .modal-avatar { width: 86px; height: 86px; }
+  .modal-form-grid { padding: 8px 16px 18px; }
+  .modal-footer { padding: 14px 16px; flex-direction: column-reverse; }
+  .btn-modal-cancel,
+  .btn-modal-save { width: 100%; }
 }
 </style>

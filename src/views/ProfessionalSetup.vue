@@ -7,6 +7,7 @@ import axios from "axios";
 import './ProfessionalSetup.css'; 
 import { normalizeMediaUrl } from '../utils/media.js';
 import { getCurrentBrowserLocation } from '../utils/location.js';
+import { formatPhoneInput, getPhoneInfo } from '../utils/phone.js';
 
 const router = useRouter();
 const isSaving = ref(false);
@@ -90,6 +91,7 @@ const form = reactive({
   location: '', coverageArea: '',
   priceFrom: '', priceTo: '', priceUnit: 'hora',
 });
+const phoneInfo = computed(() => getPhoneInfo(form.phone));
 
 onMounted(async () => {
   const userId = localStorage.getItem("usuario_id");
@@ -102,7 +104,7 @@ onMounted(async () => {
       isEditingMode.value = true;
       form.bio = data.biografia || '';
       form.experience = data.anios_experiencia || 0;
-      form.phone = data.telefono || '';
+      form.phone = formatPhoneInput(data.telefono || '');
       form.emailPublic = data.email_publico || '';
       form.website = data.sitio_web || '';
       form.category = data.categoria_nombre || '';
@@ -162,6 +164,10 @@ const updateSectors = () => {
   form.coverageArea = "";
 };
 
+const handlePhoneInput = (event) => {
+  form.phone = formatPhoneInput(event.target.value);
+};
+
 const useCurrentLocation = async () => {
   if (isLocating.value) return;
   isLocating.value = true;
@@ -209,6 +215,13 @@ const saveProfile = async () => {
   const usuario_nombre = localStorage.getItem("usuario_nombre");
 
   if (!usuario_id) return;
+
+  const currentPhoneInfo = getPhoneInfo(form.phone);
+  if (!currentPhoneInfo.isValid) {
+    showToast(currentPhoneInfo.message, "error");
+    return;
+  }
+
   isSaving.value = true;
 
   try {
@@ -220,7 +233,7 @@ const saveProfile = async () => {
     formData.append('categoria', form.category);
     formData.append('anios_experiencia', form.experience || 0);
     formData.append('sitio_web', form.website || '');
-    formData.append('telefono', form.phone);
+    formData.append('telefono', currentPhoneInfo.formatted);
     formData.append('email_publico', form.emailPublic || '');
     formData.append('ciudad', form.location);
     formData.append('sector', form.coverageArea);
@@ -450,8 +463,20 @@ const saveProfile = async () => {
                   <label for="phone">Teléfono de Contacto *</label>
                   <div class="input-icon-wrap">
                     <span class="input-prefix"><i class="fa-solid fa-phone"></i></span>
-                    <input type="tel" id="phone" v-model="form.phone" placeholder="809-555-5555" required />
+                    <input
+                      type="tel"
+                      id="phone"
+                      v-model="form.phone"
+                      inputmode="tel"
+                      autocomplete="tel"
+                      placeholder="809-555-5555"
+                      required
+                      @input="handlePhoneInput"
+                    />
                   </div>
+                  <p v-if="form.phone" class="phone-meta" :class="{ invalid: !phoneInfo.isValid }">
+                    {{ phoneInfo.message }}
+                  </p>
                 </div>
                 <div class="input-group">
                   <label for="emailPublic">Email de Trabajo (Público)</label>
