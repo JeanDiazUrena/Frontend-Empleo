@@ -1,12 +1,12 @@
 <script setup>
 import { API_URLS, SOCKET_URL } from '../config.js';
-import { ref, onMounted, computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import axios from "axios";
 import { useUserSession } from '../composables/useUserSession.js';
 import { getPasswordStatus } from '../utils/passwordRules.js';
 
-const { login, logout } = useUserSession();
+const { login } = useUserSession();
 const router = useRouter();
 const step = ref(1); 
 
@@ -21,17 +21,50 @@ const verificationCode = ref('');
 const googleCredential = ref('');
 const isLoading = ref(false);
 
-onMounted(() => {
-  console.log("Limpiando datos anteriores...");
-  logout();
-});
-
 const isGmailEmail = (value) => /^[a-z0-9._%+-]+@(gmail\.com|googlemail\.com)$/i.test(String(value || '').trim());
 const passwordStatus = computed(() => getPasswordStatus(password.value));
 const passwordChecks = computed(() => passwordStatus.value.checks);
 const passwordHint = computed(() => (
   password.value && !passwordStatus.value.isValid ? passwordStatus.value.missingMessage : ''
 ));
+
+const hasUsableToken = (token) => {
+  const cleanToken = String(token || '').trim();
+  return cleanToken && cleanToken !== 'temp-token' && cleanToken !== 'dummy-token';
+};
+
+const normalizeSessionUser = (user) => ({
+  id: user.id,
+  nombre: user.nombre || user.name,
+  email: user.email,
+  rol: user.rol || user.role
+});
+
+const dashboardRouteFor = (role) => role === 'profesional'
+  ? '/professional/dashboard'
+  : '/client/dashboard';
+
+const saveSessionAndEnter = async (user, token) => {
+  if (!user?.id || !hasUsableToken(token)) {
+    throw new Error('INVALID_REGISTRATION_SESSION');
+  }
+
+  const sessionUser = normalizeSessionUser(user);
+  login(sessionUser, token);
+  await router.replace(dashboardRouteFor(sessionUser.rol));
+};
+
+const loginAfterEmailRegistration = async (registeredUser) => {
+  const { data } = await axios.post(`${API_URLS.AUTH}/api/login`, {
+    email: email.value,
+    password: password.value
+  });
+
+  return {
+    user: data.user || registeredUser,
+    token: data.token
+  };
+};
 
 async function sendRegisterCode() {
   if (isLoading.value) return;
@@ -98,13 +131,7 @@ const handleGoogleCallback = async (response) => {
       if (res.data.user) {
         console.log("User already exists, logging in...");
         const { user, token } = res.data;
-        login(user, token || 'temp-token');
-        
-        if (user.rol === 'profesional') {
-          router.push('/professional/dashboard');
-        } else {
-          router.push('/client/dashboard');
-        }
+        await saveSessionAndEnter(user, token);
         return;
       }
     } catch (err) {
@@ -149,28 +176,27 @@ async function handleRegistration() {
       });
     }
 
-    if (response.data.user && response.data.user.id) {
-       const user = response.data.user;
-       const newUser = {
-         id: user.id,
-         nombre: user.nombre,
-         email: user.email,
-         rol: user.rol
-       };
-       const token = response.data.token || 'temp-token'; 
-       login(newUser, token);
+    if (!response.data.user?.id) {
+      throw new Error('INVALID_REGISTRATION_SESSION');
     }
 
-    if (selectedRole.value === 'profesional') {
-      router.push('/professional/dashboard');
-    } else {
-      router.push('/client/dashboard');
+    let sessionUser = response.data.user;
+    let sessionToken = response.data.token;
+
+    if (!googleCredential.value && !hasUsableToken(sessionToken)) {
+      const loginSession = await loginAfterEmailRegistration(sessionUser);
+      sessionUser = loginSession.user;
+      sessionToken = loginSession.token;
     }
+
+    await saveSessionAndEnter(sessionUser, sessionToken);
 
   } catch (error) {
     console.error("ERROR IN handleRegistration:", error);
     if (error.response && error.response.status === 429) {
       errorMessage.value = "Demasiados intentos. Por favor, espera un minuto e intenta de nuevo.";
+    } else if (error.message === 'INVALID_REGISTRATION_SESSION') {
+      errorMessage.value = "La cuenta se creó, pero no pudimos iniciar sesión automáticamente. Inicia sesión con tu correo y contraseña.";
     } else if (error.response && error.response.data && (error.response.data.message || error.response.data.error)) {
       errorMessage.value = error.response.data.error || error.response.data.message;
     } else {

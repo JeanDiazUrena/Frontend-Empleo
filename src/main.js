@@ -13,6 +13,7 @@ axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    config._authToken = token;
   }
   return config;
 }, (error) => {
@@ -23,9 +24,13 @@ axios.interceptors.response.use(
   response => response,
   error => {
     // 🛡️ NO redirigir si el error 401 viene del login o registro
-    const isAuthRoute = error.config?.url?.includes('/api/login') || error.config?.url?.includes('/api/register');
+    const authPaths = ['/api/login', '/api/register', '/api/google', '/api/password'];
+    const isAuthRoute = authPaths.some((path) => error.config?.url?.includes(path));
+    const requestToken = error.config?._authToken;
+    const currentToken = localStorage.getItem('token');
+    const sessionChangedAfterRequest = requestToken && currentToken && requestToken !== currentToken;
     
-    if (error.response && error.response.status === 401 && !isAuthRoute) {
+    if (error.response && error.response.status === 401 && !isAuthRoute && !sessionChangedAfterRequest) {
       console.warn("Sesión expirada o inválida. Redirigiendo...");
       localStorage.removeItem('token');
       localStorage.removeItem('usuario_id');
