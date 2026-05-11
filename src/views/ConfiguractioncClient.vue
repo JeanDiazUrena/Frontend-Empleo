@@ -8,6 +8,8 @@ import { usePayments } from '../composables/settings/usePayments';
 import { useTwoFA } from '../composables/settings/useTwoFA';
 import { useSessions } from '../composables/settings/useSessions';
 import { useDangerZone } from '../composables/settings/useDangerZone';
+import CreditCardFields from '../components/payments/CreditCardFields.vue';
+import PaymentCardVisual from '../components/payments/PaymentCardVisual.vue';
 
 // ─── TABS ─────────────────────────────────────────────────────
 const activeTab = ref('password');
@@ -246,7 +248,15 @@ const { confirmDelete, showDeleteModal, showDeactivateModal, isDeleting, isDeact
       <!-- Agregar tarjeta -->
       <div v-if="showAddCard" class="add-card-form">
         <h3>Nueva tarjeta</h3>
-        <div class="cfg-form">
+        <CreditCardFields
+          v-model="newCard"
+          :busy="isCardUpdating"
+          :error-message="cardMsg"
+          submit-text="Guardar tarjeta"
+          @submit="addCard"
+          @cancel="showAddCard = false; cardMsg = ''"
+        />
+        <div v-if="false" class="cfg-form">
           <div class="field-group">
             <label>Número de tarjeta</label>
             <input type="text" v-model="newCard.number" placeholder="0000 0000 0000 0000" maxlength="19" />

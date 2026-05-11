@@ -3,6 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
 import { API_URLS } from '../config.js';
+import CreditCardFields from './payments/CreditCardFields.vue';
+import PaymentCardVisual from './payments/PaymentCardVisual.vue';
+import { getCardValidation } from '../utils/paymentValidation.js';
 
 const props = defineProps({
   trabajo_id: { type: [String, Number], required: true },
@@ -39,11 +42,7 @@ const formatPaymentMethod = (m) => {
 // Tarjetas
 const cards = ref([]);
 const selectedCardId = ref(null);
-const newCardBrand = ref('Visa');
-const newCardHolder = ref('');
-const newCardNumber = ref('');
-const newCardExpiry = ref('');
-const newCardCVV = ref('');
+const newCard = ref({ holderName: '', number: '', exp: '', cvc: '' });
 const isAddingCard = ref(false);
 
 const localMetodoPago = ref(String(props.metodo_pago || 'EFECTIVO').toUpperCase());
@@ -64,28 +63,6 @@ watch(normalizedMetodoPago, (newVal) => {
 });
 
 // ─── FORMATEO DE TARJETA ──────────────────────────────────────
-const formatCardNumber = (e) => {
-  let val = e.target.value.replace(/\D/g, '');
-  if (val.length > 16) val = val.substring(0, 16);
-  newCardNumber.value = val.replace(/(\d{4})(?=\d)/g, '$1 ');
-};
-
-const formatExpiry = (e) => {
-  let val = e.target.value.replace(/\D/g, '');
-  if (val.length > 4) val = val.substring(0, 4);
-  if (val.length >= 3) {
-    newCardExpiry.value = val.substring(0, 2) + '/' + val.substring(2);
-  } else {
-    newCardExpiry.value = val;
-  }
-};
-
-const formatCVV = (e) => {
-  let val = e.target.value.replace(/\D/g, '');
-  if (val.length > 3) val = val.substring(0, 3);
-  newCardCVV.value = val;
-};
-
 const loadBankData = async () => {
   try {
     const res = await axios.get(`${API_URLS.PERFILES}/api/profesionales/${props.profesional_id}/financiero`);
@@ -132,31 +109,26 @@ const loadCards = async () => {
 };
 
 const agregarTarjeta = async () => {
-  if (!newCardHolder.value || !newCardNumber.value || !newCardExpiry.value || !newCardCVV.value) {
-    showToast("Por favor completa todos los datos de la tarjeta");
+  const validation = getCardValidation(newCard.value);
+  if (!validation.isValid) {
+    showToast(Object.values(validation.errors)[0] || "Verifica los datos de la tarjeta");
     return;
   }
   
   isAddingCard.value = true;
   try {
-    const cleanNumber = newCardNumber.value.replace(/\s/g, '');
+    const { sanitized, brand } = validation;
     const res = await axios.post(`${API_URLS.PAGOS}/api/settings/payments`, {
       usuario_id: state.user.id,
-      brand: newCardBrand.value,
-      holder_name: newCardHolder.value,
-      card_number: cleanNumber,
-      last4: cleanNumber.slice(-4),
-      token: `local-card-${Date.now()}`,
-      exp: newCardExpiry.value,
-      cvv: newCardCVV.value
+      brand: brand.label,
+      holder_name: sanitized.holderName,
+      card_number: sanitized.number,
+      exp: sanitized.exp
     });
     
     if (res.data.success) {
       showToast("Tarjeta agregada con éxito", "success");
-      newCardHolder.value = '';
-      newCardNumber.value = '';
-      newCardExpiry.value = '';
-      newCardCVV.value = '';
+      newCard.value = { holderName: '', number: '', exp: '', cvc: '' };
       await loadCards();
     }
   } catch (error) {
@@ -408,17 +380,14 @@ const confirmarFinalizacion = async () => {
               :class="{ 'selected': selectedCardId === c.id }"
               @click="selectedCardId = c.id"
             >
-              <div class="card-option-header">
-                <i :class="['fa-brands', `fa-cc-${c.brand.toLowerCase()}`]"></i>
-                <div class="card-radio">
-                  <div class="radio-inner" v-if="selectedCardId === c.id"></div>
-                </div>
-              </div>
-              <div class="card-option-number">**** **** **** {{ c.last4 }}</div>
-              <div class="card-option-footer">
-                <span>Vence: {{ c.exp }}</span>
-                <span class="card-brand-name">{{ c.brand }}</span>
-              </div>
+              <PaymentCardVisual
+                :brand="c.brand"
+                :last4="c.last4"
+                :holder-name="c.holder_name"
+                :exp="c.exp"
+                :selected="selectedCardId === c.id"
+                compact
+              />
             </div>
           </div>
           
@@ -439,7 +408,17 @@ const confirmarFinalizacion = async () => {
             </button>
 
             <Transition name="expand">
-              <div v-if="isAddingCard" class="add-card-form animate-pop">
+              <CreditCardFields
+                v-if="isAddingCard"
+                v-model="newCard"
+                class="add-card-form animate-pop"
+                submit-text="Guardar y usar"
+                :busy="isLoading"
+                @submit="agregarTarjeta"
+                @cancel="isAddingCard = false"
+              />
+
+              <div v-if="false && isAddingCard" class="add-card-form animate-pop">
                 <div class="form-group" style="margin-bottom: 12px;">
                   <label>Nombre del Titular</label>
                   <input v-model="newCardHolder" placeholder="Nombre completo como en la tarjeta" class="form-input" />

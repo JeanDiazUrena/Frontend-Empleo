@@ -5,6 +5,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { useUserSession } from '../composables/useUserSession.js';
+import CreditCardFields from '../components/payments/CreditCardFields.vue';
+import PaymentCardVisual from '../components/payments/PaymentCardVisual.vue';
+import { getCardValidation } from '../utils/paymentValidation.js';
 
 const router = useRouter();
 const route  = useRoute();
@@ -37,11 +40,7 @@ const form = ref({
 // ─── TARJETAS ────────────────────────────────────────────────
 const cards = ref([]);
 const isAddingCard = ref(false);
-const newCardBrand = ref('Visa');
-const newCardHolder = ref('');
-const newCardNumber = ref('');
-const newCardExpiry = ref('');
-const newCardCVV = ref('');
+const newCard = ref({ holderName: '', number: '', exp: '', cvc: '' });
 const isLoadingCards = ref(false);
 
 const loadCards = async () => {
@@ -65,30 +64,27 @@ const loadCards = async () => {
 
 const agregarTarjeta = async () => {
   const userId = state.user?.id || localStorage.getItem('usuario_id');
-  if (!newCardNumber.value || !newCardExpiry.value || !newCardHolder.value || !newCardCVV.value) {
-    showToast('Completa todos los datos de la tarjeta');
+  const validation = getCardValidation(newCard.value);
+
+  if (!validation.isValid) {
+    showToast(Object.values(validation.errors)[0] || 'Verifica los datos de la tarjeta');
     return;
   }
   
   try {
+    const { sanitized, brand } = validation;
     const res = await axios.post(`${API_URLS.PAGOS}/api/settings/payments`, {
       usuario_id: userId,
-      brand: newCardBrand.value,
-      card_number: newCardNumber.value.replace(/\s/g, ''),
-      last4: newCardNumber.value.replace(/\s/g, '').slice(-4),
-      token: `local-card-${Date.now()}`,
-      holder_name: newCardHolder.value,
-      exp: newCardExpiry.value,
-      cvv: newCardCVV.value
+      brand: brand.label,
+      card_number: sanitized.number,
+      holder_name: sanitized.holderName,
+      exp: sanitized.exp
     });
     
     if (res.data.success) {
       await loadCards();
       isAddingCard.value = false;
-      newCardNumber.value = '';
-      newCardHolder.value = '';
-      newCardExpiry.value = '';
-      newCardCVV.value = '';
+      newCard.value = { holderName: '', number: '', exp: '', cvc: '' };
       showToast('Tarjeta agregada correctamente');
     }
   } catch (err) {
@@ -132,28 +128,6 @@ onMountedVue(async () => {
 });
 
 // ─── FORMATEO DE TARJETA ──────────────────────────────────────
-const formatCardNumber = (e) => {
-  let val = e.target.value.replace(/\D/g, '');
-  if (val.length > 16) val = val.substring(0, 16);
-  newCardNumber.value = val.replace(/(\d{4})(?=\d)/g, '$1 ');
-};
-
-const formatExpiry = (e) => {
-  let val = e.target.value.replace(/\D/g, '');
-  if (val.length > 4) val = val.substring(0, 4);
-  if (val.length >= 3) {
-    newCardExpiry.value = val.substring(0, 2) + '/' + val.substring(2);
-  } else {
-    newCardExpiry.value = val;
-  }
-};
-
-const formatCVV = (e) => {
-  let val = e.target.value.replace(/\D/g, '');
-  if (val.length > 3) val = val.substring(0, 3);
-  newCardCVV.value = val;
-};
-
 // ─── CATEGORÍAS ───────────────────────────────────────────────
 const categoryOptions = [
   'Electricidad', 'Plomería', 'Refrigeración', 'Carpintería',
@@ -643,13 +617,14 @@ onMounted(async () => {
                       <i class="fa-solid fa-circle-check" v-if="form.tarjeta_id === c.id"></i>
                       <div class="uncheck-circle" v-else></div>
                     </div>
-                    <div class="card-item-info">
-                      <div class="card-brand">
-                        <i :class="['fa-brands', `fa-cc-${c.brand.toLowerCase().replace(' ', '-')}`]"></i>
-                        {{ c.brand }}
-                      </div>
-                      <div class="card-number">**** **** **** {{ c.last4 }}</div>
-                    </div>
+                    <PaymentCardVisual
+                      :brand="c.brand"
+                      :last4="c.last4"
+                      :holder-name="c.holder_name"
+                      :exp="c.exp"
+                      :selected="form.tarjeta_id === c.id"
+                      compact
+                    />
                   </div>
                 </div>
               </div>
@@ -674,7 +649,16 @@ onMounted(async () => {
                 {{ isAddingCard ? 'Cancelar' : 'Agregar nueva tarjeta' }}
               </button>
 
-              <div v-if="isAddingCard" class="add-card-mini-form">
+              <CreditCardFields
+                v-if="isAddingCard"
+                v-model="newCard"
+                class="add-card-mini-form"
+                submit-text="Guardar y usar tarjeta"
+                @submit="agregarTarjeta"
+                @cancel="isAddingCard = false"
+              />
+
+              <div v-if="false && isAddingCard" class="add-card-mini-form">
                 <div class="field-group-mini">
                   <label>Nombre del Titular</label>
                   <input v-model="newCardHolder" placeholder="Nombre completo como en la tarjeta" class="mini-input" />

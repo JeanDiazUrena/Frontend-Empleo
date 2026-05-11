@@ -116,7 +116,7 @@ export const accountApi = {
       const res = await axios.get(`${PAYMENTS_URL}/payments/${userId}`, { headers: auth.headers });
       return res.data;
     } catch (err) {
-      throw new Error(err.response?.data?.message || "Error al obtener tarjetas");
+      throw new Error(err.response?.data?.message || err.response?.data?.error || "Error al obtener tarjetas");
     }
   },
   
@@ -130,7 +130,7 @@ export const accountApi = {
       }, { headers: auth.headers });
       return res.data;
     } catch (err) {
-      throw new Error(err.response?.data?.message || "Error al agregar tarjeta");
+      throw new Error(err.response?.data?.message || err.response?.data?.error || "Error al agregar tarjeta");
     }
   },
 
@@ -140,7 +140,7 @@ export const accountApi = {
       const res = await axios.delete(`${PAYMENTS_URL}/payments/${id}`, { headers: auth.headers });
       return res.data;
     } catch (err) {
-      throw new Error(err.response?.data?.message || "Error al eliminar tarjeta");
+      throw new Error(err.response?.data?.message || err.response?.data?.error || "Error al eliminar tarjeta");
     }
   },
 

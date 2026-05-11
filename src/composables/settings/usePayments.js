@@ -1,12 +1,13 @@
 import { ref, onMounted } from 'vue';
 import { accountApi } from '../../services/accountSettingsService';
 import { useAppFeedback } from '../useAppFeedback';
+import { getCardValidation } from '../../utils/paymentValidation';
 
 export function usePayments() {
   const { confirmAction, showToast } = useAppFeedback();
   const cards = ref([]);
   const showAddCard = ref(false);
-  const newCard = ref({ number: '', name: '', exp: '', cvv: '' });
+  const newCard = ref({ holderName: '', number: '', exp: '', cvc: '' });
   const cardMsg = ref('');
   const isUpdating = ref(false);
 
@@ -43,37 +44,31 @@ export function usePayments() {
     }
   }
 
-  // Basic validation rules for production
-  const isValidCard = (card) => {
-    return card.number.replace(/\s+/g, '').length >= 13 && 
-           card.name.length >= 3 &&
-           /^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(card.exp) &&
-           /^[0-9]{3,4}$/.test(card.cvv);
-  };
-
   async function addCard() {
     cardMsg.value = '';
+    const validation = getCardValidation(newCard.value);
     
-    if (!isValidCard(newCard.value)) {
-      cardMsg.value = 'Por favor, verifica los datos de tu tarjeta.'; 
+    if (!validation.isValid) {
+      cardMsg.value = Object.values(validation.errors)[0] || 'Por favor, verifica los datos de tu tarjeta.';
       return;
     }
 
     isUpdating.value = true;
     try {
+      const { sanitized, brand } = validation;
       const payload = {
-        number: newCard.value.number.replace(/\s+/g, ''),
-        name: newCard.value.name,
-        exp: newCard.value.exp,
-        // En una app real NO enviamos el CVV al estado/backend, 
-        // se usa un token de Stripe/MercadoPago directamente.
+        brand: brand.label,
+        card_number: sanitized.number,
+        holder_name: sanitized.holderName,
+        exp: sanitized.exp,
       };
       
       const res = await accountApi.addCard(payload);
       if (res.success) {
         cards.value.push(res.data);
-        newCard.value = { number: '', name: '', exp: '', cvv: '' };
+        newCard.value = { holderName: '', number: '', exp: '', cvc: '' };
         showAddCard.value = false;
+        showToast('Tarjeta guardada correctamente.', 'success');
       }
     } catch (err) {
       cardMsg.value = err.message || 'Error al agregar tarjeta.';
